@@ -1,0 +1,120 @@
+static void xor_with_iv(uint8_t* buf, const uint8_t* Iv) {
+  uint8_t i;
+  for (i = 0; i < AES_BLOCKLEN; ++i) {
+    buf[i] ^= Iv[i];
+  }
+}
+
+void AES_CBC_encrypt(struct AES_ctx* ctx, struct AES_buffer* buf) {
+  size_t i;
+  uint8_t *Iv = ctx->iv;
+  uint8_t *currBuf = buf->content;
+  for (i = 0; i < buf->len; i += AES_BLOCKLEN) {
+    xor_with_iv(currBuf, Iv);
+    cipher((state_t*)currBuf, ctx->roundKey);
+    Iv = currBuf;
+    currBuf += AES_BLOCKLEN;
+  }
+  /* store Iv in ctx for next call */
+  memcpy(ctx->iv, Iv, AES_BLOCKLEN);
+}
+
+void AES_CBC_decrypt(struct AES_ctx* ctx, struct AES_buffer* buf) {
+  size_t i;
+  uint8_t storeNextIv[AES_BLOCKLEN];
+  uint8_t *currBuf = buf->content;
+  for (i = 0; i < buf->len; i += AES_BLOCKLEN) {
+    memcpy(storeNextIv, currBuf, AES_BLOCKLEN);
+    inv_cipher((state_t*)currBuf, ctx->roundKey);
+    xor_with_iv(currBuf, ctx->iv);
+    memcpy(ctx->iv, storeNextIv, AES_BLOCKLEN);
+    currBuf += AES_BLOCKLEN;
+  }
+}
+
+/* Symmetrical operation: same function for encrypting as for decrypting. Note any IV/nonce should never be reused with the same key */
+void AES_CTR_xcrypt(struct AES_ctx* ctx, struct AES_buffer* buf) {
+  uint8_t buffer[AES_BLOCKLEN];
+
+  size_t i;
+  int bi;
+  for (i = 0, bi = AES_BLOCKLEN; i < buf->len; ++i, ++bi) {
+    if (bi == AES_BLOCKLEN) {
+      memcpy(buffer, ctx->iv, AES_BLOCKLEN);
+      cipher((state_t*)buffer,ctx->roundKey);
+
+      /* Increment Iv and handle overflow */
+      for (bi = (AES_BLOCKLEN - 1); bi >= 0; --bi) {
+	/* inc will overflow */
+        if (ctx->iv[bi] == 255) {
+          ctx->iv[bi] = 0;
+          continue;
+        }
+        ctx->iv[bi] += 1;
+        break;
+      }
+      bi = 0;
+    }
+    buf->content[i] = (buf->content[i] ^ buffer[bi]);
+  }
+}
+
+
+void AESNI_CBC_encrypt(struct AES_ctx *ctx, struct AES_buffer *buf) {
+  __m128i feedback,data;
+  int i,j;
+  int length = buf->len % 16 ? buf->len / 16 + 1 : buf->len / 16;
+  feedback=_mm_loadu_si128 ((__m128i*)ctx->iv);
+  for(i = 0; i < length; i++){
+    data = _mm_loadu_si128 (&((__m128i*)buf->content)[i]);
+    feedback = _mm_xor_si128 (data,feedback);
+    feedback = _mm_xor_si128 (feedback,((__m128i*)ctx->roundKey)[0]);
+    for(j = 1; j < NUM_ROUNDS; j++) {
+      feedback = _mm_aesenc_si128 (feedback,((__m128i*)ctx->roundKey)[j]);
+    }
+    feedback = _mm_aesenclast_si128 (feedback,((__m128i*)ctx->roundKey)[j]);
+    _mm_storeu_si128 (&((__m128i*)buf->content)[i],feedback);
+  }
+}
+
+void AESNI_CBC_decrypt(struct AES_ctx *ctx, struct AES_buffer *buf) {
+  __m128i data,feedback,last_in;
+  int i,j;
+  int length = buf->len % 16 ? buf->len / 16 + 1 : buf->len / 16;
+  feedback=_mm_loadu_si128 ((__m128i*)ctx->iv);
+  for(i = 0; i < length; i++){
+    last_in=_mm_loadu_si128 (&((__m128i*)buf->content)[i]);
+    data = _mm_xor_si128 (last_in,((__m128i*)ctx->roundKey)[NUM_ROUNDS]);
+    for(j = 1; j < NUM_ROUNDS; j++){
+      data = _mm_aesdec_si128 (data,((__m128i*)ctx->roundKey)[NUM_ROUNDS + j]);
+    }
+    data = _mm_aesdeclast_si128 (data,((__m128i*)ctx->roundKey)[0]);
+    data = _mm_xor_si128 (data,feedback);
+    _mm_storeu_si128 (&((__m128i*)buf->content)[i],data);
+    feedback=last_in;
+  }
+}
+
+void AESNI_CTR_xcrypt(struct AES_ctx *ctx, struct AES_buffer *buf) {
+  __m128i ctr_block = {0, 0}, tmp, ONE, BSWAP_EPI64;
+  int i,j;
+  int length = buf->len % 16 ? buf->len / 16 + 1 : buf->len / 16;
+  ONE = _mm_set_epi32(0,1,0,0);
+  BSWAP_EPI64 = _mm_setr_epi8(7,6,5,4,3,2,1,0,15,14,13,12,11,10,9,8);
+  ctr_block = _mm_insert_epi64(ctr_block, *(long long*)ctx->iv, 1);
+  ctr_block = _mm_insert_epi32(ctr_block, *(long*)ctx->nonce, 1);
+  ctr_block = _mm_srli_si128(ctr_block, 4);
+  ctr_block = _mm_shuffle_epi8(ctr_block, BSWAP_EPI64);
+  ctr_block = _mm_add_epi64(ctr_block, ONE);
+  for(i = 0; i < length; i++){
+    tmp = _mm_shuffle_epi8(ctr_block, BSWAP_EPI64);
+    ctr_block = _mm_add_epi64(ctr_block, ONE);
+    tmp = _mm_xor_si128(tmp, ((__m128i*)ctx->roundKey)[NUM_ROUNDS]);
+    for(j=1; j <NUM_ROUNDS; j++) {
+      tmp = _mm_aesenc_si128 (tmp, ((__m128i*)ctx->roundKey)[NUM_ROUNDS + j]);
+    }
+    tmp = _mm_aesenclast_si128 (tmp, ((__m128i*)ctx->roundKey)[0]);
+    tmp = _mm_xor_si128(tmp,_mm_loadu_si128(&((__m128i*)buf->content)[i]));
+    _mm_storeu_si128 (&((__m128i*)buf->content)[i],tmp);
+  }
+}
