@@ -37,7 +37,7 @@
 // Thread block size
 #define BSIZE 256
 
-__global__ void aesEncrypt128(cudaTextureObject_t texEKey128, unsigned * result, unsigned * inData, int inputSize)
+__global__ void aesEncrypt128(cudaTextureObject_t texEKey128, unsigned * result, unsigned * inData)
 {
 	unsigned bx		= blockIdx.x;
     unsigned tx		= threadIdx.x;

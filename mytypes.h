@@ -31,4 +31,10 @@ typedef struct {
   uint64_t data[2];
 } AES_block;
 
+typedef struct {
+  void (*encryptor)();
+  AES_block *tree;
+  size_t idx;
+} ThreadTreeArgs;
+
 #endif

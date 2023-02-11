@@ -3,6 +3,6 @@
 
 #include "mytypes.h"
 
-void test_expand(AES_block *root, uint64_t depth, void (*initialiser)(), void (*encryptor)(), size_t nThread, const char *msg);
+void test_expand(AES_block *root, uint64_t depth, void (*initialiser)(), void (*encryptor)(), const char *msg);
 
 #endif

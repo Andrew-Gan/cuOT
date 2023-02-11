@@ -59,7 +59,7 @@ void aesni_init_ctx(AES_ctx *ctx, const uint8_t *key) {
 static void* _encryptWorker(void *args) {
   __m128i tmp;
   int i, j;
-  ThreadArgs tArgs = *(ThreadArgs*)args;
+  ThreadArgs tArgs = *(ThreadArgs*) args;
   if (tArgs.start >= tArgs.end) {
     return NULL;
   }
@@ -80,6 +80,7 @@ void aesni_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf, int nThreads) {
   int rem = (buf->length / AES_BLOCKLEN) % nThreads;
   pthread_t *t = malloc((nThreads + 1) * sizeof(*t));
   ThreadArgs *args = malloc((nThreads + 1) * sizeof(*args));
+
   for(int c = 0; c < nThreads; c++) {
     args[c] = (ThreadArgs){
       .ctx = ctx, .buf = buf, .start = c * workload, .end = (c + 1) * workload,

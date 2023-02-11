@@ -89,9 +89,9 @@ void _aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
   dim3 grid(buf->length / THREAD_PER_BLOCK / 4, 1);
 
   if (isEncrypt)
-	  aesEncrypt128<<<grid, threads>>>(texKey, d_Result, d_Input, buf->length);
+	  aesEncrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
   else
-    aesDecrypt128<<<grid, threads>>>(texKey, d_Result, d_Input, buf->length);
+    aesDecrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
 
   cudaDeviceSynchronize();
 
@@ -112,7 +112,7 @@ extern "C" void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf) {
   unsigned padElem = 16 - mod16;
 
   for (unsigned cnt = 0; cnt < padElem; ++cnt)
-      buf->content[div16*16 + mod16 + cnt] = padElem;
+    buf->content[div16*16 + mod16 + cnt] = padElem;
 
   buf->length += padElem;
   buf->length = buf->length - (buf->length % 1024) + 1024;

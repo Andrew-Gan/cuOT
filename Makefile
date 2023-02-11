@@ -13,7 +13,7 @@ enc:
 	./aes enc $(PLAINTEXT) $(KEY) $(INPUT_SIZE) $(NUM_THREADS)
 
 exp:
-	./aes exp $(INPUT_SIZE) $(NUM_THREADS)
+	./aes exp $(INPUT_SIZE)
 
 sbatch:
 	sbatch --nodes=1 --gpus-per-node=1 -A standby job.sh
