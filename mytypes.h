@@ -27,4 +27,8 @@ typedef struct {
   size_t end;
 } ThreadArgs;
 
+typedef struct {
+  uint64_t data[2];
+} AES_block;
+
 #endif
