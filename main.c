@@ -122,11 +122,11 @@ int main(int argc, char** argv) {
     memcpy(blocks3, blocks, sizeof(*blocks) * numNodes);
 
     printf("Depth: %lu, Nodes: %lu\n", depth, numNodes);
-    // test_expand(blocks, depth, aes_init_ctx, aes_ecb_encrypt, "AES");
+    test_expand(blocks, depth, aes_init_ctx, aes_ecb_encrypt, "AES");
     test_expand(blocks2, depth, aesni_init_ctx, aesni_ecb_encrypt, "AESNI");
     test_expand(blocks3, depth, aes_init_ctx, aesgpu_ecb_encrypt, "AESGPU");
 
-    // assert(memcmp(blocks, blocks2, sizeof(*blocks) * numNodes) == 0);
+    assert(memcmp(blocks, blocks2, sizeof(*blocks) * numNodes) == 0);
     assert(memcmp(blocks2, blocks3, sizeof(*blocks) * numNodes) == 0);
 
     free(blocks);
