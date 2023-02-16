@@ -1,4 +1,4 @@
-SRC=main.c pprf.cu aes.c aesni.c aesCudaUtils.cpp aesgpu.cu
+SRC=main.c pprf.c aes.c aesni.c aesCudaUtils.cpp aesgpu.cu
 CC=nvcc -g -O3 --compiler-options='-g -msse2 -msse -march=native -maes -lpthread'
 LIB=-lboost_system -lboost_filesystem
 PLAINTEXT=testData/input.txt
