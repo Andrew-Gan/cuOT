@@ -141,3 +141,15 @@ extern "C" void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
   aesgpu_ecb_xcrypt(ctx, buf, false);
   buf->length = len_old;
 }
+
+extern "C" void aesgpu_tree_expand(cudaTextureObject_t *key, AES_block *tree, size_t depth) {
+  cudaTextureObject_t leftKey = key[0], rightKey = key[1];
+  int maxWidth = pow(2, depth);
+  int numNode = maxWidth * 2 - 1;
+
+  AES_block *leftBuffer, *rightBuffer;
+  cudaMalloc(&leftBuffer, sizeof(*leftBuffer) * maxWidth);
+  cudaMalloc(&rightBuffer, sizeof(*rightBuffer) * maxWidth);
+
+  
+}
