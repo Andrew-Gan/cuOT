@@ -1,0 +1,96 @@
+Depth: 2, Nodes: 7
+Tree expansion using AES: 0.2142 ms
+Tree expansion using AESNI: 0.1591 ms
+Tree expansion using AESGPU: 46.3384 ms
+Depth: 3, Nodes: 15
+Tree expansion using AES: 0.3148 ms
+Tree expansion using AESNI: 0.1585 ms
+Tree expansion using AESGPU: 47.0548 ms
+Depth: 4, Nodes: 31
+Tree expansion using AES: 0.3852 ms
+Tree expansion using AESNI: 0.2027 ms
+Tree expansion using AESGPU: 65.0927 ms
+Depth: 5, Nodes: 63
+Tree expansion using AES: 0.6089 ms
+Tree expansion using AESNI: 0.3866 ms
+Tree expansion using AESGPU: 51.7918 ms
+Depth: 6, Nodes: 127
+Tree expansion using AES: 0.6763 ms
+Tree expansion using AESNI: 0.4291 ms
+Tree expansion using AESGPU: 49.1694 ms
+Depth: 7, Nodes: 255
+Tree expansion using AES: 0.7742 ms
+Tree expansion using AESNI: 0.3545 ms
+Tree expansion using AESGPU: 69.6186 ms
+Depth: 8, Nodes: 511
+Tree expansion using AES: 0.9067 ms
+Tree expansion using AESNI: 0.5455 ms
+Tree expansion using AESGPU: 48.6736 ms
+Depth: 9, Nodes: 1023
+Tree expansion using AES: 1.7525 ms
+Tree expansion using AESNI: 0.4630 ms
+Tree expansion using AESGPU: 48.0083 ms
+Depth: 10, Nodes: 2047
+Tree expansion using AES: 2.9934 ms
+Tree expansion using AESNI: 0.8174 ms
+Tree expansion using AESGPU: 51.6641 ms
+Depth: 11, Nodes: 4095
+Tree expansion using AES: 5.0008 ms
+Tree expansion using AESNI: 0.8693 ms
+Tree expansion using AESGPU: 70.2861 ms
+Depth: 12, Nodes: 8191
+Tree expansion using AES: 8.2063 ms
+Tree expansion using AESNI: 0.9642 ms
+Tree expansion using AESGPU: 57.6656 ms
+Depth: 13, Nodes: 16383
+Tree expansion using AES: 11.3031 ms
+Tree expansion using AESNI: 1.2656 ms
+Tree expansion using AESGPU: 63.0042 ms
+Depth: 14, Nodes: 32767
+Tree expansion using AES: 28.0477 ms
+Tree expansion using AESNI: 1.2942 ms
+Tree expansion using AESGPU: 75.0485 ms
+Depth: 15, Nodes: 65535
+Tree expansion using AES: 55.0780 ms
+Tree expansion using AESNI: 1.6501 ms
+Tree expansion using AESGPU: 68.6367 ms
+Depth: 16, Nodes: 131071
+Tree expansion using AES: 79.0732 ms
+Tree expansion using AESNI: 3.7393 ms
+Tree expansion using AESGPU: 72.8283 ms
+Depth: 17, Nodes: 262143
+Tree expansion using AES: 155.7033 ms
+Tree expansion using AESNI: 5.3333 ms
+Tree expansion using AESGPU: 82.1436 ms
+Depth: 18, Nodes: 524287
+Tree expansion using AES: 242.7540 ms
+Tree expansion using AESNI: 9.1474 ms
+Tree expansion using AESGPU: 126.8984 ms
+Depth: 19, Nodes: 1048575
+Tree expansion using AES: 547.9559 ms
+Tree expansion using AESNI: 18.1835 ms
+Tree expansion using AESGPU: 105.2919 ms
+Depth: 20, Nodes: 2097151
+Tree expansion using AES: 890.2729 ms
+Tree expansion using AESNI: 34.0662 ms
+Tree expansion using AESGPU: 159.3308 ms
+Depth: 21, Nodes: 4194303
+Tree expansion using AES: 1823.4728 ms
+Tree expansion using AESNI: 58.9636 ms
+Tree expansion using AESGPU: 176.0029 ms
+Depth: 22, Nodes: 8388607
+Tree expansion using AES: 3144.5686 ms
+Tree expansion using AESNI: 155.0914 ms
+Tree expansion using AESGPU: 238.8394 ms
+Depth: 23, Nodes: 16777215
+Tree expansion using AES: 6310.9746 ms
+Tree expansion using AESNI: 287.3937 ms
+Tree expansion using AESGPU: 379.4576 ms
+Depth: 24, Nodes: 33554431
+Tree expansion using AES: 11797.2500 ms
+Tree expansion using AESNI: 592.9680 ms
+Tree expansion using AESGPU: 658.7000 ms
+Depth: 25, Nodes: 67108863
+Tree expansion using AES: 23623.3906 ms
+Tree expansion using AESNI: 1081.1605 ms
+Tree expansion using AESGPU: 1093.8660 ms

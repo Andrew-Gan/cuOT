@@ -52,6 +52,7 @@ def plot_exp(filename):
     plt.plot(depth, aesniRuntime, color='C0')
     plt.plot(depth, aesgpuRuntime, color='C2')
 
+    plt.legend(['AESNI', 'AESGPU'])
     plt.legend(['AES', 'AESNI', 'AESGPU'])
     plt.title('Runtime for GMM Tree Expansion over Different Depths')
     plt.xticks(depth)

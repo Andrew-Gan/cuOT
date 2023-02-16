@@ -4,7 +4,11 @@ LIB=-lboost_system -lboost_filesystem
 PLAINTEXT=testData/input.txt
 KEY=testData/key.txt
 INPUT_SIZE=8
-NUM_THREADS=1
+
+# sbatch args
+QUEUE=zghodsi-b
+NUM_CPU=8
+NUM_GPU=1
 
 test:
 	$(CC) $(SRC) $(LIB) -o aes
@@ -16,7 +20,7 @@ exp:
 	./aes exp $(INPUT_SIZE)
 
 sbatch:
-	sbatch --nodes=1 --gpus-per-node=1 -A standby job.sh
+	sbatch -n $(NUM_CPU) -N 1 --gpus-per-node=$(NUM_GPU) -A $(QUEUE) job.sh
 
 plot:
 	python plotter.py

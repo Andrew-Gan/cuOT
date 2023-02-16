@@ -5,6 +5,7 @@
 #define AES_KEYLEN 16 // Key length in bytes
 #define AES_keyExpSize 176
 #define NUM_ROUNDS 10
+#define NUM_CPU_THREAD 16
 
 #include <stdint.h>
 #include <stdio.h>

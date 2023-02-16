@@ -36,10 +36,10 @@
 #include <vector>
 #include "aesCudaUtils.hpp"
 
-#define THREAD_PER_BLOCK 256
+#define PADDED_LEN 1024
 
 __host__
-void _cuda_check() {
+static void cuda_check() {
   int deviceCount = 0;
   cudaGetDeviceCount(&deviceCount);
   if (deviceCount == 0)
@@ -58,8 +58,8 @@ void _cuda_check() {
 }
 
 __host__
-void _aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
-  _cuda_check();
+static void aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
+  cuda_check();
 
   unsigned *d_Input, *d_Result, *d_Key;
   cudaMalloc((void**) &d_Input, buf->length);
@@ -67,7 +67,6 @@ void _aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
   cudaMalloc((void**) &d_Result, buf->length);
   cudaMemset(d_Result, 0, buf->length);
 
-  cudaMemcpy(d_Input, buf->content, buf->length, cudaMemcpyHostToDevice);
   cudaMemcpy(d_Key, ctx->roundKey, AES_keyExpSize, cudaMemcpyHostToDevice);
 
   cudaResourceDesc resDesc;
@@ -85,8 +84,10 @@ void _aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
   cudaTextureObject_t texKey;
   cudaCreateTextureObject(&texKey, &resDesc, &texDesc, NULL);
 
-	dim3 threads(THREAD_PER_BLOCK, 1);
-  dim3 grid(buf->length / THREAD_PER_BLOCK / 4, 1);
+	dim3 threads(BSIZE, 1);
+  dim3 grid(buf->length / BSIZE / 4, 1);
+
+  cudaMemcpy(d_Input, buf->content, buf->length, cudaMemcpyHostToDevice);
 
   if (isEncrypt)
 	  aesEncrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
@@ -115,8 +116,8 @@ extern "C" void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf) {
     buf->content[div16*16 + mod16 + cnt] = padElem;
 
   buf->length += padElem;
-  buf->length = buf->length - (buf->length % 1024) + 1024;
-  _aesgpu_ecb_xcrypt(ctx, buf, true);
+  buf->length = buf->length - (buf->length % PADDED_LEN) + PADDED_LEN;
+  aesgpu_ecb_xcrypt(ctx, buf, true);
   buf->length = len_old;
 }
 
@@ -136,7 +137,7 @@ extern "C" void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
   }
 
   size_t len_old = buf->length;
-  buf->length = buf->length - (buf->length % 1024) + 1024;
-  _aesgpu_ecb_xcrypt(ctx, buf, false);
+  buf->length = buf->length - (buf->length % PADDED_LEN) + PADDED_LEN;
+  aesgpu_ecb_xcrypt(ctx, buf, false);
   buf->length = len_old;
 }

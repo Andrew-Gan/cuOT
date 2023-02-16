@@ -16,7 +16,7 @@ make
 #     done
 # done
 
-for depth in {2..30}
+for depth in {2..25}
 do
     ./aes exp $depth >> out
 done
