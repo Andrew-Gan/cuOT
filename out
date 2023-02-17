@@ -1,0 +1,78 @@
+make[1]: Entering directory `/home/gan35/research/aes-pprf-expander'
+nsys profile --stats=true --output=nsys-stats ./aes exp 20
+Depth: 20, Nodes: 2097151
+Tree expansion using AESGPU: 22643.8203 ms
+
+
+CUDA API Statistics:
+
+ Time(%)  Total Time (ns)  Num Calls     Average      Minimum     Maximum             Name          
+ -------  ---------------  ---------  -------------  ---------  -----------  -----------------------
+    97.9   21,400,927,942  4,149,859        5,157.0      3,698    5,276,110  cudaMemcpy             
+     2.0      434,289,868          2  217,144,934.0     13,393  434,276,475  cudaMalloc             
+     0.1       19,594,609          5    3,918,921.8      3,430   18,374,879  cudaMallocAsync_v11020 
+     0.0        8,824,161          1    8,824,161.0  8,824,161    8,824,161  cudaMemcpyAsync        
+     0.0        1,557,336         20       77,866.8     15,750      608,978  cudaDeviceSynchronize  
+     0.0          385,702         40        9,642.6      3,796       35,511  cudaLaunchKernel       
+     0.0           74,351          5       14,870.2      5,373       51,234  cudaStreamCreate       
+     0.0           58,018          5       11,603.6      8,095       24,501  cudaStreamDestroy      
+     0.0           56,698          2       28,349.0      6,633       50,065  cudaCreateTextureObject
+     0.0           30,440          5        6,088.0      2,408       19,702  cudaStreamSynchronize  
+
+
+
+CUDA Kernel Statistics:
+
+ Time(%)  Total Time (ns)  Instances  Average   Minimum  Maximum                               Name                              
+ -------  ---------------  ---------  --------  -------  -------  ---------------------------------------------------------------
+   100.0        1,542,697         40  38,567.4    9,184  305,281  aesEncrypt128(unsigned long long, unsigned int*, unsigned int*)
+
+
+
+CUDA Memory Operation Statistics (by time):
+
+ Time(%)  Total Time (ns)  Operations    Average    Minimum   Maximum       Operation     
+ -------  ---------------  ----------  -----------  -------  ---------  ------------------
+    99.9   12,066,812,039   4,149,858      2,907.8    2,175     14,144  [CUDA memcpy DtoD]
+     0.1        8,584,660           3  2,861,553.3    1,664  8,580,404  [CUDA memcpy HtoD]
+
+
+
+CUDA Memory Operation Statistics (by size in KiB):
+
+   Total     Operations   Average    Minimum   Maximum        Operation     
+ ----------  ----------  ----------  -------  ----------  ------------------
+ 64,841.531   4,149,858       0.016    0.016       0.016  [CUDA memcpy DtoD]
+ 32,768.328           3  10,922.776    0.172  32,767.984  [CUDA memcpy HtoD]
+
+
+
+Operating System Runtime API Statistics:
+
+ Time(%)  Total Time (ns)  Num Calls    Average     Minimum    Maximum         Name     
+ -------  ---------------  ---------  ------------  -------  -----------  --------------
+    98.6   22,470,976,696        236  95,216,002.9    9,602  100,475,393  poll          
+     1.3      296,383,388        742     399,438.5    1,090   30,628,976  ioctl         
+     0.1       15,250,463         47     324,477.9    1,004   15,052,709  fcntl         
+     0.0        7,160,788         73      98,093.0    5,818    2,769,038  mmap64        
+     0.0        1,294,313         28      46,225.5    2,745      656,256  fopen         
+     0.0        1,094,997         10     109,499.7   59,999      197,774  sem_timedwait 
+     0.0          909,210         94       9,672.4    1,150      142,015  open64        
+     0.0          664,637          5     132,927.4    8,063      223,589  fread         
+     0.0          498,036          4     124,509.0   93,762      153,946  pthread_create
+     0.0          272,214         20      13,610.7    2,837      122,282  mmap          
+     0.0          150,002         22       6,818.3    3,157       20,986  fclose        
+     0.0           59,343          1      59,343.0   59,343       59,343  fgets         
+     0.0           58,856         12       4,904.7    2,359        7,619  write         
+     0.0           41,319         14       2,951.4    1,650        4,187  read          
+     0.0           38,478          5       7,695.6    3,634       10,465  open          
+     0.0           36,699          6       6,116.5    2,851       11,072  munmap        
+     0.0           35,630          5       7,126.0    1,051       13,022  fgetc         
+     0.0           25,544          4       6,386.0    4,488        8,078  mprotect      
+     0.0           12,492          2       6,246.0    6,027        6,465  socket        
+     0.0           10,148          1      10,148.0   10,148       10,148  connect       
+     0.0            7,265          1       7,265.0    7,265        7,265  pipe2         
+     0.0            3,227          1       3,227.0    3,227        3,227  bind          
+     0.0            1,563          1       1,563.0    1,563        1,563  listen        
+
+make[1]: Leaving directory `/home/gan35/research/aes-pprf-expander'

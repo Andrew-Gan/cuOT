@@ -1,9 +1,9 @@
-SRC=main.c pprf.c aes.c aesni.c aesCudaUtils.cpp aesgpu.cu
+SRC=pprf.cpp aes.cpp aesni.cpp aesCudaUtils.cpp aesgpu.cu main.cpp
 CC=nvcc -g -O3 --compiler-options='-g -msse2 -msse -march=native -maes -lpthread'
 LIB=-lboost_system -lboost_filesystem
 PLAINTEXT=testData/input.txt
 KEY=testData/key.txt
-INPUT_SIZE=10
+INPUT_SIZE=20
 
 # sbatch args
 QUEUE=zghodsi-b
@@ -15,10 +15,13 @@ test:
 	$(CC) $(SRC) $(LIB) -o aes
 
 enc:
-	./aes enc $(PLAINTEXT) $(KEY) $(INPUT_SIZE) $(NUM_THREADS)
+	./aes enc $(PLAINTEXT) $(KEY) $(INPUT_SIZE)
 
 exp:
-	nsys profile --stats=true ./aes exp $(INPUT_SIZE)
+	./aes exp $(INPUT_SIZE)
+
+nsys:
+	nsys profile --stats=true --output=nsys-stats ./aes exp $(INPUT_SIZE)
 
 sbatch:
 	sbatch -n $(NUM_CPU) -N 1 --gpus-per-node=$(NUM_GPU) -A $(QUEUE) job.sh

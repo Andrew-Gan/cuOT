@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include "aes.h"
 #include "aesgpu.h"
 
 #include "sbox_E.h"
@@ -58,55 +59,37 @@ static void cuda_check() {
 }
 
 __host__
-static void aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
-  cuda_check();
-
-  unsigned *d_Input, *d_Result, *d_Key;
-  cudaMalloc((void**) &d_Input, buf->length);
-  cudaMalloc((void**) &d_Key, AES_keyExpSize);
-  cudaMalloc((void**) &d_Result, buf->length);
-  cudaMemset(d_Result, 0, buf->length);
-
+static cudaTextureObject_t alloc_key_texture(AES_ctx *ctx, cudaResourceDesc *resDesc, cudaTextureDesc *texDesc) {
+  unsigned *d_Key;
+  cudaMalloc(&d_Key, AES_keyExpSize);
   cudaMemcpy(d_Key, ctx->roundKey, AES_keyExpSize, cudaMemcpyHostToDevice);
 
-  cudaResourceDesc resDesc;
-  memset(&resDesc, 0, sizeof(resDesc));
-  resDesc.resType = cudaResourceTypeLinear;
-  resDesc.res.linear.devPtr = d_Key;
-  resDesc.res.linear.desc.f = cudaChannelFormatKindUnsigned;
-  resDesc.res.linear.desc.x = 32;
-  resDesc.res.linear.sizeInBytes = AES_keyExpSize;
+  memset(resDesc, 0, sizeof(*resDesc));
+  resDesc->resType = cudaResourceTypeLinear;
+  resDesc->res.linear.devPtr = d_Key;
+  resDesc->res.linear.desc.f = cudaChannelFormatKindUnsigned;
+  resDesc->res.linear.desc.x = 32;
+  resDesc->res.linear.sizeInBytes = AES_keyExpSize;
 
-  cudaTextureDesc texDesc;
-  memset(&texDesc, 0, sizeof(texDesc));
-  texDesc.readMode = cudaReadModeElementType;
+  memset(texDesc, 0, sizeof(*texDesc));
+  texDesc->readMode = cudaReadModeElementType;
 
   cudaTextureObject_t texKey;
-  cudaCreateTextureObject(&texKey, &resDesc, &texDesc, NULL);
+  cudaCreateTextureObject(&texKey, resDesc, texDesc, NULL);
 
-	dim3 threads(BSIZE, 1);
-  dim3 grid(buf->length / BSIZE / 4, 1);
-
-  cudaMemcpy(d_Input, buf->content, buf->length, cudaMemcpyHostToDevice);
-
-  if (isEncrypt)
-	  aesEncrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
-  else
-    aesDecrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
-
-  cudaDeviceSynchronize();
-
-  cudaMemcpy(buf->content, d_Result, buf->length, cudaMemcpyDeviceToHost);
-
-  cudaFree(d_Input);
-  cudaFree(d_Key);
-  cudaFree(d_Result);
-  cudaDestroyTextureObject(texKey);
+  return texKey;
 }
 
-extern "C" void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf) {
-  size_t len_old = buf->length;
-  // padding for corner jobs
+__host__
+static void dealloc_key_texture(cudaTextureObject_t key) {
+  cudaResourceDesc resDesc;
+  cudaGetTextureObjectResourceDesc(&resDesc, key);
+  cudaFree(resDesc.res.linear.devPtr);
+  cudaDestroyTextureObject(key);
+}
+
+__host__
+static void gpu_padding(AES_buffer *buf) {
   unsigned mod16 = buf->length % 16;
   unsigned div16 = buf->length / 16;
 
@@ -116,12 +99,47 @@ extern "C" void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf) {
     buf->content[div16*16 + mod16 + cnt] = padElem;
 
   buf->length += padElem;
-  buf->length = buf->length - (buf->length % PADDED_LEN) + PADDED_LEN;
+  buf->length += PADDED_LEN - (buf->length % PADDED_LEN);
+}
+
+__host__
+static void aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
+  cuda_check();
+
+  unsigned *d_Input, *d_Result;
+  cudaMalloc(&d_Input, buf->length);
+  cudaMalloc(&d_Result, buf->length);
+  cudaMemset(d_Result, 0, buf->length);
+
+  cudaResourceDesc resDesc;
+  cudaTextureDesc texDesc;
+  cudaTextureObject_t texKey = alloc_key_texture(ctx, &resDesc, &texDesc);
+
+	dim3 threads(BSIZE, 1);
+  dim3 grid(buf->length / BSIZE / 4, 1);
+  cudaMemcpy(d_Input, buf->content, buf->length, cudaMemcpyHostToDevice);
+
+  if (isEncrypt)
+	  aesEncrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
+  else
+    aesDecrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
+
+  cudaDeviceSynchronize();
+  cudaMemcpy(buf->content, d_Result, buf->length, cudaMemcpyDeviceToHost);
+
+  cudaFree(d_Input);
+  cudaFree(d_Result);
+  dealloc_key_texture(texKey);
+}
+
+void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf) {
+  size_t len_old = buf->length;
+  gpu_padding(buf);
   aesgpu_ecb_xcrypt(ctx, buf, true);
   buf->length = len_old;
 }
 
-extern "C" void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
+void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
   // invert expanded key
   std::vector<unsigned> key(AES_KEYLEN);
   for(int i = 0; i < AES_KEYLEN; i++) {
@@ -137,19 +155,91 @@ extern "C" void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
   }
 
   size_t len_old = buf->length;
-  buf->length = buf->length - (buf->length % PADDED_LEN) + PADDED_LEN;
+  gpu_padding(buf);
   aesgpu_ecb_xcrypt(ctx, buf, false);
   buf->length = len_old;
 }
 
-extern "C" void aesgpu_tree_expand(cudaTextureObject_t *key, AES_block *tree, size_t depth) {
-  cudaTextureObject_t leftKey = key[0], rightKey = key[1];
+void aesgpu_tree_expand(AES_block *tree, size_t depth) {
   int maxWidth = pow(2, depth);
   int numNode = maxWidth * 2 - 1;
 
-  AES_block *leftBuffer, *rightBuffer;
-  cudaMalloc(&leftBuffer, sizeof(*leftBuffer) * maxWidth);
-  cudaMalloc(&rightBuffer, sizeof(*rightBuffer) * maxWidth);
+  // keys to use for tree expansion
+  AES_ctx aesKeys[2];
+  uint64_t k0 = 3242342;
+  uint8_t k0_blk[16] = {0};
+  memcpy(&k0_blk[8], &k0, sizeof(k0));
+  aes_init_ctx(&aesKeys[0], k0_blk);
 
-  
+  uint64_t k1 = 8993849;
+  uint8_t k1_blk[16] = {0};
+  memcpy(&k1_blk[8], &k1, sizeof(k1));
+  aes_init_ctx(&aesKeys[1], k1_blk);
+
+  struct timespec start, end;
+  clock_gettime(CLOCK_MONOTONIC, &start);
+
+  // store key in texture memory
+  cudaResourceDesc resDescLeft;
+  cudaResourceDesc resDescRight;
+  cudaTextureDesc texDesc;
+  cudaTextureObject_t texLKey = alloc_key_texture(&aesKeys[0], &resDescLeft, &texDesc);
+  cudaTextureObject_t texRKey = alloc_key_texture(&aesKeys[1], &resDescRight, &texDesc);
+
+  // store tree in device memory
+  AES_block *d_Tree;
+  cudaMalloc(&d_Tree, sizeof(*tree) * numNode);
+  cudaMemcpy(d_Tree, tree, sizeof(*tree) * numNode, cudaMemcpyHostToDevice);
+
+  AES_block *d_InputBuf;
+  cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
+
+  AES_block *d_ResLeft, *d_ResRight;
+  cudaMalloc(&d_ResLeft, sizeof(*d_ResLeft) * maxWidth / 2 + PADDED_LEN);
+  cudaMalloc(&d_ResRight, sizeof(*d_ResRight) * maxWidth / 2 + PADDED_LEN);
+
+  size_t layerStartIdx = 1, width = 2;
+  for (size_t d = 1 ; d <= depth; d++, width *= 2) {
+    // copy previous layer for expansion
+    size_t leftID = 0, rightID = 0;
+    cudaMemcpy(d_InputBuf, &d_Tree[(layerStartIdx - 1) / 2], sizeof(*d_Tree) * width / 2, cudaMemcpyDeviceToDevice);
+
+    size_t paddedLen = (width / 2) * AES_BLOCKLEN;
+    paddedLen += 16 - (paddedLen % 16);
+    paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
+    static int thread_per_aesblock = 4;
+    dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
+    dim3 threads(BSIZE, 1);
+    aesEncrypt128<<<grid, threads>>>(texLKey, (unsigned*) d_ResLeft, (unsigned*) d_InputBuf);
+    aesEncrypt128<<<grid, threads>>>(texRKey, (unsigned*) d_ResRight, (unsigned*) d_InputBuf);
+
+    cudaDeviceSynchronize();
+
+    leftID = 0;
+    rightID = 0;
+    // copy left array to child nodes
+    for (size_t idx = layerStartIdx; idx < layerStartIdx + width; idx+=2) {
+      cudaMemcpy(&d_Tree[idx], &d_ResLeft[leftID++], sizeof(*d_Tree), cudaMemcpyDeviceToDevice);
+    }
+    // copy right array to child nodes
+    for (size_t idx = layerStartIdx+1; idx < layerStartIdx + width; idx+=2) {
+      cudaMemcpy(&d_Tree[idx], &d_ResRight[rightID++], sizeof(*d_Tree), cudaMemcpyDeviceToDevice);
+    }
+
+    layerStartIdx += width;
+  }
+
+  cudaMemcpy(tree, d_Tree, sizeof(*tree) * numNode, cudaMemcpyDeviceToHost);
+  dealloc_key_texture(texLKey);
+  dealloc_key_texture(texRKey);
+  cudaFree(d_Tree);
+  cudaFree(d_InputBuf);
+  cudaFree(d_ResLeft);
+  cudaFree(d_ResRight);
+
+  clock_gettime(CLOCK_MONOTONIC, &end);
+
+  float duration = (end.tv_sec - start.tv_sec) * 1000;
+  duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
+  printf("Tree expansion using AESGPU: %0.4f ms\n", duration);
 }

@@ -1,12 +1,15 @@
-#include "aesni.h"
-#include "aesgpu.h"
+#include "mytypes.h"
 #include <string.h>
+#include <math.h>
 #include <sys/time.h>
 #include <pthread.h>
 
-AES_ctx aesKeys[2];
+void aescpu_tree_expand(AES_block *tree, size_t depth,
+void (*initialiser)(AES_ctx*, const uint8_t*),
+void (*encryptor) (AES_ctx*, AES_buffer*),
+const char *msg) {
+    AES_ctx aesKeys[2];
 
-void test_expand(AES_block *tree, size_t depth, void (*initialiser)(), void (*encryptor) (), const char *msg) {
     uint64_t k0 = 3242342;
     uint8_t k0_blk[16];
     memset(k0_blk, 0, sizeof(k0_blk));
@@ -18,26 +21,25 @@ void test_expand(AES_block *tree, size_t depth, void (*initialiser)(), void (*en
     memset(k1_blk, 0, sizeof(k1_blk));
     memcpy(&k1_blk[8], &k1, sizeof(k1));
     initialiser(&aesKeys[1], k1_blk);
-    // This thread will process 8 trees at a time. It will interlace
-    // the sets of trees are processed with the other threads.
-    // For each level perform the following.
 
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    const int numSamples = 8;
+    int maxWidth = pow(2, depth);
+
+    // pad 1024 to reduce thread divergence in cuda implementation
+    AES_block *leftChildren = (AES_block*) malloc(sizeof(*tree) * (maxWidth / 2 + 1024));
+    AES_block *rightChildren = (AES_block*) malloc(sizeof(*tree) * (maxWidth / 2 + 1024));
+
+    const int numSamples = 1;
     for(int i = 0; i < numSamples; i++) {
-        int layerStartingIdx = 1;
+        int layerStartIdx = 1;
         int width = 1;
-        for (size_t d = 0; d < depth; d++) {
+        for (size_t d = 1; d <= depth; d++) {
             width *= 2;
 
-            // pad 1024 to reduce thread divergence in cuda implementation
-            AES_block *leftChildren = malloc(sizeof(*tree) * (width / 2 + 1024));
-            AES_block *rightChildren = malloc(sizeof(*tree) * (width / 2 + 1024));
-
             size_t leftID = 0, rightID = 0;
-            for (size_t idx = layerStartingIdx; idx < layerStartingIdx + width; idx++) {
+            for (size_t idx = layerStartIdx; idx < layerStartIdx + width; idx++) {
                 size_t parentIdx = (idx - 1) / 2;
                 // copy left children to array
                 if (idx % 2) {
@@ -51,20 +53,20 @@ void test_expand(AES_block *tree, size_t depth, void (*initialiser)(), void (*en
 
             // perform parallel aes hash on both arrays
             AES_buffer leftBuf = {
-                .content = (uint8_t*) leftChildren,
                 .length = sizeof(*tree) * width / 2,
+                .content = (uint8_t*) leftChildren,
             };
             AES_buffer rightBuf = {
-                .content = (uint8_t*) rightChildren,
                 .length = sizeof(*tree) * width / 2,
+                .content = (uint8_t*) rightChildren,
             };
 
-            encryptor(&aesKeys[0], &leftBuf, 1);
-            encryptor(&aesKeys[1], &rightBuf, 1);
+            encryptor(&aesKeys[0], &leftBuf);
+            encryptor(&aesKeys[1], &rightBuf);
 
             // copy back
             leftID = 0, rightID = 0;
-            for (size_t idx = layerStartingIdx; idx < layerStartingIdx + width; idx++) {
+            for (size_t idx = layerStartIdx; idx < layerStartIdx + width; idx++) {
                 // copy left children to array
                 if (idx % 2) {
                     memcpy(&tree[idx], &leftChildren[leftID++], sizeof(*tree));
@@ -75,12 +77,12 @@ void test_expand(AES_block *tree, size_t depth, void (*initialiser)(), void (*en
                 }
             }
 
-            layerStartingIdx += width;
-
-            free(leftChildren);
-            free(rightChildren);
+            layerStartIdx += width;
         }
     }
+
+    free(leftChildren);
+    free(rightChildren);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 

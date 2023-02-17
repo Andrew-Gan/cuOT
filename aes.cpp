@@ -301,10 +301,10 @@ static void* _encryptWorker(void *args) {
 }
 
 void aes_ecb_encrypt(AES_ctx* ctx, AES_buffer* buf) {
-  int workload = buf->length / AES_BLOCKLEN / NUM_CPU_THREAD;
+  size_t workload = buf->length / AES_BLOCKLEN / NUM_CPU_THREAD;
   int rem = (buf->length / AES_BLOCKLEN) % NUM_CPU_THREAD;
-  pthread_t *t = malloc((NUM_CPU_THREAD + 1) * sizeof(*t));
-  ThreadArgs *args = malloc((NUM_CPU_THREAD + 1) * sizeof(*args));
+  pthread_t *t = (pthread_t*) malloc((NUM_CPU_THREAD + 1) * sizeof(*t));
+  ThreadArgs *args = (ThreadArgs*) malloc((NUM_CPU_THREAD + 1) * sizeof(*args));
   for(int c = 0; c < NUM_CPU_THREAD; c++) {
     args[c] = (ThreadArgs){
       .ctx = ctx, .buf = buf,
@@ -338,10 +338,10 @@ static void* _decryptWorker(void *args) {
 }
 
 void aes_ecb_decrypt(AES_ctx* ctx, AES_buffer* buf) {
-  int workload = buf->length / AES_BLOCKLEN / NUM_CPU_THREAD;
+  size_t workload = buf->length / AES_BLOCKLEN / NUM_CPU_THREAD;
   int rem = (buf->length / AES_BLOCKLEN) % NUM_CPU_THREAD;
-  pthread_t *t = malloc((NUM_CPU_THREAD + 1) * sizeof(*t));
-  ThreadArgs *args = malloc((NUM_CPU_THREAD + 1) * sizeof(*args));
+  pthread_t *t = (pthread_t*) malloc((NUM_CPU_THREAD + 1) * sizeof(*t));
+  ThreadArgs *args = (ThreadArgs*) malloc((NUM_CPU_THREAD + 1) * sizeof(*args));
   for(int c = 0; c < NUM_CPU_THREAD; c++) {
     args[c] = (ThreadArgs){
       .ctx = ctx, .buf = buf,

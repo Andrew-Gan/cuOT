@@ -16,9 +16,11 @@ make
 #     done
 # done
 
-for depth in {2..25}
-do
-    ./aes exp $depth >> out
-done
+# for depth in {2..25}
+# do
+#     ./aes exp $depth >> out
+# done
+
+make nsys > out
 
 make clean

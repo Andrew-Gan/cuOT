@@ -33,7 +33,7 @@ typedef struct {
 } AES_block;
 
 typedef struct {
-  void (*encryptor)();
+  void (*encryptor)(AES_ctx*, AES_buffer*);
   AES_block *tree;
   size_t idx;
 } ThreadTreeArgs;
