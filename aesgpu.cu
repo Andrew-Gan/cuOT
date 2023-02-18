@@ -160,7 +160,7 @@ void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
   buf->length = len_old;
 }
 
-void aesgpu_tree_expand(AES_block *tree, size_t depth) {
+void aesgpu_tree_expand(TreeNode *tree, size_t depth) {
   cuda_check();
   cudaFree(0);
   size_t maxWidth = pow(2, depth);
@@ -191,12 +191,12 @@ void aesgpu_tree_expand(AES_block *tree, size_t depth) {
 
   for (int i = 0; i < NUM_SAMPLES; i++) {
     // store tree in device memory
-    AES_block *d_Tree;
+    TreeNode *d_Tree;
     // double size as threads will write directly
     cudaMalloc(&d_Tree, sizeof(*tree) * numNode);
     cudaMemcpy(d_Tree, tree, sizeof(*tree), cudaMemcpyHostToDevice);
 
-    AES_block *d_InputBuf;
+    TreeNode *d_InputBuf;
     cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
 
     size_t layerStartIdx = 1, width = 2;
@@ -206,7 +206,7 @@ void aesgpu_tree_expand(AES_block *tree, size_t depth) {
       // copy previous layer for expansion
       cudaMemcpy(d_InputBuf, &d_Tree[(layerStartIdx - 1) / 2], sizeof(*d_Tree) * width / 2, cudaMemcpyDeviceToDevice);
 
-      size_t paddedLen = (width / 2) * AES_BLOCKLEN;
+      size_t paddedLen = (width / 2) * sizeof(*d_Tree);
       paddedLen += 16 - (paddedLen % 16);
       paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
       static int thread_per_aesblock = 4;
@@ -226,7 +226,7 @@ void aesgpu_tree_expand(AES_block *tree, size_t depth) {
     for (size_t d = 1; d <= depth; d++) {
       cudaStreamDestroy(s[d-1]);
     }
-    cudaFree(s);
+    free(s);
     cudaFree(d_Tree);
     cudaFree(d_InputBuf);
   }

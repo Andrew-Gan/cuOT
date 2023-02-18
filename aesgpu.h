@@ -5,6 +5,6 @@
 
 void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf);
 void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf);
-void aesgpu_tree_expand(AES_block *tree, size_t depth);
+void aesgpu_tree_expand(TreeNode *tree, size_t depth);
 
 #endif

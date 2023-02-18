@@ -5,8 +5,10 @@
 #define AES_KEYLEN 16 // Key length in bytes
 #define AES_keyExpSize 176
 #define NUM_ROUNDS 10
-#define NUM_CPU_THREAD 16
 
+#define TREENODE_SIZE (2 * AES_BLOCKLEN)
+
+#define NUM_CPU_THREAD 16
 #define NUM_SAMPLES 16
 
 #include <stdint.h>
@@ -31,12 +33,12 @@ typedef struct {
 } ThreadArgs;
 
 typedef struct {
-  uint32_t data[4];
-} AES_block;
+  uint32_t data[TREENODE_SIZE / 4];
+} TreeNode;
 
 typedef struct {
   void (*encryptor)(AES_ctx*, AES_buffer*);
-  AES_block *tree;
+  TreeNode *tree;
   size_t idx;
 } ThreadTreeArgs;
 

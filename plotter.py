@@ -48,6 +48,7 @@ def plot_exp(filename):
             elif 'AES' in newline:
                 aesRuntime.append(float(newline.split()[4]))
 
+    plt.figure(figsize=(8, 8))
     plt.subplot(2, 1, 1)
     plt.plot(depth, aesRuntime, color='C1')
     plt.plot(depth, aesniRuntime, color='C0')
@@ -70,6 +71,8 @@ def plot_exp(filename):
     plt.yscale('log')
     plt.xlabel('Tree depth')
     plt.ylabel('Runtime (ms)')
+
+    plt.tight_layout()
 
     plt.savefig('runtime.png')
 

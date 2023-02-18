@@ -46,13 +46,15 @@ static void test_xcrypt(
   printf("AES enc and dec using %s: %0.4f ms\n", msg, elapsed);
 }
 
-static void print_tree(AES_block *tree, size_t depth) {
+static void print_tree(TreeNode *tree, size_t depth) {
   size_t startingIdx = 0;
   size_t width = 1;
   for (size_t d = 0; d <= depth; d++) {
     printf("Depth: %d\n", d);
     for (size_t idx = startingIdx; idx < startingIdx + width; idx++) {
-      printf("0x%x%x ", tree[idx].data[0], tree[idx].data[1]);
+      for (int i = 0; i < sizeof(*tree) / sizeof(tree[0].data[0]); i++)
+        printf("%x ", tree[idx].data[i]);
+      printf("| ");
     }
     printf("\n");
     startingIdx += width;
@@ -113,14 +115,14 @@ int main(int argc, char** argv) {
     }
     size_t depth = atoi(argv[2]);
     size_t numNodes = pow(2, depth + 1) - 1;
-    AES_block *blocks = (AES_block*) malloc(sizeof(*blocks) * numNodes);
+    TreeNode *blocks = (TreeNode*) malloc(sizeof(*blocks) * numNodes);
     blocks[0].data[0] = 123456;
     blocks[0].data[1] = 7890123;
 
-    AES_block *blocks2 = (AES_block*) malloc(sizeof(*blocks) * numNodes);
+    TreeNode *blocks2 = (TreeNode*) malloc(sizeof(*blocks) * numNodes);
     memcpy(blocks2, blocks, sizeof(*blocks) * numNodes);
 
-    AES_block *blocks3 = (AES_block*) malloc(sizeof(*blocks) * numNodes);
+    TreeNode *blocks3 = (TreeNode*) malloc(sizeof(*blocks) * numNodes);
     memcpy(blocks3, blocks, sizeof(*blocks) * numNodes);
 
     printf("Depth: %lu, Nodes: %lu\n", depth, numNodes);

@@ -4,7 +4,7 @@
 #include <sys/time.h>
 #include <pthread.h>
 
-void aescpu_tree_expand(AES_block *tree, size_t depth,
+void aescpu_tree_expand(TreeNode *tree, size_t depth,
 void (*initialiser)(AES_ctx*, const uint8_t*),
 void (*encryptor) (AES_ctx*, AES_buffer*),
 const char *msg) {
@@ -28,8 +28,8 @@ const char *msg) {
     int maxWidth = pow(2, depth);
 
     // pad 1024 to reduce thread divergence in cuda implementation
-    AES_block *leftChildren = (AES_block*) malloc(sizeof(*tree) * (maxWidth / 2 + 1024));
-    AES_block *rightChildren = (AES_block*) malloc(sizeof(*tree) * (maxWidth / 2 + 1024));
+    TreeNode *leftChildren = (TreeNode*) malloc(sizeof(*tree) * (maxWidth / 2 + 1024));
+    TreeNode *rightChildren = (TreeNode*) malloc(sizeof(*tree) * (maxWidth / 2 + 1024));
 
     for(int i = 0; i < NUM_SAMPLES; i++) {
         int layerStartIdx = 1;
