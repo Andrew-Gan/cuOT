@@ -1,0 +1,14 @@
+what worked
+1. reduce host to device memcpy by keeping tree on device
+2. early initialisation of cuda system via cudaFree
+3. having each thread write to tree node directly
+4. early one-time allocation of all buffers using precomputed size
+
+what didnt work
+1.  async memcpy to host after a layer is expanded
+why not: kernel execution too quick, memcpyasync would still bottleneck runtime, copying in multiple chunks also introduces delay
+2. async memcpy to device
+why not: kernel execution too quick, similar as above
+
+what to try next
+1. using pthreads to parallelise memcpy from device to host

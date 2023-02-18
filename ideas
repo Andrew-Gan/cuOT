@@ -1,5 +1,0 @@
-1. reduce host to device memcpy by keeping tree on device
-2. early initialisation of cuda system via cudaFree
-3. having each thread write to tree node directly
-4. asynchronous memcpy to host after a layer is expanded
-5. early one-time allocation of all buffers using precomputed size
