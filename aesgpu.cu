@@ -33,6 +33,7 @@
 #include "sbox_D.h"
 #include "aesEncrypt_kernel.h"
 #include "aesDecrypt_kernel.h"
+#include "aesExpand_kernel.h"
 
 #include <vector>
 #include "aesCudaUtils.hpp"
@@ -63,7 +64,6 @@ static cudaTextureObject_t alloc_key_texture(AES_ctx *ctx, cudaResourceDesc *res
   unsigned *d_Key;
   cudaMalloc(&d_Key, AES_keyExpSize);
   cudaMemcpy(d_Key, ctx->roundKey, AES_keyExpSize, cudaMemcpyHostToDevice);
-
   memset(resDesc, 0, sizeof(*resDesc));
   resDesc->resType = cudaResourceTypeLinear;
   resDesc->res.linear.devPtr = d_Key;
@@ -161,8 +161,10 @@ void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
 }
 
 void aesgpu_tree_expand(AES_block *tree, size_t depth) {
-  int maxWidth = pow(2, depth);
-  int numNode = maxWidth * 2 - 1;
+  cuda_check();
+  cudaFree(0);
+  size_t maxWidth = pow(2, depth);
+  size_t numNode = maxWidth * 2 - 1;
 
   // keys to use for tree expansion
   AES_ctx aesKeys[2];
@@ -176,70 +178,66 @@ void aesgpu_tree_expand(AES_block *tree, size_t depth) {
   memcpy(&k1_blk[8], &k1, sizeof(k1));
   aes_init_ctx(&aesKeys[1], k1_blk);
 
-  struct timespec start, end;
-  clock_gettime(CLOCK_MONOTONIC, &start);
-
-  // store key in texture memory
   cudaResourceDesc resDescLeft;
   cudaResourceDesc resDescRight;
   cudaTextureDesc texDesc;
+
+  // store key in texture memory
   cudaTextureObject_t texLKey = alloc_key_texture(&aesKeys[0], &resDescLeft, &texDesc);
   cudaTextureObject_t texRKey = alloc_key_texture(&aesKeys[1], &resDescRight, &texDesc);
 
-  // store tree in device memory
-  AES_block *d_Tree;
-  cudaMalloc(&d_Tree, sizeof(*tree) * numNode);
-  cudaMemcpy(d_Tree, tree, sizeof(*tree) * numNode, cudaMemcpyHostToDevice);
+  struct timespec start, end;
+  clock_gettime(CLOCK_MONOTONIC, &start);
 
-  AES_block *d_InputBuf;
-  cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    // store tree in device memory
+    AES_block *d_Tree;
+    // double size as threads will write directly
+    cudaMalloc(&d_Tree, sizeof(*tree) * numNode);
+    cudaMemcpy(d_Tree, tree, sizeof(*tree), cudaMemcpyHostToDevice);
 
-  AES_block *d_ResLeft, *d_ResRight;
-  cudaMalloc(&d_ResLeft, sizeof(*d_ResLeft) * maxWidth / 2 + PADDED_LEN);
-  cudaMalloc(&d_ResRight, sizeof(*d_ResRight) * maxWidth / 2 + PADDED_LEN);
+    AES_block *d_InputBuf;
+    cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
 
-  size_t layerStartIdx = 1, width = 2;
-  for (size_t d = 1 ; d <= depth; d++, width *= 2) {
-    // copy previous layer for expansion
-    size_t leftID = 0, rightID = 0;
-    cudaMemcpy(d_InputBuf, &d_Tree[(layerStartIdx - 1) / 2], sizeof(*d_Tree) * width / 2, cudaMemcpyDeviceToDevice);
+    size_t layerStartIdx = 1, width = 2;
+    cudaStream_t *s = (cudaStream_t*) malloc(sizeof(*s) * depth);
+    for (size_t d = 1 ; d <= depth; d++, width *= 2) {
+      cudaStreamCreate(&s[d-1]);
+      // copy previous layer for expansion
+      cudaMemcpy(d_InputBuf, &d_Tree[(layerStartIdx - 1) / 2], sizeof(*d_Tree) * width / 2, cudaMemcpyDeviceToDevice);
 
-    size_t paddedLen = (width / 2) * AES_BLOCKLEN;
-    paddedLen += 16 - (paddedLen % 16);
-    paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
-    static int thread_per_aesblock = 4;
-    dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
-    dim3 threads(BSIZE, 1);
-    aesEncrypt128<<<grid, threads>>>(texLKey, (unsigned*) d_ResLeft, (unsigned*) d_InputBuf);
-    aesEncrypt128<<<grid, threads>>>(texRKey, (unsigned*) d_ResRight, (unsigned*) d_InputBuf);
+      size_t paddedLen = (width / 2) * AES_BLOCKLEN;
+      paddedLen += 16 - (paddedLen % 16);
+      paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
+      static int thread_per_aesblock = 4;
+      dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
+      dim3 thread(BSIZE, 1);
+      aesExpand128<<<grid, thread>>>(texLKey, d_Tree,  (unsigned*) d_InputBuf, layerStartIdx, width);
+      aesExpand128<<<grid, thread>>>(texRKey, d_Tree,  (unsigned*) d_InputBuf, layerStartIdx + 1, width);
+
+      cudaDeviceSynchronize();
+
+      cudaMemcpyAsync(&tree[layerStartIdx], &d_Tree[layerStartIdx], sizeof(*tree) * width, cudaMemcpyDeviceToHost, s[d-1]);
+
+      layerStartIdx += width;
+    }
 
     cudaDeviceSynchronize();
-
-    leftID = 0;
-    rightID = 0;
-    // copy left array to child nodes
-    for (size_t idx = layerStartIdx; idx < layerStartIdx + width; idx+=2) {
-      cudaMemcpy(&d_Tree[idx], &d_ResLeft[leftID++], sizeof(*d_Tree), cudaMemcpyDeviceToDevice);
+    for (size_t d = 1; d <= depth; d++) {
+      cudaStreamDestroy(s[d-1]);
     }
-    // copy right array to child nodes
-    for (size_t idx = layerStartIdx+1; idx < layerStartIdx + width; idx+=2) {
-      cudaMemcpy(&d_Tree[idx], &d_ResRight[rightID++], sizeof(*d_Tree), cudaMemcpyDeviceToDevice);
-    }
-
-    layerStartIdx += width;
+    cudaFree(s);
+    cudaFree(d_Tree);
+    cudaFree(d_InputBuf);
   }
 
-  cudaMemcpy(tree, d_Tree, sizeof(*tree) * numNode, cudaMemcpyDeviceToHost);
   dealloc_key_texture(texLKey);
   dealloc_key_texture(texRKey);
-  cudaFree(d_Tree);
-  cudaFree(d_InputBuf);
-  cudaFree(d_ResLeft);
-  cudaFree(d_ResRight);
 
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   float duration = (end.tv_sec - start.tv_sec) * 1000;
   duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-  printf("Tree expansion using AESGPU: %0.4f ms\n", duration);
+  printf("Tree expansion using AESGPU: %0.4f ms\n", duration / NUM_SAMPLES);
+
 }

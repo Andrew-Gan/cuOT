@@ -5,7 +5,6 @@ module load gcc/9.3.0
 
 cd $SLURM_SUBMIT_DIR
 
-rm -f out
 make
 
 # for size in {15..25}
@@ -16,11 +15,11 @@ make
 #     done
 # done
 
-# for depth in {2..25}
-# do
-#     ./aes exp $depth >> out
-# done
+for depth in {2..25}
+do
+    ./aes exp $depth >> out
+done
 
-make nsys > out
+nsys profile --stats=true --output=nsys-stats ./aes exp 20 > out-nsys
 
 make clean

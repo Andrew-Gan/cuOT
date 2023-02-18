@@ -31,25 +31,16 @@ const char *msg) {
     AES_block *leftChildren = (AES_block*) malloc(sizeof(*tree) * (maxWidth / 2 + 1024));
     AES_block *rightChildren = (AES_block*) malloc(sizeof(*tree) * (maxWidth / 2 + 1024));
 
-    const int numSamples = 1;
-    for(int i = 0; i < numSamples; i++) {
+    for(int i = 0; i < NUM_SAMPLES; i++) {
         int layerStartIdx = 1;
         int width = 1;
         for (size_t d = 1; d <= depth; d++) {
             width *= 2;
 
             size_t leftID = 0, rightID = 0;
-            for (size_t idx = layerStartIdx; idx < layerStartIdx + width; idx++) {
-                size_t parentIdx = (idx - 1) / 2;
-                // copy left children to array
-                if (idx % 2) {
-                    memcpy(&leftChildren[leftID++], &tree[parentIdx], sizeof(*tree));
-                }
-                // copy right children to array
-                else {
-                    memcpy(&rightChildren[rightID++], &tree[parentIdx], sizeof(*tree));
-                }
-            }
+            // copy previous layer for expansion
+            memcpy(leftChildren, &tree[(layerStartIdx - 1) / 2], sizeof(*tree) * width / 2);
+            memcpy(rightChildren, leftChildren, sizeof(*tree) * width / 2);
 
             // perform parallel aes hash on both arrays
             AES_buffer leftBuf = {
@@ -88,5 +79,5 @@ const char *msg) {
 
     float duration = (end.tv_sec - start.tv_sec) * 1000;
     duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-    printf("Tree expansion using %s: %0.4f ms\n", msg, duration / numSamples);
+    printf("Tree expansion using %s: %0.4f ms\n", msg, duration / NUM_SAMPLES);
 }

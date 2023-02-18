@@ -48,17 +48,29 @@ def plot_exp(filename):
             elif 'AES' in newline:
                 aesRuntime.append(float(newline.split()[4]))
 
-    plt.plot(depth, aesRuntime, color='C3')
+    plt.subplot(2, 1, 1)
+    plt.plot(depth, aesRuntime, color='C1')
     plt.plot(depth, aesniRuntime, color='C0')
     plt.plot(depth, aesgpuRuntime, color='C2')
-
     plt.legend(['AESNI', 'AESGPU'])
     plt.legend(['AES', 'AESNI', 'AESGPU'])
     plt.title('Runtime for GMM Tree Expansion over Different Depths')
     plt.xticks(depth)
     plt.xlabel('Tree depth')
     plt.ylabel('Runtime (ms)')
-    plt.axvline(x_inf_point, color='red')
+
+    plt.subplot(2, 1, 2)
+    plt.plot(depth, aesRuntime, color='C1')
+    plt.plot(depth, aesniRuntime, color='C0')
+    plt.plot(depth, aesgpuRuntime, color='C2')
+    plt.legend(['AESNI', 'AESGPU'])
+    plt.legend(['AES', 'AESNI', 'AESGPU'])
+    plt.title('Runtime for GMM Tree Expansion over Different Depths')
+    plt.xticks(depth)
+    plt.yscale('log')
+    plt.xlabel('Tree depth')
+    plt.ylabel('Runtime (ms)')
+
     plt.savefig('runtime.png')
 
 if __name__ == '__main__':

@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
     size_t numNodes = pow(2, depth + 1) - 1;
     AES_block *blocks = (AES_block*) malloc(sizeof(*blocks) * numNodes);
     blocks[0].data[0] = 123456;
-    blocks[1].data[1] = 7890123;
+    blocks[0].data[1] = 7890123;
 
     AES_block *blocks2 = (AES_block*) malloc(sizeof(*blocks) * numNodes);
     memcpy(blocks2, blocks, sizeof(*blocks) * numNodes);

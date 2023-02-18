@@ -7,6 +7,8 @@
 #define NUM_ROUNDS 10
 #define NUM_CPU_THREAD 16
 
+#define NUM_SAMPLES 16
+
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -29,7 +31,7 @@ typedef struct {
 } ThreadArgs;
 
 typedef struct {
-  uint64_t data[2];
+  uint32_t data[4];
 } AES_block;
 
 typedef struct {
