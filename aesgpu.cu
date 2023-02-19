@@ -200,9 +200,7 @@ void aesgpu_tree_expand(TreeNode *tree, size_t depth) {
     cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
 
     size_t layerStartIdx = 1, width = 2;
-    cudaStream_t *s = (cudaStream_t*) malloc(sizeof(*s) * depth);
     for (size_t d = 1 ; d <= depth; d++, width *= 2) {
-      cudaStreamCreate(&s[d-1]);
       // copy previous layer for expansion
       cudaMemcpy(d_InputBuf, &d_Tree[(layerStartIdx - 1) / 2], sizeof(*d_Tree) * width / 2, cudaMemcpyDeviceToDevice);
 
@@ -216,17 +214,11 @@ void aesgpu_tree_expand(TreeNode *tree, size_t depth) {
       aesExpand128<<<grid, thread>>>(texRKey, d_Tree,  (unsigned*) d_InputBuf, layerStartIdx + 1, width);
 
       cudaDeviceSynchronize();
-
-      cudaMemcpyAsync(&tree[layerStartIdx], &d_Tree[layerStartIdx], sizeof(*tree) * width, cudaMemcpyDeviceToHost, s[d-1]);
-
       layerStartIdx += width;
     }
 
-    cudaDeviceSynchronize();
-    for (size_t d = 1; d <= depth; d++) {
-      cudaStreamDestroy(s[d-1]);
-    }
-    free(s);
+    cudaMemcpy(tree, d_Tree, sizeof(*tree) * numNode, cudaMemcpyDeviceToHost);
+
     cudaFree(d_Tree);
     cudaFree(d_InputBuf);
   }

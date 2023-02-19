@@ -1,73 +1,79 @@
+Depth: 20, Nodes: 2097151
+Tree expansion using AES: 343.4127 ms
+Tree expansion using AESNI: 64.4425 ms
+Tree expansion using AESGPU: 12.2561 ms
+
+
 CUDA API Statistics:
 
- Time(%)  Total Time (ns)  Num Calls    Average    Minimum    Maximum              Name
- -------  ---------------  ---------  -----------  -------  -----------  ------------------------
-    44.2      282,111,072         35  8,060,316.3    5,901  266,316,232  cudaFree
-    39.5      251,876,019        320    787,112.6   12,755    7,618,682  cudaMemcpyAsync
-     9.5       60,524,770        336    180,133.2    3,113    1,912,871  cudaDeviceSynchronize
-     5.6       35,835,601         34  1,053,988.3    4,194    2,338,695  cudaMalloc
-     0.4        2,747,483        640      4,292.9    2,843       20,832  cudaLaunchKernel
-     0.4        2,662,051        338      7,875.9    4,750       35,385  cudaMemcpy
-     0.2        1,176,157        320      3,675.5    1,676       96,086  cudaStreamCreate
-     0.1          802,099        320      2,506.6    1,573       17,551  cudaStreamDestroy
-     0.0           36,461          2     18,230.5    2,504       33,957  cudaCreateTextureObject
-     0.0            5,417          2      2,708.5    1,186        4,231  cudaDestroyTextureObject
+ Time(%)  Total Time (ns)  Num Calls     Average       Minimum      Maximum              Name          
+ -------  ---------------  ---------  -------------  -----------  -----------  ------------------------
+    62.1      348,675,452          1  348,675,452.0  348,675,452  348,675,452  cudaHostAlloc           
+    15.4       86,570,409        354      244,549.2        5,320    5,222,027  cudaMemcpy              
+    10.9       61,266,883        320      191,459.0        6,934    1,913,304  cudaDeviceSynchronize   
+     5.6       31,282,270         34      920,066.8       20,268    1,041,007  cudaMalloc              
+     2.8       15,431,756          1   15,431,756.0   15,431,756   15,431,756  cudaFreeHost            
+     2.4       13,474,454         35      384,984.4       10,957    5,783,544  cudaFree                
+     0.7        4,203,355        640        6,567.7        3,506       70,857  cudaLaunchKernel        
+     0.0           98,947          2       49,473.5        2,917       96,030  cudaCreateTextureObject 
+     0.0           21,522          2       10,761.0        2,456       19,066  cudaDestroyTextureObject
 
 
 
 CUDA Kernel Statistics:
 
- Time(%)  Total Time (ns)  Instances  Average   Minimum  Maximum                                            Name
+ Time(%)  Total Time (ns)  Instances  Average   Minimum  Maximum                                            Name                                          
  -------  ---------------  ---------  --------  -------  -------  ----------------------------------------------------------------------------------------
-   100.0       58,155,433        640  90,867.9    7,072  930,883  aesExpand128(unsigned long long, TreeNode*, unsigned int*, unsigned long, unsigned long)
+   100.0       59,831,184        640  93,486.2    6,016  930,789  aesExpand128(unsigned long long, TreeNode*, unsigned int*, unsigned long, unsigned long)
 
 
 
 CUDA Memory Operation Statistics (by time):
 
- Time(%)  Total Time (ns)  Operations   Average   Minimum   Maximum       Operation
- -------  ---------------  ----------  ---------  -------  ---------  ------------------
-    98.7      209,964,244         320  656,138.3    1,824  7,229,494  [CUDA memcpy DtoH]
-     1.2        2,650,151         320    8,281.7    3,136     51,936  [CUDA memcpy DtoD]
-     0.0           47,871          18    2,659.5    1,792      3,200  [CUDA memcpy HtoD]
+ Time(%)  Total Time (ns)  Operations    Average     Minimum    Maximum       Operation     
+ -------  ---------------  ----------  -----------  ---------  ---------  ------------------
+    96.7       82,260,636          16  5,141,289.8  5,116,056  5,154,391  [CUDA memcpy DtoH]
+     3.2        2,722,795         320      8,508.7      2,496     52,481  [CUDA memcpy DtoD]
+     0.0           41,155          18      2,286.4      1,728      2,656  [CUDA memcpy HtoD]
 
 
 
 CUDA Memory Operation Statistics (by size in KiB):
 
-     Total      Operations   Average   Minimum   Maximum        Operation
- -------------  ----------  ---------  -------  ----------  ------------------
-   524,287.500         320  1,638.398    0.031  16,384.000  [CUDA memcpy DtoD]
- 1,048,575.000         320  3,276.797    0.063  32,768.000  [CUDA memcpy DtoH]
-         0.844          18      0.047    0.031       0.172  [CUDA memcpy HtoD]
+     Total      Operations   Average     Minimum     Maximum        Operation     
+ -------------  ----------  ----------  ----------  ----------  ------------------
+   524,287.500         320   1,638.398       0.031  16,384.000  [CUDA memcpy DtoD]
+ 1,048,575.500          16  65,535.969  65,535.969  65,535.969  [CUDA memcpy DtoH]
+         0.844          18       0.047       0.031       0.172  [CUDA memcpy HtoD]
 
 
 
 Operating System Runtime API Statistics:
 
- Time(%)  Total Time (ns)  Num Calls    Average     Minimum    Maximum         Name
- -------  ---------------  ---------  ------------  -------  -----------  --------------
-    68.7    3,554,443,319      2,886   1,231,615.8    1,085   44,105,702  pthread_join
-    15.0      776,264,536     21,220      36,581.7   24,050      278,860  pthread_create
-    11.6      600,403,165         18  33,355,731.4    6,707  100,272,810  poll
-     4.5      233,672,366      1,055     221,490.4    1,003   20,115,218  ioctl
-     0.1        3,625,918         68      53,322.3    2,395    1,340,863  mmap64
-     0.0        2,216,839         10     221,683.9   30,658    1,383,356  sem_timedwait
-     0.0          448,950         86       5,220.3    1,039       19,439  open64
-     0.0          400,818         28      14,314.9    1,838      201,891  fopen
-     0.0          352,469          3     117,489.7    1,148      223,668  fcntl
-     0.0          348,392         49       7,110.0    1,548       51,971  mmap
-     0.0          315,844          5      63,168.8    6,837      277,491  fread
-     0.0          232,598         17      13,682.2    2,771       46,946  mprotect
-     0.0          121,760         22       5,534.5    2,281       29,984  fclose
-     0.0          107,560         39       2,757.9    1,124        5,348  munmap
-     0.0           67,338         14       4,809.9    1,282       32,830  read
-     0.0           44,977         11       4,088.8    2,466        6,327  write
-     0.0           43,110          1      43,110.0   43,110       43,110  fgets
-     0.0           29,425          5       5,885.0    3,382        9,185  open
-     0.0           21,470          3       7,156.7    1,595       11,990  fgetc
-     0.0            8,416          2       4,208.0    3,001        5,415  socket
-     0.0            6,592          1       6,592.0    6,592        6,592  connect
-     0.0            5,834          1       5,834.0    5,834        5,834  pipe2
-     0.0            1,350          1       1,350.0    1,350        1,350  bind
+ Time(%)  Total Time (ns)  Num Calls    Average     Minimum    Maximum            Name         
+ -------  ---------------  ---------  ------------  -------  -----------  ---------------------
+    54.7    7,109,564,359         83  85,657,401.9    8,046  100,254,754  poll                 
+    34.9    4,533,126,095      2,604   1,740,831.8    1,040   79,175,178  pthread_join         
+     8.2    1,066,962,923     21,220      50,281.0   25,363    1,138,552  pthread_create       
+     2.0      259,027,287        922     280,940.7    1,292   33,121,960  ioctl                
+     0.1       12,380,898         71     174,378.8    1,540   11,690,361  mmap                 
+     0.0        4,417,714         68      64,966.4    2,299    1,939,710  mmap64               
+     0.0        1,569,089         10     156,908.9   30,743      907,927  sem_timedwait        
+     0.0        1,350,560          6     225,093.3    1,126      959,811  fcntl                
+     0.0        1,346,114         30      44,870.5    2,777      337,937  fopen                
+     0.0          439,925         89       4,943.0    1,138       24,408  open64               
+     0.0          335,543          7      47,934.7    9,384      161,306  fread                
+     0.0          296,340         83       3,570.4    1,010       13,347  munmap               
+     0.0          266,211         21      12,676.7    2,926      114,991  mprotect             
+     0.0          154,103         24       6,421.0    2,990       19,587  fclose               
+     0.0           58,099          1      58,099.0   58,099       58,099  fgets                
+     0.0           42,244         11       3,840.4    2,106        7,242  write                
+     0.0           36,478         14       2,605.6    1,589        3,840  read                 
+     0.0           34,735          5       6,947.0    3,644       10,150  open                 
+     0.0           22,169          3       7,389.7    2,014       13,147  fgetc                
+     0.0            9,644          1       9,644.0    9,644        9,644  connect              
+     0.0            9,328          2       4,664.0    2,691        6,637  socket               
+     0.0            6,204          1       6,204.0    6,204        6,204  pipe2                
+     0.0            1,731          1       1,731.0    1,731        1,731  pthread_mutex_trylock
+     0.0            1,577          1       1,577.0    1,577        1,577  bind                 
 

@@ -122,7 +122,10 @@ int main(int argc, char** argv) {
     TreeNode *blocks2 = (TreeNode*) malloc(sizeof(*blocks) * numNodes);
     memcpy(blocks2, blocks, sizeof(*blocks) * numNodes);
 
-    TreeNode *blocks3 = (TreeNode*) malloc(sizeof(*blocks) * numNodes);
+    TreeNode *blocks3;
+    if (cudaSuccess != cudaMallocHost(&blocks3, sizeof(*blocks) * numNodes)) {
+      fprintf(stderr, "Error allocating pinned host memory\n");
+    }
     memcpy(blocks3, blocks, sizeof(*blocks) * numNodes);
 
     printf("Depth: %lu, Nodes: %lu\n", depth, numNodes);
@@ -138,7 +141,7 @@ int main(int argc, char** argv) {
 
     free(blocks);
     free(blocks2);
-    free(blocks3);
+    cudaFreeHost(blocks3);
   }
 
   return EXIT_SUCCESS;
