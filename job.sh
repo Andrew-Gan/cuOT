@@ -15,11 +15,14 @@ make
 #     done
 # done
 
-for depth in {2..25}
+for depth in {8..24}
 do
-    ./aes exp $depth >> out
+    for thread in 1 2 4 8 16
+    do
+        ./aes exp $depth $thread >> out
+    done
 done
 
-nsys profile --stats=true --output=nsys-stats ./aes exp 20 > out-nsys
+nsys profile --stats=true --output=nsys-stats ./aes exp 24 16 > out-nsys
 
 make clean

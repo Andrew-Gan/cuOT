@@ -4,6 +4,7 @@ LIB=-lboost_system -lboost_filesystem
 PLAINTEXT=testData/input.txt
 KEY=testData/key.txt
 INPUT_SIZE=20
+NUM_THREAD=16
 
 # sbatch args
 QUEUE=zghodsi-b
@@ -15,10 +16,10 @@ test:
 	$(CC) $(SRC) $(LIB) -o aes
 
 enc:
-	./aes enc $(PLAINTEXT) $(KEY) $(INPUT_SIZE)
+	./aes enc $(PLAINTEXT) $(KEY) $(INPUT_SIZE) $(NUM_THREAD)
 
 exp:
-	./aes exp $(INPUT_SIZE)
+	./aes exp $(INPUT_SIZE) $(NUM_THREAD)
 
 nsys:
 	nsys profile --stats=true --output=nsys-stats ./aes exp $(INPUT_SIZE)

@@ -75,13 +75,13 @@ static void* _encryptWorker(void *args) {
   return NULL;
 }
 
-void aesni_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf) {
-  size_t workload = buf->length / AES_BLOCKLEN / NUM_CPU_THREAD;
-  int rem = (buf->length / AES_BLOCKLEN) % NUM_CPU_THREAD;
-  pthread_t *t = (pthread_t*) malloc((NUM_CPU_THREAD + 1) * sizeof(*t));
-  ThreadArgs *args = (ThreadArgs*) malloc((NUM_CPU_THREAD + 1) * sizeof(*args));
+void aesni_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf, int numThread) {
+  size_t workload = buf->length / AES_BLOCKLEN / numThread;
+  int rem = (buf->length / AES_BLOCKLEN) % numThread;
+  pthread_t *t = (pthread_t*) malloc((numThread + 1) * sizeof(*t));
+  ThreadArgs *args = (ThreadArgs*) malloc((numThread + 1) * sizeof(*args));
 
-  for(int c = 0; c < NUM_CPU_THREAD; c++) {
+  for(int c = 0; c < numThread; c++) {
     args[c] = (ThreadArgs){
       .ctx = ctx, .buf = buf, .start = c * workload, .end = (c + 1) * workload,
     };
@@ -89,16 +89,16 @@ void aesni_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf) {
   }
   // handle remaining
   if (rem > 0) {
-    args[NUM_CPU_THREAD] = (ThreadArgs){
+    args[numThread] = (ThreadArgs){
       .ctx = ctx, .buf = buf,
-      .start = NUM_CPU_THREAD * workload,
-      .end = NUM_CPU_THREAD * workload + rem,
+      .start = numThread * workload,
+      .end = numThread * workload + rem,
     };
-    pthread_create(&t[NUM_CPU_THREAD], NULL, _encryptWorker, &args[NUM_CPU_THREAD]);
-    pthread_join(t[NUM_CPU_THREAD], NULL);
+    pthread_create(&t[numThread], NULL, _encryptWorker, &args[numThread]);
+    pthread_join(t[numThread], NULL);
   }
 
-  for(int c = 0; c < NUM_CPU_THREAD; c++) {
+  for(int c = 0; c < numThread; c++) {
     pthread_join(t[c], NULL);
   }
 
@@ -125,26 +125,26 @@ static void* _decryptWorker(void *args) {
   return NULL;
 }
 
-void aesni_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
-  size_t workload = buf->length / AES_BLOCKLEN / NUM_CPU_THREAD;
-  int rem = (buf->length / AES_BLOCKLEN) % NUM_CPU_THREAD;
-  pthread_t *t = (pthread_t*) malloc((NUM_CPU_THREAD + 1) * sizeof(*t));
-  ThreadArgs *args = (ThreadArgs*) malloc((NUM_CPU_THREAD + 1) * sizeof(*args));
-  for(int c = 0; c < NUM_CPU_THREAD; c++) {
+void aesni_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf, int numThread) {
+  size_t workload = buf->length / AES_BLOCKLEN / numThread;
+  int rem = (buf->length / AES_BLOCKLEN) % numThread;
+  pthread_t *t = (pthread_t*) malloc((numThread + 1) * sizeof(*t));
+  ThreadArgs *args = (ThreadArgs*) malloc((numThread + 1) * sizeof(*args));
+  for(int c = 0; c < numThread; c++) {
     args[c] = (ThreadArgs){
       .ctx = ctx, .buf = buf, .start = c * workload, .end = (c + 1) * workload,
     };
     pthread_create(&t[c], NULL, _decryptWorker, &args[c]);
   }
   // handle remaining
-  args[NUM_CPU_THREAD] = (ThreadArgs){
+  args[numThread] = (ThreadArgs){
     .ctx = ctx, .buf = buf,
-    .start = NUM_CPU_THREAD * workload,
-    .end = NUM_CPU_THREAD * workload + rem,
+    .start = numThread * workload,
+    .end = numThread * workload + rem,
   };
-  pthread_create(&t[NUM_CPU_THREAD], NULL, _decryptWorker, &args[NUM_CPU_THREAD]);
+  pthread_create(&t[numThread], NULL, _decryptWorker, &args[numThread]);
 
-  for(int c = 0; c <= NUM_CPU_THREAD; c++) {
+  for(int c = 0; c <= numThread; c++) {
     pthread_join(t[c], NULL);
   }
 

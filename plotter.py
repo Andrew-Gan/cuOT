@@ -18,7 +18,7 @@ def plot_enc(filename):
             lineCtr += 1
 
     inputSize = [2**i for i in range(15, 26)]
-    nThread = 8
+    nThread = 16
 
     plt.plot(inputSize, [dataPoints[i]['AES'][nThread-1] for i in inputSize])
     plt.plot(inputSize, [dataPoints[i]['AESNI'][nThread-1] for i in inputSize])
@@ -28,66 +28,59 @@ def plot_enc(filename):
     plt.savefig('runtime.png')
 
 def plot_exp(filename):
-    depth = []
-    aesRuntime = []
-    aesniRuntime = []
-    aesgpuRuntime = []
+        runtimes = {}
+        depths = set()
+        x_inf_point = 0
 
-    x_inf_point = 0
+        with open(filename, 'r') as f:
+            nThread = 0
+            for newline in f:
+                if 'Depth' in newline:
+                    depth = int(newline.split()[1][:-1])
+                    nThread = int(newline.split()[-1])
+                    depths.add(depth)
+                    if nThread not in runtimes:
+                        runtimes[nThread] = { 'aes': [], 'aesni': [], 'aesgpu': [] }
+                elif 'AESNI' in newline:
+                    runtimes[nThread]['aesni'].append(float(newline.split()[4]))
+                elif 'AESGPU' in newline:
+                    runtimes[nThread]['aesgpu'].append(float(newline.split()[4]))
+                elif 'AES' in newline:
+                    runtimes[nThread]['aes'].append(float(newline.split()[4]))
 
-    with open(filename, 'r') as f:
-        for newline in f:
-            if 'Depth' in newline:
-                depth.append(int(newline.split()[1][:-1]))
-            elif 'AESNI' in newline:
-                aesniRuntime.append(float(newline.split()[4]))
-            elif 'AESGPU' in newline:
-                aesgpuRuntime.append(float(newline.split()[4]))
-                if aesniRuntime[-1] <= aesgpuRuntime[-1]:
-                    x_inf_point = depth[-1]
-            elif 'AES' in newline:
-                aesRuntime.append(float(newline.split()[4]))
+        depths = list(depths)
+        depths.sort()
 
-    plt.figure(figsize=(16, 8))
-    plt.subplot(2, 2, 1)
-    plt.plot(depth, aesRuntime, color='C1')
-    plt.plot(depth, aesniRuntime, color='C0')
-    plt.plot(depth, aesgpuRuntime, color='C2')
-    plt.legend(['AES', 'AESNI', 'AESGPU'])
-    plt.xticks(depth)
-    plt.xlabel('Tree depth')
-    plt.ylabel('Runtime (ms)')
+        plt.figure(figsize=(16, 32))
 
-    plt.subplot(2, 2, 2)
-    plt.plot(depth, aesniRuntime, color='C0')
-    plt.plot(depth, aesgpuRuntime, color='C2')
-    plt.legend(['AESNI', 'AESGPU'])
-    plt.xticks(depth)
-    plt.xlabel('Tree depth')
-    plt.ylabel('Runtime (ms)')
+        for graph_idx, nThread in enumerate(runtimes):
+            plt.subplot(len(runtimes), 2, 2 * graph_idx + 1)
+            plt.title('Linear Runtime of Tree Expansion with Num Threads = %d' % nThread)
+            plt.plot(depths, runtimes[nThread]['aes'], color='C1')
+            plt.plot(depths, runtimes[nThread]['aesni'], color='C0')
+            plt.plot(depths, runtimes[nThread]['aesgpu'], color='C2')
+            plt.legend(['AES', 'AESNI', 'AESGPU'])
+            plt.xticks(depths)
+            plt.xlabel('Tree depth')
+            plt.ylabel('Runtime (ms)')
+            plt.xlim(15, 25)
 
-    plt.subplot(2, 2, 3)
-    plt.plot(depth, aesRuntime, color='C1')
-    plt.plot(depth, aesniRuntime, color='C0')
-    plt.plot(depth, aesgpuRuntime, color='C2')
-    plt.legend(['AES', 'AESNI', 'AESGPU'])
-    plt.xticks(depth)
-    plt.yscale('log')
-    plt.xlabel('Tree depth')
-    plt.ylabel('Runtime (ms)')
+            plt.subplot(len(runtimes), 2, 2 * graph_idx + 2)
+            plt.title('Log Runtime of Tree Expansion with Num Threads = %d' % nThread)
+            plt.plot(depths, runtimes[nThread]['aes'], color='C1')
+            plt.plot(depths, runtimes[nThread]['aesni'], color='C0')
+            plt.plot(depths, runtimes[nThread]['aesgpu'], color='C2')
+            plt.legend(['AES', 'AESNI', 'AESGPU'])
+            plt.xticks(depths)
+            plt.yscale('log')
+            plt.xlabel('Tree depth')
+            plt.ylabel('Runtime (ms)')
 
-    plt.subplot(2, 2, 4)
-    plt.plot(depth, aesniRuntime, color='C0')
-    plt.plot(depth, aesgpuRuntime, color='C2')
-    plt.legend(['AESNI', 'AESGPU'])
-    plt.xticks(depth)
-    plt.yscale('log')
-    plt.xlabel('Tree depth')
-    plt.ylabel('Runtime (ms)')
+        graph_idx += 2
 
-    plt.tight_layout()
+        plt.tight_layout()
 
-    plt.savefig('runtime.png')
+        plt.savefig('runtime.png')
 
 if __name__ == '__main__':
     plot_exp('out')

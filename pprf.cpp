@@ -6,8 +6,8 @@
 
 void aescpu_tree_expand(TreeNode *tree, size_t depth,
 void (*initialiser)(AES_ctx*, const uint8_t*),
-void (*encryptor) (AES_ctx*, AES_buffer*),
-const char *msg) {
+void (*encryptor) (AES_ctx*, AES_buffer*, int),
+const char *msg, int numThread) {
     AES_ctx aesKeys[2];
 
     uint64_t k0 = 3242342;
@@ -52,8 +52,8 @@ const char *msg) {
                 .content = (uint8_t*) rightChildren,
             };
 
-            encryptor(&aesKeys[0], &leftBuf);
-            encryptor(&aesKeys[1], &rightBuf);
+            encryptor(&aesKeys[0], &leftBuf, numThread);
+            encryptor(&aesKeys[1], &rightBuf, numThread);
 
             // copy back
             leftID = 0, rightID = 0;

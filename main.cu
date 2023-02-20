@@ -21,9 +21,9 @@ size_t _get_filesize(FILE *fp) {
 
 static void test_xcrypt(
   void (*initialiser)(AES_ctx*, const uint8_t*),
-  void (*encryptor) (AES_ctx*, AES_buffer*),
-  void (*decryptor) (AES_ctx*, AES_buffer*),
-  const uint8_t *key, AES_buffer *buf, const char *msg) {
+  void (*encryptor) (AES_ctx*, AES_buffer*, int),
+  void (*decryptor) (AES_ctx*, AES_buffer*, int),
+  const uint8_t *key, AES_buffer *buf, const char *msg, int numThread) {
 
   uint8_t *original = (uint8_t*) malloc(buf->length * sizeof(*original) + 1024);
   memcpy(original, buf->content, buf->length);
@@ -33,9 +33,9 @@ static void test_xcrypt(
   struct timespec start, end;
   clock_gettime(CLOCK_MONOTONIC, &start);
   initialiser(&ctx, key);
-  encryptor(&ctx, buf);
+  encryptor(&ctx, buf, numThread);
   assert(memcmp(original, buf, 128) != 0);
-  decryptor(&ctx, buf);
+  decryptor(&ctx, buf, numThread);
   clock_gettime(CLOCK_MONOTONIC, &end);
   double elapsed = (end.tv_sec - start.tv_sec) * 1000;
   elapsed += (end.tv_nsec - start.tv_nsec) / 1000000.0;
@@ -46,22 +46,22 @@ static void test_xcrypt(
   printf("AES enc and dec using %s: %0.4f ms\n", msg, elapsed);
 }
 
-static void print_tree(TreeNode *tree, size_t depth) {
-  size_t startingIdx = 0;
-  size_t width = 1;
-  for (size_t d = 0; d <= depth; d++) {
-    printf("Depth: %d\n", d);
-    for (size_t idx = startingIdx; idx < startingIdx + width; idx++) {
-      for (int i = 0; i < sizeof(*tree) / sizeof(tree[0].data[0]); i++)
-        printf("%x ", tree[idx].data[i]);
-      printf("| ");
-    }
-    printf("\n");
-    startingIdx += width;
-    width *= 2;
-  }
-  printf("\n");
-}
+// static void print_tree(TreeNode *tree, size_t depth) {
+//   size_t startingIdx = 0;
+//   size_t width = 1;
+//   for (size_t d = 0; d <= depth; d++) {
+//     printf("Depth: %d\n", d);
+//     for (size_t idx = startingIdx; idx < startingIdx + width; idx++) {
+//       for (int i = 0; i < sizeof(*tree) / sizeof(tree[0].data[0]); i++)
+//         printf("%x ", tree[idx].data[i]);
+//       printf("| ");
+//     }
+//     printf("\n");
+//     startingIdx += width;
+//     width *= 2;
+//   }
+//   printf("\n");
+// }
 
 int main(int argc, char** argv) {
   if (argc < 2 || (strcmp(argv[1], "enc") && strcmp(argv[1], "exp"))) {
@@ -77,6 +77,7 @@ int main(int argc, char** argv) {
     FILE *inputFile = fopen(argv[2], "rb");
     FILE *keyFile = fopen(argv[3], "rb");
     size_t dataSize = atoi(argv[4]);
+    int numThread = atoi(argv[5]);
     if (inputFile == NULL || keyFile == NULL) {
       fprintf(stderr, "Error: Either file does not exist\n");
       return EXIT_FAILURE;
@@ -99,9 +100,9 @@ int main(int argc, char** argv) {
     uint8_t *key = (uint8_t*) malloc(AES_KEYLEN * sizeof(*key));
     fread(key, sizeof(*key), AES_KEYLEN, keyFile);
 
-    test_xcrypt(aes_init_ctx, aes_ecb_encrypt, aes_ecb_decrypt, key, &input, "AES");
-    test_xcrypt(aesni_init_ctx, aesni_ecb_encrypt, aesni_ecb_decrypt, key, &input, "AESNI");
-    test_xcrypt(aes_init_ctx, aesgpu_ecb_encrypt, aesgpu_ecb_decrypt, key, &input, "AESGPU");
+    test_xcrypt(aes_init_ctx, aes_ecb_encrypt, aes_ecb_decrypt, key, &input, "AES", numThread);
+    test_xcrypt(aesni_init_ctx, aesni_ecb_encrypt, aesni_ecb_decrypt, key, &input, "AESNI", numThread);
+    test_xcrypt(aes_init_ctx, aesgpu_ecb_encrypt, aesgpu_ecb_decrypt, key, &input, "AESGPU", numThread);
 
     free(input.content);
     free(key);
@@ -114,34 +115,30 @@ int main(int argc, char** argv) {
       return EXIT_FAILURE;
     }
     size_t depth = atoi(argv[2]);
+    int numThread = atoi(argv[3]);
     size_t numNodes = pow(2, depth + 1) - 1;
-    TreeNode *blocks = (TreeNode*) malloc(sizeof(*blocks) * numNodes);
-    blocks[0].data[0] = 123456;
-    blocks[0].data[1] = 7890123;
+    size_t numLeaves = numNodes / 2 + 1;
+    TreeNode *tree = (TreeNode*) malloc(sizeof(*tree) * numNodes);
+    tree[0].data[0] = 123456;
+    tree[0].data[1] = 7890123;
 
-    TreeNode *blocks2 = (TreeNode*) malloc(sizeof(*blocks) * numNodes);
-    memcpy(blocks2, blocks, sizeof(*blocks) * numNodes);
+    TreeNode *tree2 = (TreeNode*) malloc(sizeof(*tree) * numNodes);
+    memcpy(tree2, tree, sizeof(*tree) * numNodes);
 
-    TreeNode *blocks3;
-    if (cudaSuccess != cudaMallocHost(&blocks3, sizeof(*blocks) * numNodes)) {
-      fprintf(stderr, "Error allocating pinned host memory\n");
-    }
-    memcpy(blocks3, blocks, sizeof(*blocks) * numNodes);
+    TreeNode *leaves;
+    cudaMallocHost(&leaves, sizeof(*leaves) * numLeaves);
 
-    printf("Depth: %lu, Nodes: %lu\n", depth, numNodes);
-    aescpu_tree_expand(blocks, depth, aes_init_ctx, aes_ecb_encrypt, "AES");
-    aescpu_tree_expand(blocks2, depth, aesni_init_ctx, aesni_ecb_encrypt, "AESNI");
-    aesgpu_tree_expand(blocks3, depth);
+    printf("Depth: %lu, Nodes: %lu, Threads: %d\n", depth, numNodes, numThread);
+    aescpu_tree_expand(tree, depth, aes_init_ctx, aes_ecb_encrypt, "AES", numThread);
+    aescpu_tree_expand(tree2, depth, aesni_init_ctx, aesni_ecb_encrypt, "AESNI", numThread);
+    aesgpu_tree_expand(tree, leaves, depth);
 
-    // print_tree(blocks2, depth);
-    // print_tree(blocks3, depth);
+    assert(memcmp(&tree[numLeaves - 1], &tree2[numLeaves - 1], sizeof(*tree) * numLeaves) == 0);
+    assert(memcmp(&tree2[numLeaves - 1], leaves, sizeof(*tree) * numLeaves) == 0);
 
-    assert(memcmp(blocks, blocks2, sizeof(*blocks) * numNodes) == 0);
-    assert(memcmp(blocks2, blocks3, sizeof(*blocks) * numNodes) == 0);
-
-    free(blocks);
-    free(blocks2);
-    cudaFreeHost(blocks3);
+    free(tree);
+    free(tree2);
+    cudaFreeHost(leaves);
   }
 
   return EXIT_SUCCESS;

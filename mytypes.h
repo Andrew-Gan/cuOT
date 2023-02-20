@@ -7,8 +7,6 @@
 #define NUM_ROUNDS 10
 
 #define TREENODE_SIZE (2 * AES_BLOCKLEN)
-
-#define NUM_CPU_THREAD 16
 #define NUM_SAMPLES 16
 
 #include <stdint.h>
@@ -37,7 +35,7 @@ typedef struct {
 } TreeNode;
 
 typedef struct {
-  void (*encryptor)(AES_ctx*, AES_buffer*);
+  void (*encryptor)(AES_ctx*, AES_buffer*, int);
   TreeNode *tree;
   size_t idx;
 } ThreadTreeArgs;

@@ -132,14 +132,14 @@ static void aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
   dealloc_key_texture(texKey);
 }
 
-void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf) {
+void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf, int numThread) {
   size_t len_old = buf->length;
   gpu_padding(buf);
   aesgpu_ecb_xcrypt(ctx, buf, true);
   buf->length = len_old;
 }
 
-void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
+void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf, int numThread) {
   // invert expanded key
   std::vector<unsigned> key(AES_KEYLEN);
   for(int i = 0; i < AES_KEYLEN; i++) {
@@ -160,9 +160,8 @@ void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf) {
   buf->length = len_old;
 }
 
-void aesgpu_tree_expand(TreeNode *tree, size_t depth) {
+void aesgpu_tree_expand(TreeNode *root, TreeNode *leaves, size_t depth) {
   cuda_check();
-  cudaFree(0);
   size_t maxWidth = pow(2, depth);
   size_t numNode = maxWidth * 2 - 1;
 
@@ -193,8 +192,8 @@ void aesgpu_tree_expand(TreeNode *tree, size_t depth) {
     // store tree in device memory
     TreeNode *d_Tree;
     // double size as threads will write directly
-    cudaMalloc(&d_Tree, sizeof(*tree) * numNode);
-    cudaMemcpy(d_Tree, tree, sizeof(*tree), cudaMemcpyHostToDevice);
+    cudaMalloc(&d_Tree, sizeof(*d_Tree) * numNode);
+    cudaMemcpy(d_Tree, root, sizeof(*root), cudaMemcpyHostToDevice);
 
     TreeNode *d_InputBuf;
     cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
@@ -217,7 +216,7 @@ void aesgpu_tree_expand(TreeNode *tree, size_t depth) {
       layerStartIdx += width;
     }
 
-    cudaMemcpy(tree, d_Tree, sizeof(*tree) * numNode, cudaMemcpyDeviceToHost);
+    cudaMemcpy(leaves, &d_Tree[maxWidth - 1], sizeof(*leaves) * maxWidth, cudaMemcpyDeviceToHost);
 
     cudaFree(d_Tree);
     cudaFree(d_InputBuf);
