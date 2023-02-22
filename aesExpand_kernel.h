@@ -37,8 +37,8 @@
 // Thread block size
 #define BSIZE 256
 
-__global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *tree,
-	unsigned *inData, size_t startIndex, size_t width)
+__global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
+	unsigned *inData, int expandDir, size_t width)
 {
 	unsigned bx		= blockIdx.x;
     unsigned tx		= threadIdx.x;
@@ -307,18 +307,12 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *tree,
 
 	//-------------------------------- end of 15th stage --------------------------------
 
-	// size_t node_id = startIndex + 2 * ((bx * BSIZE + tx) / 4);
-	// if (node_id < startIndex + width) {
-	// 	tree[node_id].data[mod4tx] = stageBlock2[tx].uival;
-	// }
-
 	int elemPerNode = TREENODE_SIZE / 4;
-	size_t node_id = startIndex + 2 * ((bx * BSIZE + tx) / elemPerNode);
-	if (node_id < startIndex + width) {
-		tree[node_id].data[tx % elemPerNode] = stageBlock2[tx].uival;
+	size_t node_id = 2 * ((bx * BSIZE + tx) / elemPerNode) + expandDir;
+	if (node_id < width) {
+		leaves[node_id].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
 	// end of AES
-
 }
 
 #endif // #ifndef _AESENCRYPT_KERNEL_H_

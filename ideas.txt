@@ -10,3 +10,6 @@ what didnt work
 why not: kernel execution too quick, memcpyasync would still bottleneck runtime
 2. cudaMallocManaged
 why not: slowed down runtime due to on-demand copying
+
+try:
+1. buffer size only to keep leaves

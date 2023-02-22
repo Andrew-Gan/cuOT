@@ -190,10 +190,10 @@ void aesgpu_tree_expand(TreeNode *root, TreeNode *leaves, size_t depth) {
 
   for (int i = 0; i < NUM_SAMPLES; i++) {
     // store tree in device memory
-    TreeNode *d_Tree;
+    TreeNode *d_Leaves;
     // double size as threads will write directly
-    cudaMalloc(&d_Tree, sizeof(*d_Tree) * numNode);
-    cudaMemcpy(d_Tree, root, sizeof(*root), cudaMemcpyHostToDevice);
+    cudaMalloc(&d_Leaves, sizeof(*d_Leaves) * (numNode / 2 + 1));
+    cudaMemcpy(d_Leaves, root, sizeof(*root), cudaMemcpyHostToDevice);
 
     TreeNode *d_InputBuf;
     cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
@@ -201,24 +201,24 @@ void aesgpu_tree_expand(TreeNode *root, TreeNode *leaves, size_t depth) {
     size_t layerStartIdx = 1, width = 2;
     for (size_t d = 1 ; d <= depth; d++, width *= 2) {
       // copy previous layer for expansion
-      cudaMemcpy(d_InputBuf, &d_Tree[(layerStartIdx - 1) / 2], sizeof(*d_Tree) * width / 2, cudaMemcpyDeviceToDevice);
+      cudaMemcpy(d_InputBuf, d_Leaves, sizeof(*d_Leaves) * width / 2, cudaMemcpyDeviceToDevice);
 
-      size_t paddedLen = (width / 2) * sizeof(*d_Tree);
+      size_t paddedLen = (width / 2) * sizeof(*d_Leaves);
       paddedLen += 16 - (paddedLen % 16);
       paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
       static int thread_per_aesblock = 4;
       dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
       dim3 thread(BSIZE, 1);
-      aesExpand128<<<grid, thread>>>(texLKey, d_Tree,  (unsigned*) d_InputBuf, layerStartIdx, width);
-      aesExpand128<<<grid, thread>>>(texRKey, d_Tree,  (unsigned*) d_InputBuf, layerStartIdx + 1, width);
+      aesExpand128<<<grid, thread>>>(texLKey, d_Leaves,  (unsigned*) d_InputBuf, 0, width);
+      aesExpand128<<<grid, thread>>>(texRKey, d_Leaves,  (unsigned*) d_InputBuf, 1, width);
 
       cudaDeviceSynchronize();
       layerStartIdx += width;
     }
 
-    cudaMemcpy(leaves, &d_Tree[maxWidth - 1], sizeof(*leaves) * maxWidth, cudaMemcpyDeviceToHost);
+    cudaMemcpy(leaves, d_Leaves, sizeof(*leaves) * maxWidth, cudaMemcpyDeviceToHost);
 
-    cudaFree(d_Tree);
+    cudaFree(d_Leaves);
     cudaFree(d_InputBuf);
   }
 
