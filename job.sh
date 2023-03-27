@@ -5,6 +5,8 @@ module load gcc/9.3.0
 
 cd $SLURM_SUBMIT_DIR
 
+rm -f nsys* out out-nsys slurm*
+
 make
 
 # for size in {15..25}
@@ -15,9 +17,9 @@ make
 #     done
 # done
 
-for depth in {8..24}
+for thread in 2 4 8 16
 do
-    for thread in 1 2 4 8 16
+    for depth in {12..24}
     do
         ./aes exp $depth $thread >> out
     done

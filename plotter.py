@@ -55,7 +55,7 @@ def plot_exp(filename):
 
         for graph_idx, nThread in enumerate(runtimes):
             plt.subplot(len(runtimes), 2, 2 * graph_idx + 1)
-            plt.title('Linear Runtime of Tree Expansion with Num Threads = %d' % nThread)
+            plt.title('Runtime of Tree Expansion with Num Threads = %d' % nThread)
             plt.plot(depths, runtimes[nThread]['aes'], color='C1')
             plt.plot(depths, runtimes[nThread]['aesni'], color='C0')
             plt.plot(depths, runtimes[nThread]['aesgpu'], color='C2')
@@ -63,16 +63,13 @@ def plot_exp(filename):
             plt.xticks(depths)
             plt.xlabel('Tree depth')
             plt.ylabel('Runtime (ms)')
-            plt.xlim(15, 25)
 
             plt.subplot(len(runtimes), 2, 2 * graph_idx + 2)
-            plt.title('Log Runtime of Tree Expansion with Num Threads = %d' % nThread)
-            plt.plot(depths, runtimes[nThread]['aes'], color='C1')
+            plt.title('Runtime of Tree Expansion with Num Threads = %d' % nThread)
             plt.plot(depths, runtimes[nThread]['aesni'], color='C0')
             plt.plot(depths, runtimes[nThread]['aesgpu'], color='C2')
-            plt.legend(['AES', 'AESNI', 'AESGPU'])
+            plt.legend(['AESNI', 'AESGPU'])
             plt.xticks(depths)
-            plt.yscale('log')
             plt.xlabel('Tree depth')
             plt.ylabel('Runtime (ms)')
 

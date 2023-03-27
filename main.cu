@@ -46,23 +46,6 @@ static void test_xcrypt(
   printf("AES enc and dec using %s: %0.4f ms\n", msg, elapsed);
 }
 
-// static void print_tree(TreeNode *tree, size_t depth) {
-//   size_t startingIdx = 0;
-//   size_t width = 1;
-//   for (size_t d = 0; d <= depth; d++) {
-//     printf("Depth: %d\n", d);
-//     for (size_t idx = startingIdx; idx < startingIdx + width; idx++) {
-//       for (int i = 0; i < sizeof(*tree) / sizeof(tree[0].data[0]); i++)
-//         printf("%x ", tree[idx].data[i]);
-//       printf("| ");
-//     }
-//     printf("\n");
-//     startingIdx += width;
-//     width *= 2;
-//   }
-//   printf("\n");
-// }
-
 int main(int argc, char** argv) {
   if (argc < 2 || (strcmp(argv[1], "enc") && strcmp(argv[1], "exp"))) {
     fprintf(stderr, "Usage: ./aes mode[enc|exp] ...\n");
