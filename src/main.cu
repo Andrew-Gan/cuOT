@@ -11,17 +11,18 @@
 
 #include "utilsBox.h"
 
-size_t _get_filesize(FILE *fp) {
-  size_t fpos = ftell(fp);
-  fseek(fp, 0, SEEK_END);
-  size_t fsize = ftell(fp);
-  fseek(fp, fpos, SEEK_SET);
-  return fsize;
+void print_leaves(TreeNode *leaves, int numLeaves) {
+  for(int i = 0; i < numLeaves; i++) {
+    for(int j = 0; j < TREENODE_SIZE / 4; j++) {
+      printf("0x%x ", leaves[i].data[j]);
+    }
+  }
+  printf("\n");
 }
 
 int main(int argc, char** argv) {
   if (argc < 3) {
-    fprintf(stderr, "Usage: ./aes depth numTrees\n");
+    fprintf(stderr, "Usage: ./pprf depth numTrees\n");
     return EXIT_FAILURE;
   }
   size_t depth = atoi(argv[1]);
@@ -35,20 +36,34 @@ int main(int argc, char** argv) {
   TreeNode *tree2 = (TreeNode*) malloc(sizeof(*tree) * numNodes);
   memcpy(tree2, tree, sizeof(*tree) * numNodes);
 
-  TreeNode *leaves;
-  cudaMallocHost(&leaves, sizeof(*leaves) * numLeaves);
+  TreeNode *senderLeaves, *recverLeaves;
+  cudaMallocHost(&senderLeaves, sizeof(*senderLeaves) * numLeaves);
+  cudaMallocHost(&recverLeaves, sizeof(*recverLeaves) * numLeaves);
 
   printf("Depth: %lu, Nodes: %lu, Threads: %d\n", depth, numNodes, numTrees);
   aescpu_tree_expand(tree, depth, aes_init_ctx, aes_ecb_encrypt, "AES", numTrees);
   aescpu_tree_expand(tree2, depth, aesni_init_ctx, aesni_ecb_encrypt, "AESNI", numTrees);
-  aesgpu_tree_expand(tree, leaves, depth);
+
+  pprf_sender_gpu(tree, senderLeaves, depth);
+  pprf_recver_gpu(recverLeaves, depth);
 
   assert(memcmp(&tree[numLeaves - 1], &tree2[numLeaves - 1], sizeof(*tree) * numLeaves) == 0);
-  assert(memcmp(&tree2[numLeaves - 1], leaves, sizeof(*tree) * numLeaves) == 0);
+  assert(memcmp(&tree2[numLeaves - 1], senderLeaves, sizeof(*tree) * numLeaves) == 0);
+  int i = 0;
+  while(i < numLeaves && memcmp(&senderLeaves[i], &recverLeaves[i], sizeof(TreeNode)) == 0) {
+    i++;
+  }
+  if(i < numLeaves) {
+    printf("diff at node: %d\n", i);
+  }
+
+  print_leaves(senderLeaves, numLeaves);
+  print_leaves(recverLeaves, numLeaves);
 
   free(tree);
   free(tree2);
-  cudaFreeHost(leaves);
+  cudaFreeHost(senderLeaves);
+  cudaFreeHost(recverLeaves);
 
   return EXIT_SUCCESS;
 }

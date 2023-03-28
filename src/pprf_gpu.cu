@@ -194,7 +194,7 @@ void pprf_sender_gpu(TreeNode *root, TreeNode *leaves, size_t depth) {
   clock_gettime(CLOCK_MONOTONIC, &start);
 
   // get choice bits from receiver, hardcoded for now
-  cudaMalloc(&d_otNodes, sizeof(*d_otNodes));
+  cudaMalloc(&d_otNodes, sizeof(*d_otNodes) * depth);
   int puncturedIndex = 0;
 
   // store tree in device memory
@@ -206,8 +206,8 @@ void pprf_sender_gpu(TreeNode *root, TreeNode *leaves, size_t depth) {
   TreeNode *d_InputBuf;
   cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
 
-  size_t layerStartIdx = 1, width = 2;
-  for (size_t d = 1 ; d <= depth; d++, width *= 2) {
+  size_t layerStartIdx = 1;
+  for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     // copy previous layer for expansion
     cudaMemcpy(d_InputBuf, d_Leaves, sizeof(*d_Leaves) * width / 2, cudaMemcpyDeviceToDevice);
 
@@ -222,9 +222,9 @@ void pprf_sender_gpu(TreeNode *root, TreeNode *leaves, size_t depth) {
 
     cudaDeviceSynchronize();
 
-    int choice = choices & (1 << d-1) >> d-1;
-    int otIndex = puncturedIndex * 2 + 1 + choice;
-    cudaMemcpy(&d_otNodes[d-1], &d_Leaves[otIndex], sizeof(*d_otNodes), cudaMemcpyDeviceToDevice);
+    int choice = (choices & (1 << d-1)) >> d-1;
+    int otLeafLayerIdx = puncturedIndex * 2 + 1 - (width - 1) + choice;
+    cudaMemcpy(&d_otNodes[d-1], &d_Leaves[otLeafLayerIdx], sizeof(*d_Leaves), cudaMemcpyDeviceToDevice);
     puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
 
     layerStartIdx += width;
@@ -244,10 +244,10 @@ void pprf_sender_gpu(TreeNode *root, TreeNode *leaves, size_t depth) {
 
   float duration = (end.tv_sec - start.tv_sec) * 1000;
   duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-  printf("Tree expansion using AESGPU: %0.4f ms\n", duration / NUM_SAMPLES);
+  printf("Tree expansion using AESGPU sender: %0.4f ms\n", duration / NUM_SAMPLES);
 }
 
-void pprf_recver_gpu(TreeNode *d_otNodes, TreeNode *leaves, size_t depth) {
+void pprf_recver_gpu(TreeNode *leaves, size_t depth, int numTrees) {
   cuda_check();
   size_t maxWidth = pow(2, depth);
   size_t numNode = maxWidth * 2 - 1;
@@ -284,13 +284,13 @@ void pprf_recver_gpu(TreeNode *d_otNodes, TreeNode *leaves, size_t depth) {
   cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
 
   while(!senderExpanded);
-  int puncturedIndex = 0;
   int choice = choices & 1;
+  int puncturedIndex = 2 - choice;
 
   cudaMemcpy(&d_Leaves[choice], &d_otNodes[0], sizeof(*d_otNodes), cudaMemcpyDeviceToDevice);
-
-  size_t layerStartIdx = 3, width = 4;
-  for (size_t d = 2 ; d <= depth; d++, width *= 2) {
+  
+  size_t layerStartIdx = 3;
+  for (size_t d = 2, width = 4; d <= depth; d++, width *= 2) {
     // copy previous layer for expansion
     cudaMemcpy(d_InputBuf, d_Leaves, sizeof(*d_Leaves) * width / 2, cudaMemcpyDeviceToDevice);
 
@@ -305,9 +305,10 @@ void pprf_recver_gpu(TreeNode *d_otNodes, TreeNode *leaves, size_t depth) {
 
     cudaDeviceSynchronize();
 
-    int choice = choices & (1 << d-1) >> d-1;
-    int otIndex = puncturedIndex * 2 + 1 + choice;
-    cudaMemcpy(&d_Leaves[otIndex], &d_otNodes[d-1], sizeof(*d_otNodes), cudaMemcpyDeviceToDevice);
+    int choice = (choices & (1 << d-1)) >> d-1;
+    int otLeafLayerIdx = puncturedIndex * 2 + 1 - (width - 1) + choice;
+    cudaMemcpy(&d_Leaves[otLeafLayerIdx], &d_otNodes[d-1], sizeof(*d_Leaves), cudaMemcpyDeviceToDevice);
+    puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
 
     layerStartIdx += width;
   }
@@ -324,5 +325,5 @@ void pprf_recver_gpu(TreeNode *d_otNodes, TreeNode *leaves, size_t depth) {
 
   float duration = (end.tv_sec - start.tv_sec) * 1000;
   duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-  printf("Tree expansion using AESGPU: %0.4f ms\n", duration / NUM_SAMPLES);
+  printf("Tree expansion using AESGPU receiver: %0.4f ms\n", duration / NUM_SAMPLES);
 }

@@ -6,7 +6,7 @@
 #define AES_keyExpSize 176
 #define NUM_ROUNDS 10
 
-#define TREENODE_SIZE (2 * AES_BLOCKLEN)
+#define TREENODE_SIZE AES_BLOCKLEN
 #define NUM_SAMPLES 16
 
 #include <stdint.h>
