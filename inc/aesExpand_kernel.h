@@ -32,7 +32,7 @@
 #ifndef _AESEXPAND_KERNEL_H_
 #define _AESEXPAND_KERNEL_H_
 
-#include <stdio.h>
+#include "sbox_E.h"
 
 // Thread block size
 #define BSIZE 256

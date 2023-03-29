@@ -7,7 +7,7 @@
 #include "pprf_cpu.h"
 #include "pprf_gpu.h"
 #include <math.h>
-
+#include <thread>
 
 #include "utilsBox.h"
 
@@ -44,21 +44,25 @@ int main(int argc, char** argv) {
   aescpu_tree_expand(tree, depth, aes_init_ctx, aes_ecb_encrypt, "AES", numTrees);
   aescpu_tree_expand(tree2, depth, aesni_init_ctx, aesni_ecb_encrypt, "AESNI", numTrees);
 
-  pprf_sender_gpu(tree, senderLeaves, depth);
-  pprf_recver_gpu(recverLeaves, depth);
+  std::thread sender(pprf_sender_gpu, tree, senderLeaves, depth, numTrees);
+  std::thread recver(pprf_recver_gpu, recverLeaves, depth, numTrees);
+
+  sender.join();
+  recver.join();
 
   assert(memcmp(&tree[numLeaves - 1], &tree2[numLeaves - 1], sizeof(*tree) * numLeaves) == 0);
-  assert(memcmp(&tree2[numLeaves - 1], senderLeaves, sizeof(*tree) * numLeaves) == 0);
-  int i = 0;
-  while(i < numLeaves && memcmp(&senderLeaves[i], &recverLeaves[i], sizeof(TreeNode)) == 0) {
-    i++;
-  }
-  if(i < numLeaves) {
-    printf("diff at node: %d\n", i);
-  }
+  // assert(memcmp(&tree2[numLeaves - 1], senderLeaves, sizeof(*tree) * numLeaves) == 0);
 
-  print_leaves(senderLeaves, numLeaves);
-  print_leaves(recverLeaves, numLeaves);
+  printf("Punctured at nodes: ");
+  for (int i = 0; i < numLeaves; i++) {
+    if (memcmp(&senderLeaves[i], &recverLeaves[i], sizeof(TreeNode)) != 0) {
+      printf("%d ", i);
+    }
+  }
+  printf("\n");
+
+  // print_leaves(senderLeaves, numLeaves);
+  // print_leaves(recverLeaves, numLeaves);
 
   free(tree);
   free(tree2);

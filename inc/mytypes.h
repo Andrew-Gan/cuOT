@@ -5,6 +5,7 @@
 #define AES_KEYLEN 16 // Key length in bytes
 #define AES_keyExpSize 176
 #define NUM_ROUNDS 10
+#define PADDED_LEN 1024
 
 #define TREENODE_SIZE AES_BLOCKLEN
 #define NUM_SAMPLES 16

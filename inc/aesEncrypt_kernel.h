@@ -32,7 +32,7 @@
 #ifndef _AESENCRYPT128_KERNEL_H_
 #define _AESENCRYPT128_KERNEL_H_
 
-#include <stdio.h>
+#include "sbox_E.h"
 
 // Thread block size
 #define BSIZE 256

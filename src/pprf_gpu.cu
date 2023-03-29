@@ -1,49 +1,23 @@
-/***************************************************************************
- *   Copyright (C) 2006                                                    *
- *                                                                         *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
- ***************************************************************************/
-
-/**
-	@author Svetlin Manavski <svetlin@manavski.com>
-*/
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
 #include "aes.h"
+#include "aes_gpu.h"
 #include "pprf_gpu.h"
-
-#include "sbox_E.h"
-#include "sbox_D.h"
-#include "aesEncrypt_kernel.h"
-#include "aesDecrypt_kernel.h"
 #include "aesExpand_kernel.h"
-
-#include <vector>
 #include "aesCudaUtils.hpp"
 
-#define PADDED_LEN 1024
+// OT content
+uint32_t choices[8] = {
+  0b01111110011011100010000000111011,
+  0b00101011101100101010011001110010,
+  0b10110000110000100001110011100100,
+  0b00100110101111000000011111011101,
+  0b11001000111100000001000111010100,
+  0b00111010001111010100011110110101,
+  0b11001000111010111100110101100101,
+  0b10100001111101000000110011000000,
+};
 
-// mimic OT over communication
-uint64_t choices = 0xA26386857DA5C44F;
 TreeNode *d_otNodes;
-bool senderExpanded = false;
+volatile bool otSent = false;
 
 __host__
 static void cuda_check() {
@@ -64,111 +38,21 @@ static void cuda_check() {
     cudaSetDevice(dev);
 }
 
-__host__
-static cudaTextureObject_t alloc_key_texture(AES_ctx *ctx, cudaResourceDesc *resDesc, cudaTextureDesc *texDesc) {
-  unsigned *d_Key;
-  cudaMalloc(&d_Key, AES_keyExpSize);
-  cudaMemcpy(d_Key, ctx->roundKey, AES_keyExpSize, cudaMemcpyHostToDevice);
-  memset(resDesc, 0, sizeof(*resDesc));
-  resDesc->resType = cudaResourceTypeLinear;
-  resDesc->res.linear.devPtr = d_Key;
-  resDesc->res.linear.desc.f = cudaChannelFormatKindUnsigned;
-  resDesc->res.linear.desc.x = 32;
-  resDesc->res.linear.sizeInBytes = AES_keyExpSize;
-
-  memset(texDesc, 0, sizeof(*texDesc));
-  texDesc->readMode = cudaReadModeElementType;
-
-  cudaTextureObject_t texKey;
-  cudaCreateTextureObject(&texKey, resDesc, texDesc, NULL);
-
-  return texKey;
-}
-
-__host__
-static void dealloc_key_texture(cudaTextureObject_t key) {
-  cudaResourceDesc resDesc;
-  cudaGetTextureObjectResourceDesc(&resDesc, key);
-  cudaFree(resDesc.res.linear.devPtr);
-  cudaDestroyTextureObject(key);
-}
-
-__host__
-static void gpu_padding(AES_buffer *buf) {
-  unsigned mod16 = buf->length % 16;
-  unsigned div16 = buf->length / 16;
-
-  unsigned padElem = 16 - mod16;
-
-  for (unsigned cnt = 0; cnt < padElem; ++cnt)
-    buf->content[div16*16 + mod16 + cnt] = padElem;
-
-  buf->length += padElem;
-  buf->length += PADDED_LEN - (buf->length % PADDED_LEN);
-}
-
-__host__
-static void aesgpu_ecb_xcrypt(AES_ctx *ctx, AES_buffer *buf, bool isEncrypt) {
-  cuda_check();
-
-  unsigned *d_Input, *d_Result;
-  cudaMalloc(&d_Input, buf->length);
-  cudaMalloc(&d_Result, buf->length);
-  cudaMemset(d_Result, 0, buf->length);
-
-  cudaResourceDesc resDesc;
-  cudaTextureDesc texDesc;
-  cudaTextureObject_t texKey = alloc_key_texture(ctx, &resDesc, &texDesc);
-
-	dim3 threads(BSIZE, 1);
-  dim3 grid(buf->length / BSIZE / 4, 1);
-  cudaMemcpy(d_Input, buf->content, buf->length, cudaMemcpyHostToDevice);
-
-  if (isEncrypt)
-	  aesEncrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
-  else
-    aesDecrypt128<<<grid, threads>>>(texKey, d_Result, d_Input);
-
-  cudaDeviceSynchronize();
-  cudaMemcpy(buf->content, d_Result, buf->length, cudaMemcpyDeviceToHost);
-
-  cudaFree(d_Input);
-  cudaFree(d_Result);
-  dealloc_key_texture(texKey);
-}
-
-void aesgpu_ecb_encrypt(AES_ctx *ctx, AES_buffer *buf, int numThread) {
-  size_t len_old = buf->length;
-  gpu_padding(buf);
-  aesgpu_ecb_xcrypt(ctx, buf, true);
-  buf->length = len_old;
-}
-
-void aesgpu_ecb_decrypt(AES_ctx *ctx, AES_buffer *buf, int numThread) {
-  // invert expanded key
-  std::vector<unsigned> key(AES_KEYLEN);
-  for(int i = 0; i < AES_KEYLEN; i++) {
-    key.at(i) = ctx->roundKey[i];
+__global__
+void accumulator(TreeNode *d_sumLeaves, TreeNode *d_singlePprf, size_t numLeaves) {
+  int offset = blockIdx.x * blockDim.x + threadIdx.x;
+  if (offset < numLeaves) {
+    for (int i = 0; i < TREENODE_SIZE / 4; i++) {
+      d_sumLeaves[offset].data[i] ^= d_singlePprf[offset].data[i];
+    }
   }
-  std::vector<unsigned> expKey(AES_keyExpSize);
-  expFunc(key, expKey);
-
-  std::vector<unsigned> invExpKey(AES_keyExpSize);
-  invExpFunc(expKey, invExpKey);
-  for(int i = 0; i < AES_keyExpSize; i++) {
-    ctx->roundKey[i] = invExpKey.at(i);
-  }
-
-  size_t len_old = buf->length;
-  gpu_padding(buf);
-  aesgpu_ecb_xcrypt(ctx, buf, false);
-  buf->length = len_old;
 }
 
-void pprf_sender_gpu(TreeNode *root, TreeNode *leaves, size_t depth) {
+void pprf_sender_gpu(TreeNode *root, TreeNode *leaves, size_t depth, int numTrees) {
   cuda_check();
   size_t maxWidth = pow(2, depth);
   size_t numNode = maxWidth * 2 - 1;
+  size_t numLeaves = numNode / 2 + 1;
 
   // keys to use for tree expansion
   AES_ctx aesKeys[2];
@@ -195,47 +79,58 @@ void pprf_sender_gpu(TreeNode *root, TreeNode *leaves, size_t depth) {
 
   // get choice bits from receiver, hardcoded for now
   cudaMalloc(&d_otNodes, sizeof(*d_otNodes) * depth);
-  int puncturedIndex = 0;
 
   // store tree in device memory
   TreeNode *d_Leaves;
-  // double size as threads will write directly
-  cudaMalloc(&d_Leaves, sizeof(*d_Leaves) * (numNode / 2 + 1));
-  cudaMemcpy(d_Leaves, root, sizeof(*root), cudaMemcpyHostToDevice);
+  cudaMalloc(&d_Leaves, sizeof(*d_Leaves) * numLeaves);
 
   TreeNode *d_InputBuf;
   cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
 
-  size_t layerStartIdx = 1;
-  for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    // copy previous layer for expansion
-    cudaMemcpy(d_InputBuf, d_Leaves, sizeof(*d_Leaves) * width / 2, cudaMemcpyDeviceToDevice);
+  // for storing the accumulated distributed-pprf
+  TreeNode *d_sumLeaves;
+  cudaMalloc(&d_sumLeaves, sizeof(*d_sumLeaves) * numLeaves);
+  cudaMemset(d_sumLeaves, 0, sizeof(*d_sumLeaves) * numLeaves);
 
-    size_t paddedLen = (width / 2) * sizeof(*d_Leaves);
-    paddedLen += 16 - (paddedLen % 16);
-    paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
-    static int thread_per_aesblock = 4;
-    dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
-    dim3 thread(BSIZE, 1);
-    aesExpand128<<<grid, thread>>>(texLKey, d_Leaves,  (unsigned*) d_InputBuf, 0, width);
-    aesExpand128<<<grid, thread>>>(texRKey, d_Leaves,  (unsigned*) d_InputBuf, 1, width);
+  for (int t = 0; t < numTrees; t++) {
+    int puncturedIndex = 0;
+    cudaMemcpy(d_Leaves, root, sizeof(*root), cudaMemcpyHostToDevice);
+    size_t layerStartIdx = 1;
+    while(otSent);
 
-    cudaDeviceSynchronize();
+    for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
+      // copy previous layer for expansion
+      cudaMemcpy(d_InputBuf, d_Leaves, sizeof(*d_Leaves) * width / 2, cudaMemcpyDeviceToDevice);
 
-    int choice = (choices & (1 << d-1)) >> d-1;
-    int otLeafLayerIdx = puncturedIndex * 2 + 1 - (width - 1) + choice;
-    cudaMemcpy(&d_otNodes[d-1], &d_Leaves[otLeafLayerIdx], sizeof(*d_Leaves), cudaMemcpyDeviceToDevice);
-    puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
+      size_t paddedLen = (width / 2) * sizeof(*d_Leaves);
+      paddedLen += 16 - (paddedLen % 16);
+      paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
+      static int thread_per_aesblock = 4;
+      dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
+      dim3 thread(BSIZE, 1);
+      aesExpand128<<<grid, thread>>>(texLKey, d_Leaves,  (unsigned*) d_InputBuf, 0, width);
+      aesExpand128<<<grid, thread>>>(texRKey, d_Leaves,  (unsigned*) d_InputBuf, 1, width);
 
-    layerStartIdx += width;
+      cudaDeviceSynchronize();
+
+      int choice = (choices[t] & (1 << d-1)) >> d-1;
+      int otLeafLayerIdx = puncturedIndex * 2 + 1 - (width - 1) + choice;
+      cudaMemcpy(&d_otNodes[d-1], &d_Leaves[otLeafLayerIdx], sizeof(*d_Leaves), cudaMemcpyDeviceToDevice);
+      puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
+
+      layerStartIdx += width;
+    }
+
+    accumulator<<<(numLeaves - 1) / 1024 + 1, 1024>>>(d_sumLeaves, d_Leaves, numLeaves);
+
+    otSent = true;
+    printf("Sender expansion %d complete\n", t);
   }
-
-  // indicate base OTs completed for receiver to begin expansion
-  senderExpanded = true;
-  cudaMemcpy(leaves, d_Leaves, sizeof(*leaves) * maxWidth, cudaMemcpyDeviceToHost);
+  cudaMemcpy(leaves, d_sumLeaves, sizeof(*leaves) * maxWidth, cudaMemcpyDeviceToHost);
 
   cudaFree(d_Leaves);
   cudaFree(d_InputBuf);
+  cudaFree(d_sumLeaves);
 
   dealloc_key_texture(texLKey);
   dealloc_key_texture(texRKey);
@@ -244,13 +139,14 @@ void pprf_sender_gpu(TreeNode *root, TreeNode *leaves, size_t depth) {
 
   float duration = (end.tv_sec - start.tv_sec) * 1000;
   duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-  printf("Tree expansion using AESGPU sender: %0.4f ms\n", duration / NUM_SAMPLES);
+  printf("Tree exp AESGPU sender: %0.4f ms\n", duration / NUM_SAMPLES);
 }
 
 void pprf_recver_gpu(TreeNode *leaves, size_t depth, int numTrees) {
   cuda_check();
   size_t maxWidth = pow(2, depth);
   size_t numNode = maxWidth * 2 - 1;
+  size_t numLeaves = numNode / 2 + 1;
 
   // keys to use for tree expansion
   AES_ctx aesKeys[2];
@@ -277,46 +173,59 @@ void pprf_recver_gpu(TreeNode *leaves, size_t depth, int numTrees) {
 
   // store tree in device memory
   TreeNode *d_Leaves;
-  // double size as threads will write directly
-  cudaMalloc(&d_Leaves, sizeof(*d_Leaves) * (numNode / 2 + 1));
+  cudaMalloc(&d_Leaves, sizeof(*d_Leaves) * numLeaves);
 
   TreeNode *d_InputBuf;
   cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * maxWidth / 2 + PADDED_LEN);
 
-  while(!senderExpanded);
-  int choice = choices & 1;
-  int puncturedIndex = 2 - choice;
+  // for storing the accumulated distributed-pprf
+  TreeNode *d_multiPprf;
+  cudaMalloc(&d_multiPprf, sizeof(*d_multiPprf) * numLeaves);
+  cudaMemset(d_multiPprf, 0, sizeof(*d_multiPprf) * numLeaves);
 
-  cudaMemcpy(&d_Leaves[choice], &d_otNodes[0], sizeof(*d_otNodes), cudaMemcpyDeviceToDevice);
-  
-  size_t layerStartIdx = 3;
-  for (size_t d = 2, width = 4; d <= depth; d++, width *= 2) {
-    // copy previous layer for expansion
-    cudaMemcpy(d_InputBuf, d_Leaves, sizeof(*d_Leaves) * width / 2, cudaMemcpyDeviceToDevice);
+  for(int t = 0; t < numTrees; t++) {
+    while(!otSent);
+    int choice = choices[t] & 1;
+    int puncturedIndex = 2 - choice;
 
-    size_t paddedLen = (width / 2) * sizeof(*d_Leaves);
-    paddedLen += 16 - (paddedLen % 16);
-    paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
-    static int thread_per_aesblock = 4;
-    dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
-    dim3 thread(BSIZE, 1);
-    aesExpand128<<<grid, thread>>>(texLKey, d_Leaves,  (unsigned*) d_InputBuf, 0, width);
-    aesExpand128<<<grid, thread>>>(texRKey, d_Leaves,  (unsigned*) d_InputBuf, 1, width);
+    cudaMemcpy(&d_Leaves[choice], &d_otNodes[0], sizeof(*d_otNodes), cudaMemcpyDeviceToDevice);
 
+    size_t layerStartIdx = 3;
+    for (size_t d = 2, width = 4; d <= depth; d++, width *= 2) {
+      // copy previous layer for expansion
+      cudaMemcpy(d_InputBuf, d_Leaves, sizeof(*d_Leaves) * width / 2, cudaMemcpyDeviceToDevice);
+
+      size_t paddedLen = (width / 2) * sizeof(*d_Leaves);
+      paddedLen += 16 - (paddedLen % 16);
+      paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
+      static int thread_per_aesblock = 4;
+      dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
+      dim3 thread(BSIZE, 1);
+      aesExpand128<<<grid, thread>>>(texLKey, d_Leaves,  (unsigned*) d_InputBuf, 0, width);
+      aesExpand128<<<grid, thread>>>(texRKey, d_Leaves,  (unsigned*) d_InputBuf, 1, width);
+
+      cudaDeviceSynchronize();
+
+      int choice = (choices[t] & (1 << d-1)) >> d-1;
+      int otLeafLayerIdx = puncturedIndex * 2 + 1 - (width - 1) + choice;
+      cudaMemcpy(&d_Leaves[otLeafLayerIdx], &d_otNodes[d-1], sizeof(*d_Leaves), cudaMemcpyDeviceToDevice);
+      puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
+
+      layerStartIdx += width;
+    }
+
+    accumulator<<<(numLeaves - 1) / 1024 + 1, 1024>>>(d_multiPprf, d_Leaves, numLeaves);
     cudaDeviceSynchronize();
 
-    int choice = (choices & (1 << d-1)) >> d-1;
-    int otLeafLayerIdx = puncturedIndex * 2 + 1 - (width - 1) + choice;
-    cudaMemcpy(&d_Leaves[otLeafLayerIdx], &d_otNodes[d-1], sizeof(*d_Leaves), cudaMemcpyDeviceToDevice);
-    puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
-
-    layerStartIdx += width;
+    otSent = false;
+    printf("Recver expansion %d complete\n", t);
   }
 
-  cudaMemcpy(leaves, d_Leaves, sizeof(*leaves) * maxWidth, cudaMemcpyDeviceToHost);
+  cudaMemcpy(leaves, d_multiPprf, sizeof(*leaves) * maxWidth, cudaMemcpyDeviceToHost);
 
   cudaFree(d_Leaves);
   cudaFree(d_InputBuf);
+  cudaFree(d_multiPprf);
 
   dealloc_key_texture(texLKey);
   dealloc_key_texture(texRKey);
@@ -325,5 +234,5 @@ void pprf_recver_gpu(TreeNode *leaves, size_t depth, int numTrees) {
 
   float duration = (end.tv_sec - start.tv_sec) * 1000;
   duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-  printf("Tree expansion using AESGPU receiver: %0.4f ms\n", duration / NUM_SAMPLES);
+  printf("Tree exp AESGPU receiver: %0.4f ms\n", duration / NUM_SAMPLES);
 }
