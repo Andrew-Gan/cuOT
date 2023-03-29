@@ -18,6 +18,7 @@ uint32_t choices[8] = {
 
 TreeNode *d_otNodes;
 volatile bool otSent = false;
+TreeNode *d_puncturedLeaves;
 
 __host__
 static void cuda_check() {
@@ -39,11 +40,16 @@ static void cuda_check() {
 }
 
 __global__
-void accumulator(TreeNode *d_sumLeaves, TreeNode *d_singlePprf, size_t numLeaves) {
-  int offset = blockIdx.x * blockDim.x + threadIdx.x;
-  if (offset < numLeaves) {
+void sum_pprf_into_sparse(TreeNode *d_sparse_vec, TreeNode *d_prf,
+  TreeNode *d_pprf, TreeNode puncture, size_t numLeaves) {
+  
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (idx < numLeaves) {
     for (int i = 0; i < TREENODE_SIZE / 4; i++) {
-      d_sumLeaves[offset].data[i] ^= d_singlePprf[offset].data[i];
+      // sender prf ^ recver pprf = unit vector
+      // unit vector + unit vector + ... = sparse vector
+      d_sparse_vec[idx].data[i] ^= d_prf[idx].data[i] ^ d_pprf[idx].data[i];
     }
   }
 }
@@ -212,9 +218,12 @@ void pprf_recver_gpu(TreeNode *leaves, size_t depth, int numTrees) {
       puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
 
       layerStartIdx += width;
-    }
+    } 
 
-    accumulator<<<(numLeaves - 1) / 1024 + 1, 1024>>>(d_multiPprf, d_Leaves, numLeaves);
+    // todo: obtain y ^ delta from sender
+    TreeNode puncturedNode;
+
+    sum_pprf_into_sparse<<<(numLeaves - 1) / 1024 + 1, 1024>>>(d_multiPprf, d_Leaves, puncturedNode, numLeaves);
     cudaDeviceSynchronize();
 
     otSent = false;
