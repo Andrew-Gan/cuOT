@@ -3,6 +3,9 @@
 
 __host__
 void mult_recver_gpu(Matrix ldpc, TreeNode *d_multiPprf, int *nonZeroRows, int numTrees) {
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     Matrix d_ldpc;
     int ldpcByteCols = (ldpc.cols - 1) / 8 + 1;
     int ldpcSize = ldpc.rows * ldpcByteCols;
@@ -10,17 +13,21 @@ void mult_recver_gpu(Matrix ldpc, TreeNode *d_multiPprf, int *nonZeroRows, int n
     cudaMalloc(&d_ldpc.data, ldpcSize);
     cudaMemcpy(d_ldpc.data, ldpc.data, ldpcSize, cudaMemcpyHostToDevice);
 
-    // determine non-zero rows of sparse vector
     int *d_nonZeroRows;
     cudaMalloc(&d_nonZeroRows, numTrees * sizeof(*d_nonZeroRows));
     cudaMemcpy(d_nonZeroRows, nonZeroRows, numTrees * sizeof(*nonZeroRows), cudaMemcpyHostToDevice);
 
     uint8_t *d_randomVec;
-    int randVecByteRows = (ldpc.rows - 1) / 8 + 1;
-    cudaMalloc(&d_randomVec, randVecByteRows * sizeof(*d_randomVec));
+    int randVecSize = (ldpc.rows - 1) / 8 + 1;
+    cudaMalloc(&d_randomVec, randVecSize * sizeof(*d_randomVec));
     dim3 nBlock = ldpc.rows / 512;
     gemm_gpu<<<nBlock, 512>>>(d_randomVec, d_ldpc, d_nonZeroRows, numTrees);
     cudaDeviceSynchronize();
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    float duration = (end.tv_sec - start.tv_sec) * 1000;
+    duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
+    printf("Matrix mult using GPU: %0.4f ms\n", duration / NUM_SAMPLES);
 }
 
 __global__
@@ -29,7 +36,7 @@ void gemm_gpu(uint8_t *randomVec, Matrix ldpc, int *nonZeroRows, int numTrees) {
     int col = 0, idx = 0;
     uint8_t res = 0, bit = 0;
 
-    for(int t = 0; t < (numTrees - 1) / 8 + 1; t++) {
+    for (int t = 0; t < (numTrees - 1) / 8 + 1; t++) {
         col = nonZeroRows[t];
         idx = row * ldpc.cols + col;
         bit = (ldpc.data[idx / 8] & (1 << idx % 8)) >> idx % 8;

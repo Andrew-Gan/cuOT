@@ -1,7 +1,7 @@
 SRC_DIR := src
 INC_DIR := inc
 
-CC := nvcc -g -O3 --compiler-options='-g -msse2 -msse -march=native -maes -lpthread'
+CC := nvcc -g -O0 --compiler-options='-g -msse2 -msse -march=native -maes -lpthread'
 SRC := $(wildcard $(SRC_DIR)/*)
 LIB := -lboost_system -lboost_filesystem
 INC := -Iinc
