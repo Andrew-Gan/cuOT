@@ -1,9 +1,10 @@
-#include "matrix.hpp"
+#ifndef __LDPC_H__
+#define __LDPC_H__
 
-#define ROW 16
-#define COLUMN 32
-#define DIAGONAL 16
-#define DIAGONAL_STRIDE 2
+#include "mytypes.h"
 
-// encoded from perspective of receiver
-Matrix build_ldpc();
+void print_matrix(Matrix& mat);
+
+Matrix generate_ldpc(int numLeaves, int numTrees);
+
+#endif

@@ -41,55 +41,9 @@ typedef struct {
   size_t idx;
 } ThreadTreeArgs;
 
-#include <bitset>
-#include <pair>
-
-class Matrix {
-private:
-    int row = 0;
-    int col = 0;
-    std::bitset<32*64> content;
-public:
-    Matrix(int row, int col) {
-        // TODO: use row and col
-        content.reset();
-    }
-
-    uint8_t get(int row, int col) {
-        return content.test(row * col + col);
-    }
-
-    void set(int row, int col) {
-        content.set(row * col + col);
-    }
-
-    void clear(int row, int col) {
-        content.reset(row * col + col);
-    }
-
-    std::pair<int, int> getDim() {
-        return std::make_pair(row, col);
-    }
-
-    void print() {
-        std::string str;
-        str << content;
-        for (int i = 0; i < str.length() / col; i++) {
-            std::cout << str.substr(i * col, );
-        }
-    }
-
-    Matrix operator*(const Matrix& rhs) {
-        Matrix res(row, rhs.col);
-        for(int r = 0; r < row; r++) {
-            for(int c = 0; c < rhs.col; c++) {
-                for(int k = 0; k < col; k++) {
-                    res.set(r, c) += content[r * col + k] * content[c + k * row];
-                }
-            }
-        }
-        return res;
-    }
-};
+typedef struct {
+  int rows, cols;
+  uint8_t *data;
+} Matrix;
 
 #endif
