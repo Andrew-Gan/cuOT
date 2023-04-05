@@ -4,6 +4,7 @@ what worked
 3. having each thread write to tree node directly
 4. early one-time allocation of all buffers using precomputed size
 5. using pinned memory during host array allocation
+6. buffer size only to keep leaves
 
 what didnt work
 1.  async memcpy to host after a layer is expanded
@@ -12,4 +13,6 @@ why not: kernel execution too quick, memcpyasync would still bottleneck runtime
 why not: slowed down runtime due to on-demand copying
 
 try:
-1. buffer size only to keep leaves
+1. keep leaves in tree until end of ot
+2. find a way to allow more coalescing access in gpu mat mult
+3. use GPUDirect RDMA for inter-gpu comm
