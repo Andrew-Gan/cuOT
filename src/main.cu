@@ -14,25 +14,39 @@
 
 #include "utilsBox.h"
 
-void print_leaves(TreeNode *leaves, int numLeaves) {
+void print_leaves(TreeNode *nodes, int numLeaves) {
   for(int i = 0; i < numLeaves; i++) {
+    printf("node %d: ", i);
     for(int j = 0; j < TREENODE_SIZE / 4; j++) {
-      printf("0x%x ", leaves[i].data[j]);
+      printf("%x ", nodes[i].data[j]);
     }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+__global__
+void print_leaves_gpu(TreeNode *nodes, size_t numLeaves) {
+  for(int i = 0; i < numLeaves; i++) {
+    printf("node %d: ", i);
+    for(int j = 0; j < TREENODE_SIZE / 4; j++) {
+      printf("%x ", nodes[i].data[j]);
+    }
+    printf("\n");
   }
   printf("\n");
 }
 
 int main(int argc, char** argv) {
   if (argc < 3) {
-    fprintf(stderr, "Usage: ./pprf log(n) t\n");
+    fprintf(stderr, "Usage: ./pprf d t\n");
     return EXIT_FAILURE;
   }
 
   size_t depth = atoi(argv[1]);
   int numTrees = atoi(argv[2]);
-  size_t numNodes = pow(2, depth + 1) - 1;
-  size_t numLeaves = numNodes / 2 + 1;
+  size_t numLeaves = pow(2, depth);
+  size_t numNodes = 2 * numLeaves - 1;
   TreeNode *root = (TreeNode*) malloc(sizeof(*root));
   root->data[0] = 123456;
   root->data[1] = 7890123;
@@ -48,6 +62,7 @@ int main(int argc, char** argv) {
 
   TreeNode *d_sparseVec;
   cudaMalloc(&d_sparseVec, sizeof(*d_sparseVec) * numLeaves);
+  cudaMemset(d_sparseVec, 0, sizeof(*d_sparseVec) * numLeaves);
   int *nonZerosGpu = (int*) malloc(numTrees * sizeof(*nonZerosGpu));
   std::thread senderExpGpu(pprf_sender_gpu, root, depth, numTrees);
   std::thread recverExpGpu(pprf_recver_gpu, d_sparseVec, nonZerosGpu, depth, numTrees);
@@ -57,27 +72,24 @@ int main(int argc, char** argv) {
   TreeNode *gpu_sparseVec = (TreeNode*) malloc(numLeaves * sizeof(*gpu_sparseVec));
   cudaMemcpy(gpu_sparseVec, d_sparseVec, numLeaves * sizeof(*d_sparseVec), cudaMemcpyDeviceToHost);
 
-  // assert(memcpy(gpu_sparseVec, sparseVec, numLeaves * sizeof(*d_sparseVec)) == 0);
-
   TreeNode zeroNode;
   memset(&zeroNode, 0, sizeof(zeroNode));
-  // printf("cpu non-zero at: ");
-  // for(int i = 0; i < numLeaves; i++) {
-  //   if (memcmp(&sparseVec[i], &zeroNode, sizeof(zeroNode)) != 0) {
-  //     printf("%d ", i);
-  //   }
-  // }
-  // printf("\n");
-  // printf("gpu non-zero at: ");
-  // for(int i = 0; i < numLeaves; i++) {
-  //   if (memcmp(&gpu_sparseVec[i], &zeroNode, sizeof(zeroNode)) != 0) {
-  //     printf("%d ", i);
-  //   }
-  // }
-  // printf("\n");
+  printf("cpu non-zero at: ");
+  for(int i = 0; i < numLeaves; i++) {
+    if (memcmp(&sparseVec[i], &zeroNode, sizeof(zeroNode)) != 0) {
+      printf("%d ", i);
+    }
+  }
+  printf("\ngpu non-zero at: ");
+  for(int i = 0; i < numLeaves; i++) {
+    if (memcmp(&gpu_sparseVec[i], &zeroNode, sizeof(zeroNode)) != 0) {
+      printf("%d ", i);
+    }
+  }
+  printf("\n");
+  assert(memcmp(gpu_sparseVec, sparseVec, numLeaves * sizeof(*sparseVec)) == 0);
 
   Matrix ldpc = generate_ldpc(numLeaves, numTrees);
-
 
   std::thread recverMultCpu(mult_recver_cpu, ldpc, sparseVec, nonZerosGpu, numTrees);
   recverMultCpu.join();

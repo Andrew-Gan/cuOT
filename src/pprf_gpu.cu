@@ -1,3 +1,4 @@
+#include <atomic>
 #include "aes.h"
 #include "aes_gpu.h"
 #include "pprf_gpu.h"
@@ -15,9 +16,21 @@ const uint32_t choices[8] = {
   0b11001000111010111100110101100101,
   0b10100001111101000000110011000000,
 };
-TreeNode *d_prf;
-TreeNode *d_otNodes;
-volatile bool *volatile d_otSent = nullptr;
+static std::atomic<TreeNode*> d_prf;
+static std::atomic<TreeNode*> d_otNodes;
+static std::atomic<bool*> treeExpanded;
+
+__global__
+void print_nodes(TreeNode *nodes, size_t numLeaves) {
+  for(int i = 0; i < numLeaves; i++) {
+    printf("node %d: ", i);
+    for(int j = 0; j < TREENODE_SIZE / 4; j++) {
+      printf("%x ", nodes[i].data[j]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
 
 static void cuda_check() {
   int deviceCount = 0;
@@ -53,23 +66,11 @@ static void xor_prf(TreeNode *sum, TreeNode *d_prf, TreeNode *d_pprf, size_t num
   }
 }
 
-__global__
-void print_nodes(TreeNode *nodes, size_t numNodes) {
-  for(int i = 0; i < numNodes; i++) {
-    printf("node %d: ", i);
-    for(int j = 0; j < TREENODE_SIZE / 4; j++) {
-      printf("%x ", nodes[i].data[j]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-
 void pprf_sender_gpu(TreeNode *root, size_t depth, int numTrees) {
   cuda_check();
 
-  d_otSent = (bool*) malloc(numTrees * sizeof(*d_otSent));
-  memset((void*) d_otSent, (int) false, numTrees);
+  treeExpanded = (bool*) malloc(numTrees * sizeof(*treeExpanded));
+  memset((void*) treeExpanded, (int) false, numTrees);
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
@@ -92,13 +93,16 @@ void pprf_sender_gpu(TreeNode *root, size_t depth, int numTrees) {
   cudaTextureObject_t texLKey = alloc_key_texture(&aesKeys[0], &resDescLeft, &texDesc);
   cudaTextureObject_t texRKey = alloc_key_texture(&aesKeys[1], &resDescRight, &texDesc);
 
-  cudaMalloc(&d_otNodes, sizeof(*d_otNodes) * depth);
-  cudaMalloc(&d_prf, sizeof(*d_prf) * numLeaves);
+  TreeNode* tmp;
+  cudaMalloc(&tmp, sizeof(*d_otNodes) * depth);
+  d_otNodes = tmp;
+  cudaMalloc(&tmp, sizeof(*d_prf) * numLeaves);
+  d_prf = tmp;
 
   TreeNode *d_InputBuf;
   cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * numLeaves / 2 + PADDED_LEN);
 
-  // for storing the accumulated distributed-pprf
+  // for storing the accumulated distributed-pd_prf
   TreeNode *d_sumLeaves;
   cudaMalloc(&d_sumLeaves, sizeof(*d_sumLeaves) * numLeaves);
   cudaMemset(d_sumLeaves, 0, sizeof(*d_sumLeaves) * numLeaves);
@@ -122,7 +126,6 @@ void pprf_sender_gpu(TreeNode *root, size_t depth, int numTrees) {
       dim3 thread(BSIZE, 1);
       aesExpand128<<<grid, thread>>>(texLKey, d_prf,  (unsigned*) d_InputBuf, 0, width);
       aesExpand128<<<grid, thread>>>(texRKey, d_prf,  (unsigned*) d_InputBuf, 1, width);
-
       cudaDeviceSynchronize();
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
@@ -131,12 +134,14 @@ void pprf_sender_gpu(TreeNode *root, size_t depth, int numTrees) {
       puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
     }
 
-    d_otSent[t] = true;
+    treeExpanded[t] = true;
     int tBlock = (numLeaves - 1) / 1024 + 1;
-    xor_prf<<<tBlock, 1024>>>(d_sumLeaves, d_prf, NULL, numLeaves);
-    // printf("Sender gpu expansion %d complete\n", t);
+    xor_prf<<<tBlock, 1024>>>(d_sumLeaves, d_prf.load(), nullptr, numLeaves);
+    cudaDeviceSynchronize();
+    while(treeExpanded[t] == true);
   }
 
+  // cudaFree(d_otNodes);
   cudaFree(d_prf);
   cudaFree(d_InputBuf);
   cudaFree(d_sumLeaves);
@@ -174,7 +179,7 @@ void pprf_recver_gpu(TreeNode *d_sparseVec, int *nonZeroRows, size_t depth, int 
   cudaTextureObject_t texLKey = alloc_key_texture(&aesKeys[0], &resDescLeft, &texDesc);
   cudaTextureObject_t texRKey = alloc_key_texture(&aesKeys[1], &resDescRight, &texDesc);
 
-  while(d_otSent == nullptr);
+  while(treeExpanded == nullptr);
 
   // store tree in device memory
   TreeNode *d_pprf;
@@ -187,7 +192,7 @@ void pprf_recver_gpu(TreeNode *d_sparseVec, int *nonZeroRows, size_t depth, int 
   clock_gettime(CLOCK_MONOTONIC, &start);
 
   for (int t = 0; t < numTrees; t++) {
-    while (!d_otSent[t]);
+    while (!treeExpanded[t]);
     int choice = choices[t] & 1;
     int puncturedIndex = 2 - choice;
     cudaMemcpy(&d_pprf[choice], &d_otNodes[0], sizeof(*d_otNodes), cudaMemcpyDeviceToDevice);
@@ -204,7 +209,6 @@ void pprf_recver_gpu(TreeNode *d_sparseVec, int *nonZeroRows, size_t depth, int 
       dim3 thread(BSIZE, 1);
       aesExpand128<<<grid, thread>>>(texLKey, d_pprf, (unsigned*) d_InputBuf, 0, width);
       aesExpand128<<<grid, thread>>>(texRKey, d_pprf, (unsigned*) d_InputBuf, 1, width);
-
       cudaDeviceSynchronize();
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
@@ -213,14 +217,11 @@ void pprf_recver_gpu(TreeNode *d_sparseVec, int *nonZeroRows, size_t depth, int 
       puncturedIndex = puncturedIndex * 2 + 1 + (1 - choice);
     }
 
-    TreeNode* hostTest = (TreeNode*) malloc(numLeaves * sizeof(*hostTest));
-    cudaMemcpy(hostTest, d_pprf, numLeaves * sizeof(*hostTest), cudaMemcpyDeviceToHost);
-
     int tBlock = (numLeaves - 1) / 1024 + 1;
     xor_prf<<<tBlock, 1024>>>(d_sparseVec, d_prf, d_pprf, numLeaves);
     cudaDeviceSynchronize();
     nonZeroRows[t] = puncturedIndex;
-    // printf("Recver gpu expansion %d complete\n", t);
+    treeExpanded[t] = false;
   }
 
   cudaFree(d_pprf);

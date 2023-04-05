@@ -14,3 +14,5 @@ why not: slowed down runtime due to on-demand copying
 
 try:
 1. keep leaves in tree until end of ot
+2. find a way to allow more coalescing access in gpu mat mult
+3. use GPUDirect RDMA for inter-gpu comm
