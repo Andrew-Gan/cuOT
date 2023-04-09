@@ -24,6 +24,7 @@
 	@author Svetlin Manavski <svetlin@manavski.com>
  */
 
+#include "utilsBox.h"
 #include "aesCudaUtils.hpp"
 #include <string.h>
 

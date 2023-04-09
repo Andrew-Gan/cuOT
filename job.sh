@@ -9,22 +9,14 @@ rm -f nsys* out out-nsys slurm*
 
 make
 
-# for size in {15..25}
-# do
-#     for threads in {1..8}
-#     do
-#         ./aes testData/input.txt testData/key.txt $((2**$size)) $(($threads)) >> out
-#     done
-# done
-
-for thread in 2 4 8 16
+for depth in 10 12 14
 do
-    for depth in {12..24}
+    for tree in 5 11
     do
-        ./aes exp $depth $thread >> out
+        ./pprf $depth $tree >> out
     done
 done
 
-nsys profile --stats=true --output=nsys-stats ./aes exp 24 16 > out-nsys
+nsys profile --stats=true --output=nsys-stats ./pprf 24 32 > out-nsys
 
 make clean

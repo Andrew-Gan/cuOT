@@ -2,39 +2,61 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include <thread>
+#include <future>
+#include <random>
 
-#include "aes.h"
-#include "aesni.h"
 #include "pprf_cpu.h"
 #include "pprf_gpu.h"
 #include "ldpc.h"
 #include "gemm_cpu.h"
 #include "gemm_gpu.h"
 
-#include "utilsBox.h"
-
-void print_leaves(TreeNode *nodes, int numLeaves) {
-  for(int i = 0; i < numLeaves; i++) {
-    printf("node %d: ", i);
-    for(int j = 0; j < TREENODE_SIZE / 4; j++) {
-      printf("%x ", nodes[i].data[j]);
-    }
-    printf("\n");
+uint64_t* genChoices(int numTrees, int numLeaves) {
+  uint64_t *choices = new uint64_t[numTrees];
+  for (int t = 0; t < numTrees; t++) {
+    choices[t] = ((uint64_t) rand() << 32) | rand();
   }
-  printf("\n");
+  return choices;
 }
 
-__global__
-void print_leaves_gpu(TreeNode *nodes, size_t numLeaves) {
-  for(int i = 0; i < numLeaves; i++) {
-    printf("node %d: ", i);
-    for(int j = 0; j < TREENODE_SIZE / 4; j++) {
-      printf("%x ", nodes[i].data[j]);
-    }
-    printf("\n");
-  }
-  printf("\n");
+void testCpu(TreeNode root, uint64_t *choices, int depth, int numTrees, int numLeaves) {
+  auto senderExp = std::async(pprf_sender_cpu, choices, root, depth, numTrees);
+  auto recverExp = std::async(pprf_recver_cpu, choices, depth, numTrees);
+  auto [fullVec, delta] = senderExp.get();
+  auto [puncVec, puncIndices] = recverExp.get();
+
+  // printf("Punctured at: ");
+  // for(int i = 0; i < numLeaves; i++) {
+  //   if (memcmp(&fullVec[i], &puncVec[i], sizeof(*puncVec)) != 0)
+  //     printf("%d ", i);
+  // }
+  // printf("\n");
+
+  Matrix ldpc = generate_ldpc(numLeaves, numTrees);
+  std::thread recverMult(mult_recver_cpu, ldpc, puncIndices, numTrees);
+  recverMult.join();
+}
+
+void testGpu(TreeNode root, uint64_t *choices, int depth, int numTrees, int numLeaves) {
+  auto senderExp = std::async(pprf_sender_gpu, choices, root, depth, numTrees);
+  auto recverExp = std::async(pprf_recver_gpu, choices, depth, numTrees);
+  auto [d_fullVec, delta] = senderExp.get();
+  auto [d_puncVec, puncIndices] = recverExp.get();
+
+  // TreeNode *puncVec = (TreeNode*) malloc(numLeaves * sizeof(*puncVec));
+  // cudaMemcpy(puncVec, d_puncVec, numLeaves * sizeof(*d_puncVec), cudaMemcpyDeviceToHost);
+  // TreeNode *fullVec = (TreeNode*) malloc(numLeaves * sizeof(*fullVec));
+  // cudaMemcpy(fullVec, d_fullVec, numLeaves * sizeof(*d_fullVec), cudaMemcpyDeviceToHost);
+  // printf("Punctured at: ");
+  // for(int i = 0; i < numLeaves; i++) {
+  //   if (memcmp(&fullVec[i], &puncVec[i], sizeof(*puncVec)) != 0)
+  //     printf("%d ", i);
+  // }
+  // printf("\n");
+
+  Matrix ldpc = generate_ldpc(numLeaves, numTrees);
+  std::thread recverMult(mult_recver_gpu, ldpc, puncIndices, numTrees);
+  recverMult.join();
 }
 
 int main(int argc, char** argv) {
@@ -46,58 +68,17 @@ int main(int argc, char** argv) {
   size_t depth = atoi(argv[1]);
   int numTrees = atoi(argv[2]);
   size_t numLeaves = pow(2, depth);
-  size_t numNodes = 2 * numLeaves - 1;
-  TreeNode *root = (TreeNode*) malloc(sizeof(*root));
-  root->data[0] = 123456;
-  root->data[1] = 7890123;
+  TreeNode root;
+  root.data[0] = 123456;
+  root.data[1] = 7890123;
 
-  printf("Depth: %lu, Nodes: %lu, Threads: %d\n", depth, numNodes, numTrees);
+  printf("Depth: %lu, OTs: %lu, Weight: %d\n", depth, numLeaves, numTrees);
 
-  TreeNode *sparseVec = (TreeNode*) malloc(numLeaves * sizeof(*sparseVec));
-  int *nonZerosCpu = (int*) malloc(numTrees * sizeof(*nonZerosCpu));
-  std::thread senderExpCpu(pprf_sender_cpu, root, depth, aesni_init_ctx, aesni_ecb_encrypt, numTrees);
-  std::thread recverExpCpu(pprf_recver_cpu, aesni_init_ctx, aesni_ecb_encrypt, sparseVec, nonZerosCpu, depth, numTrees);
-  senderExpCpu.join();
-  recverExpCpu.join();
+  uint64_t *choices = genChoices(numTrees, numLeaves);
+  testCpu(root, choices, depth, numTrees, numLeaves);
+  testGpu(root, choices, depth, numTrees, numLeaves);
 
-  TreeNode *d_sparseVec;
-  cudaMalloc(&d_sparseVec, sizeof(*d_sparseVec) * numLeaves);
-  cudaMemset(d_sparseVec, 0, sizeof(*d_sparseVec) * numLeaves);
-  int *nonZerosGpu = (int*) malloc(numTrees * sizeof(*nonZerosGpu));
-  std::thread senderExpGpu(pprf_sender_gpu, root, depth, numTrees);
-  std::thread recverExpGpu(pprf_recver_gpu, d_sparseVec, nonZerosGpu, depth, numTrees);
-  senderExpGpu.join();
-  recverExpGpu.join();
-
-  TreeNode *gpu_sparseVec = (TreeNode*) malloc(numLeaves * sizeof(*gpu_sparseVec));
-  cudaMemcpy(gpu_sparseVec, d_sparseVec, numLeaves * sizeof(*d_sparseVec), cudaMemcpyDeviceToHost);
-
-  TreeNode zeroNode;
-  memset(&zeroNode, 0, sizeof(zeroNode));
-  printf("cpu non-zero at: ");
-  for(int i = 0; i < numLeaves; i++) {
-    if (memcmp(&sparseVec[i], &zeroNode, sizeof(zeroNode)) != 0) {
-      printf("%d ", i);
-    }
-  }
-  printf("\ngpu non-zero at: ");
-  for(int i = 0; i < numLeaves; i++) {
-    if (memcmp(&gpu_sparseVec[i], &zeroNode, sizeof(zeroNode)) != 0) {
-      printf("%d ", i);
-    }
-  }
-  printf("\n");
-  assert(memcmp(gpu_sparseVec, sparseVec, numLeaves * sizeof(*sparseVec)) == 0);
-
-  Matrix ldpc = generate_ldpc(numLeaves, numTrees);
-
-  std::thread recverMultCpu(mult_recver_cpu, ldpc, sparseVec, nonZerosGpu, numTrees);
-  recverMultCpu.join();
-  std::thread recverMultGpu(mult_recver_gpu, ldpc, d_sparseVec, nonZerosGpu, numTrees);
-  recverMultGpu.join();
-
-  free(root);
-  // free(tree2);
+  delete choices;
 
   return EXIT_SUCCESS;
 }

@@ -1,8 +1,7 @@
-#include <vector>
 #include "gemm_gpu.h"
 
 __host__
-void mult_recver_gpu(Matrix ldpc, TreeNode *d_multiPprf, int *nonZeroRows, int numTrees) {
+void mult_recver_gpu(Matrix ldpc, int *nonZeroRows, int numTrees) {
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -44,13 +43,13 @@ void gemm_gpu(uint8_t *randomVec, Matrix *ldpc, int *nonZeroRows, int numTrees) 
         if (row >= ldpc->rows) {
             continue;
         }
-        for (int t = 0; t < (numTrees - 1) / 8 + 1; t++) {
+        for (int t = 0; t < numTrees; t++) {
             col = nonZeroRows[t];
             idx = row * ldpc->cols + col;
             bit = (ldpc->data[idx / 8] & (1 << idx % 8)) >> idx % 8;
             res ^= bit;
         }
         randomVec[row / 8] &= ~(1 << row % 8);
-        randomVec[row / 8] |= res << row % 8;
+        randomVec[row / 8] |= res << (row % 8);
     }
 }
