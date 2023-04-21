@@ -42,6 +42,14 @@ static void cuda_check() {
 }
 
 __global__
+void set_choice(Vector choiceVec, int index) {
+  if (index >= choiceVec.n) {
+    return;
+  }
+  choiceVec.data[index / 8] |= 1 << (index % 8);
+}
+
+__global__
 static void xor_prf(TreeNode *sum, TreeNode *operand, size_t numLeaves) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= numLeaves) {
@@ -52,7 +60,7 @@ static void xor_prf(TreeNode *sum, TreeNode *operand, size_t numLeaves) {
   }
 }
 
-std::pair<TreeNode*, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, int depth, int numTrees) {
+std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, int depth, int numTrees) {
   cuda_check();
 
   treeExpanded = (bool*) malloc(numTrees * sizeof(*treeExpanded));
@@ -142,10 +150,14 @@ std::pair<TreeNode*, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root,
   duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
   printf("Tree exp AESGPU sender: %0.4f ms\n", duration / NUM_SAMPLES);
 
-  return {d_fullVec, delta};
+  Vector d_fullVector = {
+    .n = numLeaves * TREENODE_SIZE,
+    .data = (uint8_t*) d_fullVec
+  };
+  return {d_fullVector, delta};
 }
 
-std::pair<TreeNode*, int*> pprf_recver_gpu(uint64_t *choices, int depth, int numTrees) {
+std::pair<Vector, Vector> pprf_recver_gpu(uint64_t *choices, int depth, int numTrees) {
   cuda_check();
   size_t numLeaves = pow(2, depth);
 
@@ -176,7 +188,10 @@ std::pair<TreeNode*, int*> pprf_recver_gpu(uint64_t *choices, int depth, int num
   cudaMalloc(&d_puncVec, numLeaves * sizeof(*d_puncVec));
   cudaMemset(d_puncVec, 0, numLeaves * sizeof(*d_puncVec));
 
-  int *puncIndices = (int*) malloc(numTrees * sizeof(*puncIndices));
+  Vector d_choiceVector;
+  cudaMalloc(&d_choiceVector.data, numLeaves * sizeof(*d_puncVec));
+  cudaMemset(d_choiceVector.data, 0, numLeaves * sizeof(*d_puncVec));
+
   TreeNode *d_pprf;
   cudaMalloc(&d_pprf, numLeaves * sizeof(*d_pprf));
   TreeNode *d_InputBuf;
@@ -213,8 +228,8 @@ std::pair<TreeNode*, int*> pprf_recver_gpu(uint64_t *choices, int depth, int num
 
     int tBlock = (numLeaves - 1) / 1024 + 1;
     xor_prf<<<tBlock, 1024>>>(d_puncVec, d_pprf, numLeaves);
+    set_choice<<<1, 1>>>(d_choiceVector, puncture);
     cudaDeviceSynchronize();
-    puncIndices[t] = puncture;
     treeExpanded[t] = false;
   }
 
@@ -229,5 +244,10 @@ std::pair<TreeNode*, int*> pprf_recver_gpu(uint64_t *choices, int depth, int num
   duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
   printf("Tree exp AESGPU recver: %0.4f ms\n", duration / NUM_SAMPLES);
 
-  return {d_puncVec, puncIndices};
+  Vector d_puncVector = {
+    .n = numLeaves * TREENODE_SIZE,
+    .data = (uint8_t*) d_puncVec
+  };
+
+  return {d_puncVector, d_choiceVector};
 }

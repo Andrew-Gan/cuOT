@@ -36,7 +36,12 @@ typedef struct {
 } TreeNode;
 
 typedef struct {
-  int rows, cols;
+  size_t n;
+  uint8_t *data;
+} Vector;
+
+typedef struct {
+  size_t rows, cols;
   uint8_t *data;
 } Matrix;
 

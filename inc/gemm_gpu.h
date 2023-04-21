@@ -1,6 +1,4 @@
 #include "mytypes.h"
 
-void mult_recver_gpu(Matrix ldpc, int *nonZeroRows, int numTrees);
-
-__global__
-void gemm_gpu(uint8_t *randomVec, Matrix *ldpc, int *nonZeroRows, int numTrees);
+void mult_sender_gpu(Matrix rand, Vector d_fullVec);
+void mult_recver_gpu(Matrix rand, Vector d_choiceVec, Vector d_puncturedVec);
