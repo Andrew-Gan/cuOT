@@ -13,7 +13,7 @@
 #include "gemm_gpu.h"
 
 uint64_t* genChoices(int numTrees) {
-  uint64_t *choices = new uint64_t[numTrees];
+  uint64_t *choices = (uint64_t*) malloc(sizeof(uint64_t) * numTrees);
   for (int t = 0; t < numTrees; t++) {
     choices[t] = ((uint64_t) rand() << 32) | rand();
   }
@@ -46,23 +46,35 @@ void testGpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t n
   auto [d_fullVec, delta] = senderExp.get();
   auto [d_puncVec, d_choiceVec] = recverExp.get();
 
-  // int numLeaves = 2 * numOT / (8 * TREENODE_SIZE);
-  // TreeNode *puncVec = (TreeNode*) malloc(numLeaves * sizeof(*puncVec));
-  // cudaMemcpy(puncVec, d_puncVec, numLeaves * sizeof(*d_puncVec), cudaMemcpyDeviceToHost);
-  // TreeNode *fullVec = (TreeNode*) malloc(numLeaves * sizeof(*fullVec));
-  // cudaMemcpy(fullVec, d_fullVec, numLeaves * sizeof(*d_fullVec), cudaMemcpyDeviceToHost);
-  // printf("Punctured at: ");
-  // for(int i = 0; i < numLeaves; i++) {
-  //   if (memcmp(&fullVec[i], &puncVec[i], sizeof(*puncVec)) != 0)
-  //     printf("%d ", i);
-  // }
-  // printf("\n");
+  struct timespec start, end;
+  clock_gettime(CLOCK_MONOTONIC, &start);
 
-  Matrix d_randMatrix = gen_rand_gpu(numOT, 2 * numOT);
-  std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec);
-  std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec);
-  senderMult.join();
-  recverMult.join();
+  if (numOT < CHUNK_SIDE) {
+    Matrix d_randMatrix = gen_rand_gpu(2 * numOT, numOT); // transposed
+    std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec, 0);
+    std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec, 0);
+    senderMult.join();
+    recverMult.join();
+    cudaFree(d_randMatrix.data);
+  }
+  else {
+    printf("chunk grid = %d x %d\n", 2 * numOT / CHUNK_SIDE, numOT / CHUNK_SIDE);
+    for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
+      for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
+        Matrix d_randMatrix = gen_rand_gpu(CHUNK_SIDE, CHUNK_SIDE);
+        std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec, chunkC);
+        std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec, chunkC);
+        senderMult.join();
+        recverMult.join();
+        cudaFree(d_randMatrix.data);
+      }
+    }
+  }
+
+  clock_gettime(CLOCK_MONOTONIC, &end);
+  float duration = (end.tv_sec - start.tv_sec) * 1000;
+  duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
+  printf("Matrix mult using GPU: %0.4f ms\n", duration / NUM_SAMPLES);
 }
 
 int main(int argc, char** argv) {
@@ -71,22 +83,23 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  // each node has 2^4 bytes or 2^7 bits
-  // num bits in final layer = 2 * OT, will be halved during encoding
-  size_t depth = atoi(argv[1]) - 7 + 1;
+  int userDepth = atoi(argv[1]);
+  size_t numOT = pow(2, userDepth);
+  // each node has 2^7 bits
+  // num bits in final layer = 2 * OT, to be halved during encoding
+  size_t actualDepth = userDepth - 7 + 1;
   int numTrees = atoi(argv[2]);
   TreeNode root;
   root.data[0] = 123456;
   root.data[1] = 7890123;
 
-  size_t numOT = pow(2, depth+7);
-  printf("Depth: %lu, OTs: %lu, Weight: %d\n", depth+7, numOT, numTrees);
+  printf("OTs: %lu, Trees: %d\n", numOT, numTrees);
 
   uint64_t *choices = genChoices(numTrees);
-  testCpu(root, choices, depth, numTrees, numOT);
-  testGpu(root, choices, depth, numTrees, numOT);
+  testCpu(root, choices, actualDepth, numTrees, numOT);
+  testGpu(root, choices, actualDepth, numTrees, numOT);
 
-  delete choices;
+  free(choices);
 
   return EXIT_SUCCESS;
 }

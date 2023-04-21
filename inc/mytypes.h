@@ -14,6 +14,7 @@
 
 #define TREENODE_SIZE AES_BLOCKLEN
 #define NUM_SAMPLES 16
+#define CHUNK_SIDE 32768
 
 typedef struct {
   uint8_t roundKey[320];

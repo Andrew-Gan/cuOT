@@ -2,7 +2,7 @@ SRC_DIR := src
 INC_DIR := inc
 
 CC := nvcc -std=c++17 -g -lcurand --compiler-options='-std=c++17 -msse2 -msse -march=native -maes -lpthread'
-SRC := $(wildcard $(SRC_DIR)/*)
+SRC := $(wildcard $(SRC_DIR)/*) main.cu
 LIB := -lboost_system -lboost_filesystem
 INC := -Iinc
 OUT := pprf
@@ -31,4 +31,4 @@ plot:
 	python plotter.py
 
 clean:
-	rm -f $(OUT) slurm*
+	rm -f $(OUT)

@@ -1,7 +1,9 @@
 #include "gemm_gpu.h"
+#include <algorithm>
 
 /************************************************************
 Algorithm generate chunks of full matrix and pass into kernel
+An example:
 
 Tier    | Dimension (bits)  | Size
 Matrix  | 2^20 x 2^21       | 256 GB
@@ -11,93 +13,73 @@ Tile    | 2^7  x 2^12       |  64 KB
 
 1 full matrix   = 32x64 chunks
 1 chunk         = 32x64 tblocks
-1 tile / block  = 32 warps
-1 warp          = 64 half-rows in block to add
+1 tile / block  = 16 warps
+16 warps        = 512 threads
 ************************************************************/
 
-#define CHUNK_SIDE 32768
+#define TILE_H (size_t)128
+#define TILE_W (size_t)4096
+#define T_PER_BLK (size_t)512
 
 __global__
-void mat_vec_mult(Vector out, uint8_t *subTotal, Matrix matrix, Vector vec, int chunkStartCol) {
-    // treat the unirand mat as transposed
-    // uniform rand mat ~ transposed
-    // accessing by row in transposed = accessing by col in original
-    // threads in same warp access same row for coalescing
+void mat_vec_mult(Vector out, uint8_t *subTotal, Matrix matrix, Vector vec, int numRows, int globalStartCol) {
+  // treat the unirand mat as transposed
+  // uniform rand mat ~ transposed
+  // accessing by row in transposed = accessing by col in original
+  // threads in same warp access same row for coalescing
+  int startRow = blockIdx.y * numRows;
+  int col_byte = blockIdx.x * blockDim.x + threadIdx.x;
 
-    // grid(8, 256), block(512)
-    // mat_vec_mult<<<grid, block>>>
-
-    int startRow = blockIdx.y * 128;
-    int col_byte = blockIdx.x * blockDim.x + threadIdx.x;
-
-    for (int row = startRow; row < startRow + 128; row++) {
-        if (vec.data[row / 8] & (1 << (row % 8)) != 0) {
-            subTotal[blockIdx.y * CHUNK_SIDE + col_byte]
-                ^= matrix.data[row * (matrix.cols / 8) + col_byte];
-        }
+  for (int row = startRow; row < startRow + numRows; row++) {
+    if (vec.data[row / 8] & (1 << (row % 8)) != 0) {
+      subTotal[blockIdx.y * (matrix.cols / 8) + col_byte]
+       ^= matrix.data[row * (matrix.cols / 8) + col_byte];
     }
-
-    // sub subtotal into out
-    if (blockIdx.y > 0) {
-        return;
+  }
+  if (blockIdx.y == 0) {
+    for(int i = 0; i < gridDim.y; i++) {
+      out.data[globalStartCol+col_byte] ^= subTotal[i*matrix.cols/8+col_byte];
     }
-    for(int i = 0; i < 256; i++) {
-        out.data[chunkStartCol + col_byte] ^= subTotal[i * CHUNK_SIDE + col_byte];
-    }
+  }
 }
 
 __host__
-void mult_sender_gpu(Matrix d_randMatrix, Vector d_fullVec) {
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+void mult_sender_gpu(Matrix d_randMatrix, Vector d_fullVec, int chunkC) {
+  // for when matrix size < tile
+  size_t numRowsPerTile = std::min(d_randMatrix.rows, TILE_H);
+  int numColsPerTile = std::min(d_randMatrix.cols / 8, TILE_W / 8);
+  dim3 grid((d_randMatrix.cols-1) / TILE_W + 1, (d_randMatrix.rows-1) / TILE_H + 1);
+  dim3 block(numColsPerTile);
 
-    uint8_t *d_subTotal;
-    cudaMalloc(&d_subTotal, 16 * CHUNK_SIDE);
-    Vector d_randomVec = { .n = d_randMatrix.rows };
-    cudaMalloc(&d_randomVec.data, d_randomVec.n / 8);
+  uint8_t *d_subTotal;
+  cudaMalloc(&d_subTotal, grid.y * d_randMatrix.cols / 8);
+  Vector d_randomVec = { .n = d_randMatrix.cols };
+  cudaMalloc(&d_randomVec.data, d_randomVec.n / 8);
 
-    dim3 grid(8, 256);
-    dim3 block(512);
-    for (int chunkR = 0; chunkR < d_randMatrix.rows / CHUNK_SIDE; chunkR++) {
-        for (int chunkC = 0; chunkC < d_randMatrix.cols / CHUNK_SIDE; chunkC++) {
-            mat_vec_mult<<<grid, block>>>(d_randomVec, d_subTotal, d_randMatrix,
-                d_fullVec, chunkC * CHUNK_SIDE);
-            cudaDeviceSynchronize();
-        }
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    float duration = (end.tv_sec - start.tv_sec) * 1000;
-    duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-    printf("Matrix mult sender using GPU: %0.4f ms\n", duration / NUM_SAMPLES);
+  mat_vec_mult<<<grid, block>>>(d_randomVec, d_subTotal, d_randMatrix,
+    d_fullVec, numRowsPerTile, chunkC * d_randMatrix.cols);
+  cudaDeviceSynchronize();
 }
 
 __host__
-void mult_recver_gpu(Matrix d_randMatrix, Vector d_choiceVec, Vector d_puncturedVec) {
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+void mult_recver_gpu(Matrix d_randMatrix, Vector d_choiceVec, Vector d_puncVec, int chunkC) {
+  // for when matrix size < tile
+  size_t numRowsPerTile = std::min(d_randMatrix.rows, TILE_H);
+  int numColsPerTile = std::min(d_randMatrix.cols / 8, TILE_W / 8);
+  dim3 grid((d_randMatrix.cols-1) / TILE_W + 1, (d_randMatrix.rows-1) / TILE_H + 1);
+  dim3 block(numColsPerTile);
 
-    uint8_t *d_subTotalChoice, *d_subTotalPunctured;
-    cudaMalloc(&d_subTotalChoice, 16 * CHUNK_SIDE);
-    cudaMalloc(&d_subTotalPunctured, 16 * CHUNK_SIDE);
-    Vector d_choiceVecRand, d_puncturedVecRand;
-    cudaMalloc(&d_choiceVecRand.data, d_randMatrix.rows / 8);
-    cudaMalloc(&d_puncturedVecRand.data, d_randMatrix.rows / 8);
+  uint8_t *d_subTotalChoice, *d_subTotalPunctured;
+  cudaMalloc(&d_subTotalChoice, grid.y * d_randMatrix.cols / 8);
+  cudaMalloc(&d_subTotalPunctured, grid.y * d_randMatrix.cols / 8);
+  Vector d_choiceVecRand = { .n = d_randMatrix.cols };
+  Vector d_puncVecRand  =  { .n = d_randMatrix.cols };
+  cudaMalloc(&d_choiceVecRand.data, d_choiceVecRand.n / 8);
+  cudaMalloc(&d_puncVecRand.data, d_puncVecRand.n / 8);
 
-    dim3 grid(8, 256);
-    dim3 block(512);
-    for (int chunkR = 0; chunkR < d_randMatrix.rows / CHUNK_SIDE; chunkR++) {
-        for (int chunkC = 0; chunkC < d_randMatrix.cols / CHUNK_SIDE; chunkC++) {
-            mat_vec_mult<<<grid, block>>>(d_choiceVecRand, d_subTotalChoice,
-                d_randMatrix, d_choiceVec, chunkC * CHUNK_SIDE);
-            mat_vec_mult<<<grid, block>>>(d_puncturedVecRand, d_subTotalPunctured,
-                d_randMatrix, d_puncturedVec, chunkC * CHUNK_SIDE);
-            cudaDeviceSynchronize();
-        }
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    float duration = (end.tv_sec - start.tv_sec) * 1000;
-    duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-    printf("Matrix mult recver using GPU: %0.4f ms\n", duration / NUM_SAMPLES);
+  mat_vec_mult<<<grid, block>>>(d_choiceVecRand, d_subTotalChoice,
+    d_randMatrix, d_choiceVec, numRowsPerTile, chunkC * d_randMatrix.cols);
+  mat_vec_mult<<<grid, block>>>(d_puncVecRand, d_subTotalPunctured,
+    d_randMatrix, d_puncVec, numRowsPerTile, chunkC * d_randMatrix.cols);
+  cudaDeviceSynchronize();
 }

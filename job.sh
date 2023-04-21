@@ -5,25 +5,17 @@ module load gcc/9.3.0
 
 cd $SLURM_SUBMIT_DIR
 
-rm -f nsys* out out-nsys slurm*
+# rm -f nsys* out out-nsys
 
 make
 
-# for depth in 14 17 20
-# do
-#     for tree in 5 11
-#     do
-#         ./pprf $depth $tree >> out
-#     done
-# done
+# ./pprf 11 75 >> out
+# ./pprf 14 73 >> out
+# ./pprf 17 72 >> out
+# ./pprf 20 70 >> out
+# ./pprf 23 69 >> out
+# ./pprf 26 67 >> out
 
-array=( 14 17 20 )
-array2=( 73 72 70 )
-
-for i in "${!array[@]}"; do
-    ./pprf "${array[i]}" "${array2[i]}" >> out
-done
-
-nsys profile --stats=true --output=nsys-stats ./pprf 14 11 > out-nsys
+nsys profile --stats=true --output=nsys-stats ./pprf 14 73 > out-nsys
 
 make clean

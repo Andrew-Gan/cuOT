@@ -1,21 +1,28 @@
-Depth: 14, OTs: 16384, Weight: 73
-Tree exp AESNI sender: 14.8966 ms
-Tree exp AESNI recver: 14.8966 ms
-Matrix mult using CPU: 0.0067 ms
-Tree exp AESGPU recver: 2.2132 ms
-Tree exp AESGPU sender: 2.2378 ms
-Matrix mult using GPU: 0.0143 ms
-Depth: 17, OTs: 131072, Weight: 72
-Tree exp AESNI recver: 21.9571 ms
-Tree exp AESNI sender: 21.9573 ms
-Matrix mult using CPU: 0.0068 ms
-Tree exp AESGPU sender: 2.9243 ms
-Tree exp AESGPU recver: 2.9115 ms
-Matrix mult using GPU: 0.0081 ms
-Depth: 20, OTs: 1048576, Weight: 70
-Tree exp AESNI recver: 30.4862 ms
-Tree exp AESNI sender: 30.5146 ms
-Matrix mult using CPU: 0.0160 ms
-Tree exp AESGPU recver: 3.1539 ms
-Tree exp AESGPU sender: 3.1602 ms
-Matrix mult using GPU: 0.1112 ms
+OTs: 2048, Trees: 75
+Tree exp AESGPU sender: 1.4576 ms
+Tree exp AESGPU recver: 1.4472 ms
+Matrix mult using GPU: 4.4611 ms
+OTs: 16384, Trees: 73
+Tree exp AESGPU sender: 2.3081 ms
+Tree exp AESGPU recver: 2.2954 ms
+Matrix mult using GPU: 2.3266 ms
+OTs: 131072, Trees: 72
+Tree exp AESGPU sender: 3.1053 ms
+Tree exp AESGPU recver: 3.0914 ms
+chunk grid = 8 x 4
+Matrix mult using GPU: 11.1204 ms
+OTs: 1048576, Trees: 70
+Tree exp AESGPU recver: 4.2021 ms
+Tree exp AESGPU sender: 4.2052 ms
+chunk grid = 64 x 32
+Matrix mult using GPU: 630.3962 ms
+OTs: 8388608, Trees: 69
+Tree exp AESGPU sender: 5.7258 ms
+Tree exp AESGPU recver: 5.6538 ms
+chunk grid = 512 x 256
+Matrix mult using GPU: 2362.0874 ms
+OTs: 67108864, Trees: 67
+Tree exp AESGPU sender: 14.7487 ms
+Tree exp AESGPU recver: 14.7187 ms
+chunk grid = 4096 x 2048
+Matrix mult using GPU: 2402.5867 ms

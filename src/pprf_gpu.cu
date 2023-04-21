@@ -151,7 +151,7 @@ std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, in
   printf("Tree exp AESGPU sender: %0.4f ms\n", duration / NUM_SAMPLES);
 
   Vector d_fullVector = {
-    .n = numLeaves * TREENODE_SIZE,
+    .n = numLeaves * TREENODE_SIZE * 8,
     .data = (uint8_t*) d_fullVec
   };
   return {d_fullVector, delta};

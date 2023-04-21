@@ -8,7 +8,7 @@ Matrix gen_rand_gpu(size_t height, size_t width) {
     curandGenerator_t prng;
     curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
     curandSetPseudoRandomGeneratorSeed(prng, clock());
-    curandGenerateUniform(prng, (float*) d_randMatrix.data, width * height / 4);
+    curandGenerateUniform(prng, (float*) d_randMatrix.data, width * height / 32);
 
     return d_randMatrix;
 }
