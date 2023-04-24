@@ -58,7 +58,6 @@ void testGpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t n
     cudaFree(d_randMatrix.data);
   }
   else {
-    printf("chunk grid = %d x %d\n", 2 * numOT / CHUNK_SIDE, numOT / CHUNK_SIDE);
     for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
       for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
         Matrix d_randMatrix = gen_rand_gpu(CHUNK_SIDE, CHUNK_SIDE);

@@ -2,10 +2,12 @@ OTs: 2048, Trees: 75
 Tree exp AESGPU sender: 1.4576 ms
 Tree exp AESGPU recver: 1.4472 ms
 Matrix mult using GPU: 4.4611 ms
+
 OTs: 16384, Trees: 73
 Tree exp AESGPU sender: 2.3081 ms
 Tree exp AESGPU recver: 2.2954 ms
 Matrix mult using GPU: 2.3266 ms
+
 OTs: 131072, Trees: 72
 Tree exp AESGPU sender: 3.1053 ms
 Tree exp AESGPU recver: 3.0914 ms
