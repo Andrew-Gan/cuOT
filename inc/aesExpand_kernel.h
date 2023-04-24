@@ -37,7 +37,7 @@
 // Thread block size
 #define BSIZE 256
 
-__global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
+__global__ void aesExpand128(unsigned *aesKey, TreeNode *leaves,
 	unsigned *inData, int expandDir, size_t width)
 {
 	unsigned bx		= blockIdx.x;
@@ -46,7 +46,6 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     unsigned int4tx = tx/4;
     unsigned idx2	= int4tx*4;
 	int x;
-	unsigned keyElem;
 
     __shared__ UByte4 stageBlock1[BSIZE];
 	__shared__ UByte4 stageBlock2[BSIZE];
@@ -72,8 +71,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
 	//----------------------------------- 1st stage -----------------------------------
 
 	x = mod4tx;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-    stageBlock2[tx].uival = stageBlock1[tx].uival ^ keyElem;
+    stageBlock2[tx].uival = stageBlock1[tx].uival ^ aesKey[x];
 
 	__syncthreads();
 
@@ -96,8 +94,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+4;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	 stageBlock1[tx].uival = op1^op2^op3^op4^keyElem;
+	 stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -119,8 +116,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+8;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	 stageBlock2[tx].uival = op1^op2^op3^op4^keyElem;
+	 stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -142,8 +138,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+12;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	 stageBlock1[tx].uival = op1^op2^op3^op4^keyElem;
+	 stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -165,8 +160,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+16;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	 stageBlock2[tx].uival = op1^op2^op3^op4^keyElem;
+	 stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -188,8 +182,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+20;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	 stageBlock1[tx].uival = op1^op2^op3^op4^keyElem;
+	 stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -211,8 +204,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+24;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	stageBlock2[tx].uival = op1^op2^op3^op4^keyElem;
+	stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -234,8 +226,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+28;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	stageBlock1[tx].uival = op1^op2^op3^op4^keyElem;
+	stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -257,8 +248,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+32;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	stageBlock2[tx].uival = op1^op2^op3^op4^keyElem;
+	stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -280,8 +270,7 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+36;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
-	stageBlock1[tx].uival = op1^op2^op3^op4^keyElem;
+	stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
 
@@ -295,13 +284,12 @@ __global__ void aesExpand128(cudaTextureObject_t texEKey128, TreeNode *leaves,
 	op4 = stageBlock1[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	x = mod4tx+40;
-	keyElem = tex1Dfetch<unsigned>(texEKey128, x);
 
 
-	stageBlock2[tx].ubval[3] = tBox1Block[op4].ubval[3]^( keyElem>>24);
-	stageBlock2[tx].ubval[2] = tBox1Block[op3].ubval[3]^( (keyElem>>16) & 0x000000FF);
-	stageBlock2[tx].ubval[1] = tBox1Block[op2].ubval[3]^( (keyElem>>8)  & 0x000000FF);
-	stageBlock2[tx].ubval[0] = tBox1Block[op1].ubval[3]^( keyElem       & 0x000000FF);
+	stageBlock2[tx].ubval[3] = tBox1Block[op4].ubval[3]^( aesKey[x]>>24);
+	stageBlock2[tx].ubval[2] = tBox1Block[op3].ubval[3]^( (aesKey[x]>>16) & 0x000000FF);
+	stageBlock2[tx].ubval[1] = tBox1Block[op2].ubval[3]^( (aesKey[x]>>8)  & 0x000000FF);
+	stageBlock2[tx].ubval[0] = tBox1Block[op1].ubval[3]^( aesKey[x]       & 0x000000FF);
 
 	__syncthreads();
 
