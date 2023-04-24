@@ -68,36 +68,29 @@ std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, in
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
-  AES_ctx aesKeys[2];
-  uint64_t k0 = 3242342;
-  uint8_t k0_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  aes_init_ctx(&aesKeys[0], k0_blk);
+  AES_ctx leftAesKey, rightAesKey;
+  uint64_t k0 = 3242342, k1 = 8993849;
+  uint8_t k_blk[16] = {0};
+  unsigned *d_leftKey128, *d_rightKey128;
 
-  uint64_t k1 = 8993849;
-  uint8_t k1_blk[16] = {0};
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
-  aes_init_ctx(&aesKeys[1], k1_blk);
+  memcpy(&k_blk[8], &k0, sizeof(k0));
+  aes_init_ctx(&leftAesKey, k_blk);
+  cudaMalloc(&d_leftKey128, sizeof(leftAesKey));
+  cudaMemcpy(d_leftKey128, &leftAesKey, sizeof(leftAesKey), cudaMemcpyHostToDevice);
+  memset(&k_blk, 0, sizeof(k_blk));
 
-  cudaResourceDesc resDescLeft;
-  cudaResourceDesc resDescRight;
-  cudaTextureDesc texDesc;
+  memcpy(&k_blk[8], &k1, sizeof(k1));
+  aes_init_ctx(&rightAesKey, k_blk);
+  cudaMalloc(&d_rightKey128, sizeof(rightAesKey));
+  cudaMemcpy(d_rightKey128, &rightAesKey, sizeof(rightAesKey), cudaMemcpyHostToDevice);
 
-  // store key in texture memory
-  cudaTextureObject_t texLKey = alloc_key_texture(&aesKeys[0], &resDescLeft, &texDesc);
-  cudaTextureObject_t texRKey = alloc_key_texture(&aesKeys[1], &resDescRight, &texDesc);
-
-  TreeNode* d_prf;
+  TreeNode *d_prf, *tmp;
   cudaMalloc(&d_prf, sizeof(*d_prf) * numLeaves);
-  TreeNode* tmp;
   cudaMalloc(&tmp, sizeof(*d_otNodes) * depth);
   d_otNodes = tmp;
 
-  TreeNode *d_InputBuf;
+  TreeNode *d_InputBuf, *d_fullVec;
   cudaMalloc(&d_InputBuf, sizeof(*d_InputBuf) * numLeaves / 2 + PADDED_LEN);
-
-  // for storing the accumulated distributed-pd_prf
-  TreeNode *d_fullVec;
   cudaMalloc(&d_fullVec, sizeof(*d_fullVec) * numLeaves);
   cudaMemset(d_fullVec, 0, sizeof(*d_fullVec) * numLeaves);
 
@@ -120,8 +113,8 @@ std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, in
       static int thread_per_aesblock = 4;
       dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
       dim3 thread(BSIZE, 1);
-      aesExpand128<<<grid, thread>>>(texLKey, d_prf,  (unsigned*) d_InputBuf, 0, width);
-      aesExpand128<<<grid, thread>>>(texRKey, d_prf,  (unsigned*) d_InputBuf, 1, width);
+      aesExpand128<<<grid, thread>>>(d_leftKey128, d_prf,  (unsigned*) d_InputBuf, 0, width);
+      aesExpand128<<<grid, thread>>>(d_rightKey128, d_prf,  (unsigned*) d_InputBuf, 1, width);
       cudaDeviceSynchronize();
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
@@ -138,22 +131,19 @@ std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, in
   }
 
   free(treeExpanded);
+  cudaFree(d_leftKey128);
+  cudaFree(d_rightKey128);
   cudaFree(d_otNodes);
   cudaFree(d_prf);
   cudaFree(d_InputBuf);
-
-  dealloc_key_texture(texLKey);
-  dealloc_key_texture(texRKey);
 
   clock_gettime(CLOCK_MONOTONIC, &end);
   float duration = (end.tv_sec - start.tv_sec) * 1000;
   duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
   printf("Tree exp AESGPU sender: %0.4f ms\n", duration / NUM_SAMPLES);
 
-  Vector d_fullVector = {
-    .n = numLeaves * TREENODE_SIZE * 8,
-    .data = (uint8_t*) d_fullVec
-  };
+  Vector d_fullVector =
+    { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) d_fullVec };
   return {d_fullVector, delta};
 }
 
@@ -162,24 +152,21 @@ std::pair<Vector, Vector> pprf_recver_gpu(uint64_t *choices, int depth, int numT
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
-  AES_ctx aesKeys[2];
-  uint64_t k0 = 3242342;
-  uint8_t k0_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  aes_init_ctx(&aesKeys[0], k0_blk);
+  AES_ctx leftAesKey, rightAesKey;
+  uint64_t k0 = 3242342, k1 = 8993849;
+  uint8_t k_blk[16] = {0};
+  unsigned *d_leftKey128, *d_rightKey128;
 
-  uint64_t k1 = 8993849;
-  uint8_t k1_blk[16] = {0};
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
-  aes_init_ctx(&aesKeys[1], k1_blk);
+  memcpy(&k_blk[8], &k0, sizeof(k0));
+  aes_init_ctx(&leftAesKey, k_blk);
+  cudaMalloc(&d_leftKey128, sizeof(leftAesKey));
+  cudaMemcpy(d_leftKey128, &leftAesKey, sizeof(leftAesKey), cudaMemcpyHostToDevice);
+  memset(&k_blk, 0, sizeof(k_blk));
 
-  cudaResourceDesc resDescLeft;
-  cudaResourceDesc resDescRight;
-  cudaTextureDesc texDesc;
-
-  // store key in texture memory
-  cudaTextureObject_t texLKey = alloc_key_texture(&aesKeys[0], &resDescLeft, &texDesc);
-  cudaTextureObject_t texRKey = alloc_key_texture(&aesKeys[1], &resDescRight, &texDesc);
+  memcpy(&k_blk[8], &k1, sizeof(k1));
+  aes_init_ctx(&rightAesKey, k_blk);
+  cudaMalloc(&d_rightKey128, sizeof(rightAesKey));
+  cudaMemcpy(d_rightKey128, &rightAesKey, sizeof(rightAesKey), cudaMemcpyHostToDevice);
 
   while(treeExpanded == nullptr);
 
@@ -216,8 +203,8 @@ std::pair<Vector, Vector> pprf_recver_gpu(uint64_t *choices, int depth, int numT
       static int thread_per_aesblock = 4;
       dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
       dim3 thread(BSIZE, 1);
-      aesExpand128<<<grid, thread>>>(texLKey, d_pprf, (unsigned*) d_InputBuf, 0, width);
-      aesExpand128<<<grid, thread>>>(texRKey, d_pprf, (unsigned*) d_InputBuf, 1, width);
+      aesExpand128<<<grid, thread>>>(d_leftKey128, d_pprf, (unsigned*) d_InputBuf, 0, width);
+      aesExpand128<<<grid, thread>>>(d_rightKey128, d_pprf, (unsigned*) d_InputBuf, 1, width);
       cudaDeviceSynchronize();
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
@@ -235,9 +222,8 @@ std::pair<Vector, Vector> pprf_recver_gpu(uint64_t *choices, int depth, int numT
 
   cudaFree(d_pprf);
   cudaFree(d_InputBuf);
-
-  dealloc_key_texture(texLKey);
-  dealloc_key_texture(texRKey);
+  cudaFree(d_leftKey128);
+  cudaFree(d_rightKey128);
 
   clock_gettime(CLOCK_MONOTONIC, &end);
   float duration = (end.tv_sec - start.tv_sec) * 1000;
