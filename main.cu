@@ -41,39 +41,49 @@ void testCpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t n
 }
 
 void testGpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
-  auto senderExp = std::async(pprf_sender_gpu, choices, root, depth, numTrees);
-  auto recverExp = std::async(pprf_recver_gpu, choices, depth, numTrees);
-  auto [d_fullVec, delta] = senderExp.get();
-  auto [d_puncVec, d_choiceVec] = recverExp.get();
+  struct timespec expStart, multStart, end;
+  float expDuration, multDuration;
 
-  struct timespec start, end;
-  clock_gettime(CLOCK_MONOTONIC, &start);
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    clock_gettime(CLOCK_MONOTONIC, &expStart);
 
-  if (numOT < CHUNK_SIDE) {
-    Matrix d_randMatrix = gen_rand_gpu(2 * numOT, numOT); // transposed
-    std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec, 0);
-    std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec, 0);
-    senderMult.join();
-    recverMult.join();
-    cudaFree(d_randMatrix.data);
-  }
-  else {
-    for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
-      for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-        Matrix d_randMatrix = gen_rand_gpu(CHUNK_SIDE, CHUNK_SIDE);
-        std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec, chunkC);
-        std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec, chunkC);
-        senderMult.join();
-        recverMult.join();
-        cudaFree(d_randMatrix.data);
+    auto senderExp = std::async(pprf_sender_gpu, choices, root, depth, numTrees);
+    auto recverExp = std::async(pprf_recver_gpu, choices, depth, numTrees);
+    auto [d_fullVec, delta] = senderExp.get();
+    auto [d_puncVec, d_choiceVec] = recverExp.get();
+
+    clock_gettime(CLOCK_MONOTONIC, &multStart);
+
+    if (numOT < CHUNK_SIDE) {
+      Matrix d_randMatrix = gen_rand_gpu(2 * numOT, numOT); // transposed
+      std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec, 0);
+      std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec, 0);
+      senderMult.join();
+      recverMult.join();
+    }
+    else {
+      for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
+        for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
+          Matrix d_randMatrix = gen_rand_gpu(CHUNK_SIDE, CHUNK_SIDE);
+          std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec, chunkC);
+          std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec, chunkC);
+          senderMult.join();
+          recverMult.join();
+        }
       }
     }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    expDuration = (multStart.tv_sec - expStart.tv_sec) * 1000;
+    expDuration += (multStart.tv_nsec - expStart.tv_nsec) / 1000000.0;
+    multDuration = (end.tv_sec - multStart.tv_sec) * 1000;
+    multDuration += (end.tv_nsec - multStart.tv_nsec) / 1000000.0;
   }
 
-  clock_gettime(CLOCK_MONOTONIC, &end);
-  float duration = (end.tv_sec - start.tv_sec) * 1000;
-  duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-  printf("Matrix mult using GPU: %0.4f ms\n", duration / NUM_SAMPLES);
+  del_rand_gpu();
+  printf("Seed exp using GPU: %0.4f ms\n", expDuration / NUM_SAMPLES);
+  printf("Matrix mult using GPU: %0.4f ms\n", multDuration / NUM_SAMPLES);
 }
 
 int main(int argc, char** argv) {

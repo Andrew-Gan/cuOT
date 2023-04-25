@@ -4,6 +4,6 @@
 #include "mytypes.h"
 
 Matrix gen_rand_gpu(size_t height, size_t width);
-Matrix gen_ldpc_gpu(int numLeaves, int numTrees);
+void del_rand_gpu();
 
 #endif

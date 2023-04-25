@@ -5,7 +5,7 @@ module load gcc/9.3.0
 
 cd $SLURM_SUBMIT_DIR
 
-# rm -f nsys* out out-nsys
+rm -f nsys* out out-nsys
 
 make
 

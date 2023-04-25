@@ -96,9 +96,6 @@ std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, in
 
   uint64_t delta = 0;
 
-  struct timespec start, end;
-  clock_gettime(CLOCK_MONOTONIC, &start);
-
   for (int t = 0; t < numTrees; t++) {
     int puncture = 0;
     cudaMemcpy(d_prf, &root, sizeof(root), cudaMemcpyHostToDevice);
@@ -136,11 +133,6 @@ std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, in
   cudaFree(d_otNodes);
   cudaFree(d_prf);
   cudaFree(d_InputBuf);
-
-  clock_gettime(CLOCK_MONOTONIC, &end);
-  float duration = (end.tv_sec - start.tv_sec) * 1000;
-  duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-  printf("Tree exp AESGPU sender: %0.4f ms\n", duration / NUM_SAMPLES);
 
   Vector d_fullVector =
     { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) d_fullVec };
@@ -184,9 +176,6 @@ std::pair<Vector, Vector> pprf_recver_gpu(uint64_t *choices, int depth, int numT
   TreeNode *d_InputBuf;
   cudaMalloc(&d_InputBuf, (numLeaves / 2 + PADDED_LEN) * sizeof(*d_InputBuf));
 
-  struct timespec start, end;
-  clock_gettime(CLOCK_MONOTONIC, &start);
-
   for (int t = 0; t < numTrees; t++) {
     while (!treeExpanded[t]);
     int choice = choices[t] & 1;
@@ -224,11 +213,6 @@ std::pair<Vector, Vector> pprf_recver_gpu(uint64_t *choices, int depth, int numT
   cudaFree(d_InputBuf);
   cudaFree(d_leftKey128);
   cudaFree(d_rightKey128);
-
-  clock_gettime(CLOCK_MONOTONIC, &end);
-  float duration = (end.tv_sec - start.tv_sec) * 1000;
-  duration += (end.tv_nsec - start.tv_nsec) / 1000000.0;
-  printf("Tree exp AESGPU recver: %0.4f ms\n", duration / NUM_SAMPLES);
 
   Vector d_puncVector = {
     .n = numLeaves * TREENODE_SIZE,
