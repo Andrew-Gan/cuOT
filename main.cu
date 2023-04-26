@@ -42,7 +42,7 @@ void testCpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t n
 
 void testGpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
   struct timespec expStart, multStart, end;
-  float expDuration, multDuration;
+  float expDuration = 0, multDuration = 0;
 
   for (int i = 0; i < NUM_SAMPLES; i++) {
     clock_gettime(CLOCK_MONOTONIC, &expStart);
@@ -75,15 +75,16 @@ void testGpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t n
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
-    expDuration = (multStart.tv_sec - expStart.tv_sec) * 1000;
+    expDuration += (multStart.tv_sec - expStart.tv_sec) * 1000;
     expDuration += (multStart.tv_nsec - expStart.tv_nsec) / 1000000.0;
-    multDuration = (end.tv_sec - multStart.tv_sec) * 1000;
+    multDuration += (end.tv_sec - multStart.tv_sec) * 1000;
     multDuration += (end.tv_nsec - multStart.tv_nsec) / 1000000.0;
   }
 
   del_rand_gpu();
   printf("Seed exp using GPU: %0.4f ms\n", expDuration / NUM_SAMPLES);
-  printf("Matrix mult using GPU: %0.4f ms\n", multDuration / NUM_SAMPLES);
+  printf("chunk = %d x %d\n", 2 * numOT / CHUNK_SIDE, numOT / CHUNK_SIDE);
+  printf("Matrix mult using GPU: %0.4f ms\n\n", multDuration / NUM_SAMPLES);
 }
 
 int main(int argc, char** argv) {

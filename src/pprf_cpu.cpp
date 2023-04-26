@@ -4,7 +4,7 @@
 #include <vector>
 #include <atomic>
 
-#include "mytypes.h"
+#include "util.h"
 #include "aesni.h"
 #include "pprf_cpu.h"
 
