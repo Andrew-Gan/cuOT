@@ -14,7 +14,6 @@ make
 ./pprf 17 72 >> out
 ./pprf 20 70 >> out
 ./pprf 23 69 >> out
-./pprf 26 67 >> out
 
 nsys profile --stats=true --output=nsys-stats ./pprf 14 73 > out-nsys
 

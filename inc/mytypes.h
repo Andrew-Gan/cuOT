@@ -37,7 +37,7 @@ typedef struct {
 } TreeNode;
 
 typedef struct {
-  size_t n;
+  size_t n; // num bits
   uint8_t *data;
 } Vector;
 
