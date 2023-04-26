@@ -11,8 +11,9 @@
 #include "rand_gpu.h"
 #include "gemm_cpu.h"
 #include "gemm_gpu.h"
+#include "unit_test.h"
 
-uint64_t* genChoices(int numTrees) {
+uint64_t* gen_choices(int numTrees) {
   uint64_t *choices = (uint64_t*) malloc(sizeof(uint64_t) * numTrees);
   for (int t = 0; t < numTrees; t++) {
     choices[t] = ((uint64_t) rand() << 32) | rand();
@@ -20,7 +21,7 @@ uint64_t* genChoices(int numTrees) {
   return choices;
 }
 
-void testCpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
+void test_cpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
   // int numLeaves = numOT / (8 * TREENODE_SIZE);
   // auto senderExp = std::async(pprf_sender_cpu, choices, root, depth, numTrees);
   // auto recverExp = std::async(pprf_recver_cpu, choices, depth, numTrees);
@@ -40,7 +41,7 @@ void testCpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t n
   // recverMult.join();
 }
 
-void testGpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
+void test_gpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
   struct timespec expStart, multStart, end;
   float expDuration = 0, multDuration = 0;
 
@@ -75,6 +76,11 @@ void testGpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t n
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
+    if (!unit_test_correlation(d_fullVec, d_puncVec, d_choiceVec, delta)) {
+      fprintf(stderr, "Unit Test Correlation failed\n");
+      return;
+    }
+
     expDuration += (multStart.tv_sec - expStart.tv_sec) * 1000;
     expDuration += (multStart.tv_nsec - expStart.tv_nsec) / 1000000.0;
     multDuration += (end.tv_sec - multStart.tv_sec) * 1000;
@@ -105,9 +111,9 @@ int main(int argc, char** argv) {
 
   printf("OTs: %lu, Trees: %d\n", numOT, numTrees);
 
-  uint64_t *choices = genChoices(numTrees);
-  testCpu(root, choices, actualDepth, numTrees, numOT);
-  testGpu(root, choices, actualDepth, numTrees, numOT);
+  uint64_t *choices = gen_choices(numTrees);
+  test_cpu(root, choices, actualDepth, numTrees, numOT);
+  test_gpu(root, choices, actualDepth, numTrees, numOT);
 
   free(choices);
 
