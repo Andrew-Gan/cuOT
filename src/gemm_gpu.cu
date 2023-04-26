@@ -7,9 +7,10 @@ An example:
 
 Tier    | Dimension (bits)  | Size
 Matrix  | 2^20 x 2^21       | 256 GB
-Chunk   | 2^15 x 2^15       | 128 MB
+Chunk   | 2^17 x 2^17       |   2 GB
 Tile    | 2^7  x 2^12       |  64 KB
 *no shared mem needed for tile
+*chunk size defined in util.h
 
 1 full matrix   = 32x64 chunks
 1 chunk         = 32x64 tblocks

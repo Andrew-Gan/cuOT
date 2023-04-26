@@ -5,7 +5,7 @@
 #include <emmintrin.h>
 #include <smmintrin.h>
 
-#include "mytypes.h"
+#include "util.h"
 
 void aesni_init_ctx(AES_ctx *ctx, const uint8_t *key);
 

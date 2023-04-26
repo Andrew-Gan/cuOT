@@ -13,8 +13,12 @@
 #define PADDED_LEN 1024
 
 #define TREENODE_SIZE AES_BLOCKLEN
-#define NUM_SAMPLES 16
-#define CHUNK_SIDE 32768
+#define NUM_SAMPLES 8
+#define CHUNK_SIDE (1<<17)
+
+#define EXP_NUM_THREAD 16
+
+// #define DEBUG_MODE
 
 typedef struct {
   uint8_t roundKey[320];
