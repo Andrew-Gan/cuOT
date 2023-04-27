@@ -4,7 +4,7 @@
 
 #include "aes.h"
 #include "pprf_gpu.h"
-#include "aesExpand_kernel.h"
+#include "aesExpand.h"
 #include "aesCudaUtils.hpp"
 
 using KeyPair = std::pair<unsigned*, unsigned*>;
@@ -41,8 +41,8 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, uint64_t *choices, int tid,
       paddedLen += 16 - (paddedLen % 16);
       paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
       static int thread_per_aesblock = 4;
-      dim3 grid(paddedLen * thread_per_aesblock / 16 / BSIZE, 1);
-      dim3 thread(BSIZE, 1);
+      dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
+      dim3 thread(AES_BSIZE, 1);
       aesExpand128<<<grid, thread>>>(keys.first, d_output,  (unsigned*) d_input, 0, width);
       aesExpand128<<<grid, thread>>>(keys.second, d_output,  (unsigned*) d_input, 1, width);
       cudaDeviceSynchronize();

@@ -1,86 +1,47 @@
 #include <random>
 #include "base_ot.h"
 
-uint32_t BaseOT::e = 0;
-uint32_t BaseOT::n = 0;
-uint32_t BaseOT::x[] = {0};
-uint32_t BaseOT::v = 0;
-uint32_t BaseOT::aesKey_enc = 0;
-uint32_t *BaseOT::m[] = {nullptr};
-InitStatus BaseOT::initStatus = noInit;
-OTStatus BaseOT::otStatus = notReady;
-
-__global__
-void xor_gpu(uint32_t *out, uint32_t *data, uint32_t val) {
-  int x = blockIdx.x * blockDim.x + threadIdx.x;
-  out[x] = data[x] ^ val;
-}
-
-void BaseOT::rsa_init() {
-  BaseOT::e = 7;
-  d = 3;
-  BaseOT::n = 33;
-}
-
-uint32_t BaseOT::aesDecrypt(uint32_t m, uint32_t d, uint32_t n) {
-  uint64_t blk[2] = {m};
-  return blk[0];
-}
-
-uint32_t BaseOT::aesEncrypt(uint32_t m, uint32_t e, uint32_t n) {
-  uint64_t blk[2] = {m};
-  return blk[0];
-}
-
-BaseOT::BaseOT(Role role) {
+BaseOT::BaseOT(Role role, size_t msgSize) {
   if (role == Sender) {
-    rsa_init();
+    auto [ke, kn] = rsa.getPublicKey();
+    BaseOT::e = ke;
+    BaseOT::n = kn;
+    initStatus = rsaInitDone;
     BaseOT::x[0] = rand();
     BaseOT::x[1] = rand();
-    initStatus = rsaInitDone;
     while(initStatus < aesInitDone);
-    aesKey_s = (uint32_t) pow(BaseOT::aesKey_enc, d) % BaseOT::n;
+    rsa.decrypt((uint32_t*) aesKey_enc, 16);
+    aes = Aes(aesKey_enc);
   }
   else {
     while (initStatus < rsaInitDone);
-    if (k_r == 0) {
-      k_r = rand();
-    }
-    aesKey_r = rand();
-    BaseOT::aesKey_enc = (uint32_t) pow(aesKey_r, BaseOT::e) % BaseOT::n;
+    rsa = Rsa(BaseOT::e, BaseOT::n);
+    cudaMemcpy(aesKey_enc, aes.d_key, AES_BLOCKLEN, cudaMemcpyDeviceToHost);
+    rsa.encrypt((uint32_t*) aesKey_enc, 16);
     initStatus = aesInitDone;
   }
 }
 
-void BaseOT::ot_send(uint8_t *m0, uint8_t *m1, size_t nBytes) {
-  if (role != Sender) {
-    printf("Error not initalised as sender\n");
-    return;
-  }
+void BaseOT::ot_send(AesBlocks d_m0, AesBlocks d_m1) {
   while(otStatus < vReady);
-  k_s[0] = aesDecrypt(BaseOT::v ^ BaseOT::x[0], d, BaseOT::n);
-  k_s[1] = aesDecrypt(BaseOT::v ^ BaseOT::x[1], d, BaseOT::n);
-  m[0] = new uint32_t[nBytes / 4];
-  m[1] = new uint32_t[nBytes / 4];
-  xor_gpu<<<nBytes / 4 / 1024, 1024>>>(m[0], (uint32_t*) m0, k_s[0]);
-  xor_gpu<<<nBytes / 4 / 1024, 1024>>>(m[1], (uint32_t*) m1, k_s[1]);
+  d_k0 = BaseOT::v ^ BaseOT::x[0];
+  aes.decrypt(d_k0);
+  d_k1 = BaseOT::v ^ BaseOT::x[1];
+  aes.decrypt(d_k1);
+  d_mp[0] = d_m0 ^ d_k0;
+  d_mp[1] = d_m1 ^ d_k1;
   cudaDeviceSynchronize();
   otStatus = mReady;
 }
 
-uint8_t* BaseOT::ot_recv(uint8_t b, size_t nBytes) {
-  if (role != Recver) {
-    printf("Error not initalised as recver\n");
-    return nullptr;
-  }
-  v = x[b] ^ aesEncrypt(k_r, e, n);
+AesBlocks BaseOT::ot_recv(uint8_t b, size_t nBytes) {
+  AesBlocks d_k = rand();
+  AesBlocks d_k_enc = d_k;
+  aes.encrypt(d_k_enc);
+  v = x[b] ^ d_k_enc;
   otStatus = vReady;
   while(otStatus < mReady);
-  uint8_t *mb = new uint8_t[nBytes];
-  xor_gpu<<<nBytes / 4 / 1024, 1024>>>((uint32_t*) mb, m[b], k_r);
-  cudaDeviceSynchronize();
-  delete[] m[0];
-  delete[] m[1];
+  AesBlocks mb = d_mp[b] ^ d_k;
   otStatus = notReady;
   return mb;
 }

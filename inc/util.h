@@ -18,6 +18,8 @@
 
 #define EXP_NUM_THREAD 16
 
+#define AES_BSIZE 256
+
 // #define DEBUG_MODE
 
 typedef struct {
@@ -49,5 +51,10 @@ typedef struct {
   size_t rows, cols;
   uint8_t *data;
 } Matrix;
+
+union UByte4 {
+  unsigned int uival;
+  unsigned char ubval[4];
+};
 
 #endif

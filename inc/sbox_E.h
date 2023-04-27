@@ -1,9 +1,3 @@
-
-union  UByte4 {
-    unsigned int uival;
-    unsigned char ubval[4];
-};
-
 __constant__ unsigned char posIdx_E[]= {
 	0, 1, 2, 3,
     1, 2, 3, 0,
@@ -156,4 +150,3 @@ __constant__ unsigned int TBox3[] = {
 0x38f8c8c, 0x59f8a1a1, 0x9808989, 0x1a170d0d, 0x65dabfbf, 0xd731e6e6, 0x84c64242, 0xd0b86868, 
 0x82c34141, 0x29b09999, 0x5a772d2d, 0x1e110f0f, 0x7bcbb0b0, 0xa8fc5454, 0x6dd6bbbb, 0x2c3a1616, 
 };
-

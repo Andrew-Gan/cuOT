@@ -29,12 +29,13 @@
  *
  */
 
+#include "util.h"
 #include "sbox_E.h"
-#include "aesExpand_kernel.h"
+#include "aesExpand.h"
 
-__global__ void aesExpand128(unsigned *aesKey, TreeNode *leaves,
-	unsigned *inData, int expandDir, size_t width)
-{
+__global__
+void aesExpand128(unsigned *aesKey, TreeNode *leaves,
+	unsigned *inData, int expandDir, size_t width) {
 	unsigned bx		= blockIdx.x;
     unsigned tx		= threadIdx.x;
     unsigned mod4tx = tx%4;
@@ -42,8 +43,8 @@ __global__ void aesExpand128(unsigned *aesKey, TreeNode *leaves,
     unsigned idx2	= int4tx*4;
 	int x;
 
-    __shared__ UByte4 stageBlock1[BSIZE];
-	__shared__ UByte4 stageBlock2[BSIZE];
+    __shared__ UByte4 stageBlock1[AES_BSIZE];
+	__shared__ UByte4 stageBlock2[AES_BSIZE];
 
 	__shared__ UByte4 tBox0Block[256];
 	__shared__ UByte4 tBox1Block[256];
@@ -51,9 +52,9 @@ __global__ void aesExpand128(unsigned *aesKey, TreeNode *leaves,
 	__shared__ UByte4 tBox3Block[256];
 
 	// input caricati in memoria
-	stageBlock1[tx].uival	= inData[BSIZE * bx + tx ];
+	stageBlock1[tx].uival	= inData[AES_BSIZE * bx + tx ];
 
-	unsigned elemPerThread = 256/BSIZE;
+	unsigned elemPerThread = 256/AES_BSIZE;
 	for (unsigned cnt=0; cnt<elemPerThread; cnt++) {
 		tBox0Block[tx*elemPerThread + cnt].uival	= TBox0[tx*elemPerThread + cnt];
 		tBox1Block[tx*elemPerThread + cnt].uival	= TBox1[tx*elemPerThread + cnt];
@@ -291,7 +292,7 @@ __global__ void aesExpand128(unsigned *aesKey, TreeNode *leaves,
 	//-------------------------------- end of 15th stage --------------------------------
 
 	int elemPerNode = TREENODE_SIZE / 4;
-	size_t node_id = 2 * ((bx * BSIZE + tx) / elemPerNode) + expandDir;
+	size_t node_id = 2 * ((bx * AES_BSIZE + tx) / elemPerNode) + expandDir;
 	if (node_id < width) {
 		leaves[node_id].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
