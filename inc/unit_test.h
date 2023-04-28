@@ -3,7 +3,9 @@
 
 #include "util.h"
 
+void test_rsa();
+void test_aes();
 // test A ^ C =  B & delta
-bool unit_test_correlation(Vector d_fullVec, Vector d_puncVec, Vector d_choiceVec, uint8_t delta);
+void test_correlation(Vector d_fullVec, Vector d_puncVec, Vector d_choiceVec, uint8_t delta);
 
 #endif

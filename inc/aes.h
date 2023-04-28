@@ -4,8 +4,6 @@
 #include <curand_kernel.h>
 #include "util.h"
 
-void aes_init_ctx(AES_ctx* ctx, const uint8_t* key);
-
 class AesBlocks {
 public:
   AesBlocks();
@@ -26,8 +24,9 @@ public:
   Aes();
   Aes(uint8_t *newkey);
   virtual ~Aes();
-  void decrypt(AesBlocks msg);
-  void encrypt(AesBlocks msg);
+  static void expand_key(uint8_t* roundKey, const uint8_t* Key);
+  void decrypt(AesBlocks *msg);
+  void encrypt(AesBlocks *msg);
 };
 
 #endif

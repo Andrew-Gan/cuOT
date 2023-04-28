@@ -5,13 +5,28 @@
 #include <future>
 #include <random>
 
-#include "pprf_cpu.h"
 #include "pprf_gpu.h"
-#include "rand_cpu.h"
 #include "rand_gpu.h"
-#include "gemm_cpu.h"
 #include "gemm_gpu.h"
 #include "unit_test.h"
+
+void cuda_check() {
+  int deviceCount = 0;
+  cudaGetDeviceCount(&deviceCount);
+  if (deviceCount == 0)
+    fprintf(stderr, "There is no device.\n");
+  int dev;
+  for (dev = 0; dev < deviceCount; ++dev) {
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, dev);
+    if (deviceProp.major >= 1)
+      break;
+  }
+  if (dev == deviceCount)
+    fprintf(stderr, "There is no device supporting CUDA.\n");
+  else
+    cudaSetDevice(dev);
+}
 
 uint64_t* gen_choices(int numTrees) {
   uint64_t *choices = (uint64_t*) malloc(sizeof(uint64_t) * numTrees);
@@ -21,27 +36,7 @@ uint64_t* gen_choices(int numTrees) {
   return choices;
 }
 
-void test_cpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
-  // int numLeaves = numOT / (8 * TREENODE_SIZE);
-  // auto senderExp = std::async(pprf_sender_cpu, choices, root, depth, numTrees);
-  // auto recverExp = std::async(pprf_recver_cpu, choices, depth, numTrees);
-  // auto [fullVec, delta] = senderExp.get();
-  // auto [puncVec, d_choiceVec] = recverExp.get();
-
-  // // printf("Punctured at: ");
-  // // for(int i = 0; i < numLeaves; i++) {
-  // //   if (memcmp(&fullVec[i], &puncVec[i], sizeof(*puncVec)) != 0)
-  // //     printf("%d ", i);
-  // // }
-  // // printf("\n");
-
-  // Matrix ldpc = generate_(numLeaves, numTrees);
-  // printf("ldpc: %d x %d\n", ldpc.rows, ldpc.cols);
-  // std::thread recverMult(mult_recver_cpu, ldpc, d_choiceVec, numTrees);
-  // recverMult.join();
-}
-
-void test_gpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
+void run(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
   struct timespec expStart, multStart, end;
   float expDuration = 0, multDuration = 0;
 
@@ -76,10 +71,9 @@ void test_gpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t 
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
-    if (!unit_test_correlation(d_fullVec, d_puncVec, d_choiceVec, delta)) {
-      fprintf(stderr, "Unit Test Correlation failed\n");
-      return;
-    }
+#ifdef DEBUG_MODE
+    test_correlation(d_fullVec, d_puncVec, d_choiceVec, delta);
+#endif
 
     expDuration += (multStart.tv_sec - expStart.tv_sec) * 1000;
     expDuration += (multStart.tv_nsec - expStart.tv_nsec) / 1000000.0;
@@ -94,6 +88,12 @@ void test_gpu(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t 
 }
 
 int main(int argc, char** argv) {
+  cuda_check();
+#ifdef DEBUG_MODE
+  test_rsa();
+  test_aes();
+#endif
+
   if (argc < 3) {
     fprintf(stderr, "Usage: ./pprf d t\n");
     return EXIT_FAILURE;
@@ -112,8 +112,7 @@ int main(int argc, char** argv) {
   printf("OTs: %lu, Trees: %d\n", numOT, numTrees);
 
   uint64_t *choices = gen_choices(numTrees);
-  test_cpu(root, choices, actualDepth, numTrees, numOT);
-  test_gpu(root, choices, actualDepth, numTrees, numOT);
+  run(root, choices, actualDepth, numTrees, numOT);
 
   free(choices);
 

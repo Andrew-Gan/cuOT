@@ -25,9 +25,9 @@ BaseOT::BaseOT(Role role, size_t msgSize) {
 void BaseOT::ot_send(AesBlocks d_m0, AesBlocks d_m1) {
   while(otStatus < vReady);
   d_k0 = BaseOT::v ^ BaseOT::x[0];
-  aes.decrypt(d_k0);
+  aes.decrypt(&d_k0);
   d_k1 = BaseOT::v ^ BaseOT::x[1];
-  aes.decrypt(d_k1);
+  aes.decrypt(&d_k1);
   d_mp[0] = d_m0 ^ d_k0;
   d_mp[1] = d_m1 ^ d_k1;
   cudaDeviceSynchronize();
@@ -37,7 +37,7 @@ void BaseOT::ot_send(AesBlocks d_m0, AesBlocks d_m1) {
 AesBlocks BaseOT::ot_recv(uint8_t b, size_t nBytes) {
   AesBlocks d_k = rand();
   AesBlocks d_k_enc = d_k;
-  aes.encrypt(d_k_enc);
+  aes.encrypt(&d_k_enc);
   v = x[b] ^ d_k_enc;
   otStatus = vReady;
   while(otStatus < mReady);

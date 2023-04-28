@@ -57,4 +57,16 @@ union UByte4 {
   unsigned char ubval[4];
 };
 
+__global__
+void xor_gpu(Vector c, Vector a, Vector b);
+
+__global__
+void and_gpu(Vector c, Vector a, uint8_t b);
+
+__global__
+void cmp_gpu(bool *c, uint8_t *a, uint8_t *b);
+
+__global__
+void print_gpu(uint8_t *a, size_t n);
+
 #endif

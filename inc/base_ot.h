@@ -28,8 +28,6 @@ private:
   Rsa rsa;
   Aes aes;
   Role role;
-  void decrypt(AesBlocks m, AesBlocks k);
-  void encrypt(AesBlocks m, AesBlocks k);
 
 public:
   BaseOT(Role role, size_t msgSize);

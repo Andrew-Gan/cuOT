@@ -5,7 +5,6 @@
 #include "aes.h"
 #include "pprf_gpu.h"
 #include "aesExpand.h"
-#include "aesCudaUtils.hpp"
 
 using KeyPair = std::pair<unsigned*, unsigned*>;
 
@@ -20,9 +19,9 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, uint64_t *choices, int tid,
   cudaMemset(d_subtotal, 0, sizeof(*d_subtotal) * numLeaves);
 
 #ifdef DEBUG_MODE
-  if (err0 != cudaSuccess) printf("send in: %s\n", cudaGetErrorString(err));
-  if (err1 != cudaSuccess) printf("send out: %s\n", cudaGetErrorString(err));
-  if (err2 != cudaSuccess) printf("send sub: %s\n", cudaGetErrorString(err));
+  if (err0 != cudaSuccess) printf("send in: %s\n", cudaGetErrorString(err0));
+  if (err1 != cudaSuccess) printf("send out: %s\n", cudaGetErrorString(err1));
+  if (err2 != cudaSuccess) printf("send sub: %s\n", cudaGetErrorString(err2));
 #endif
 
   for (int t = treeStart; t <= treeEnd; t++) {
@@ -64,7 +63,6 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, uint64_t *choices, int tid,
 }
 
 std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, int depth, int numTrees) {
-  cuda_check();
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
@@ -74,13 +72,13 @@ std::pair<Vector, uint64_t> pprf_sender_gpu(uint64_t *choices, TreeNode root, in
   unsigned *d_leftKey, *d_rightKey;
 
   memcpy(&k_blk[8], &k0, sizeof(k0));
-  aes_init_ctx(&leftAesKey, k_blk);
+  Aes::expand_key(leftAesKey.roundKey, k_blk);
   cudaMalloc(&d_leftKey, sizeof(leftAesKey));
   cudaMemcpy(d_leftKey, &leftAesKey, sizeof(leftAesKey), cudaMemcpyHostToDevice);
   memset(&k_blk, 0, sizeof(k_blk));
 
   memcpy(&k_blk[8], &k1, sizeof(k1));
-  aes_init_ctx(&rightAesKey, k_blk);
+  Aes::expand_key(rightAesKey.roundKey, k_blk);
   cudaMalloc(&d_rightKey, sizeof(rightAesKey));
   cudaMemcpy(d_rightKey, &rightAesKey, sizeof(rightAesKey), cudaMemcpyHostToDevice);
 
