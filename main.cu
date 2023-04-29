@@ -1,3 +1,5 @@
+// seed gen -> seed expansion -> matrix gen -> random matrix hashing -> cot
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -5,9 +7,9 @@
 #include <future>
 #include <random>
 
-#include "pprf_gpu.h"
-#include "rand_gpu.h"
-#include "gemm_gpu.h"
+#include "pprf.h"
+#include "rand.h"
+#include "hash.h"
 #include "unit_test.h"
 
 void cuda_check() {
@@ -37,34 +39,34 @@ uint64_t* gen_choices(int numTrees) {
 }
 
 void run(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT) {
-  struct timespec expStart, multStart, end;
-  float expDuration = 0, multDuration = 0;
+  struct timespec expStart, hashStart, end;
+  float expDuration = 0, hashDuration = 0;
 
   for (int i = 0; i < NUM_SAMPLES; i++) {
     clock_gettime(CLOCK_MONOTONIC, &expStart);
 
-    auto senderExp = std::async(pprf_sender_gpu, choices, root, depth, numTrees);
-    auto recverExp = std::async(pprf_recver_gpu, choices, depth, numTrees);
+    auto senderExp = std::async(pprf_sender, choices, root, depth, numTrees);
+    auto recverExp = std::async(pprf_recver, choices, depth, numTrees);
     auto [d_fullVec, delta] = senderExp.get();
     auto [d_puncVec, d_choiceVec] = recverExp.get();
 
-    clock_gettime(CLOCK_MONOTONIC, &multStart);
+    clock_gettime(CLOCK_MONOTONIC, &hashStart);
 
     if (numOT < CHUNK_SIDE) {
-      Matrix d_randMatrix = gen_rand_gpu(2 * numOT, numOT); // transposed
-      std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec, 0);
-      std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec, 0);
-      senderMult.join();
-      recverMult.join();
+      Matrix d_randMatrix = gen_rand(2 * numOT, numOT); // transposed
+      std::thread senderHash(hash_sender, d_randMatrix, d_fullVec, 0);
+      std::thread recverHash(hash_recver, d_randMatrix, d_choiceVec, d_puncVec, 0);
+      senderHash.join();
+      recverHash.join();
     }
     else {
       for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
         for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-          Matrix d_randMatrix = gen_rand_gpu(CHUNK_SIDE, CHUNK_SIDE);
-          std::thread senderMult(mult_sender_gpu, d_randMatrix, d_fullVec, chunkC);
-          std::thread recverMult(mult_recver_gpu, d_randMatrix, d_choiceVec, d_puncVec, chunkC);
-          senderMult.join();
-          recverMult.join();
+          Matrix d_randMatrix = gen_rand(CHUNK_SIDE, CHUNK_SIDE);
+          std::thread senderHash(hash_sender, d_randMatrix, d_fullVec, chunkC);
+          std::thread recverHash(hash_recver, d_randMatrix, d_choiceVec, d_puncVec, chunkC);
+          senderHash.join();
+          recverHash.join();
         }
       }
     }
@@ -72,19 +74,19 @@ void run(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT
     clock_gettime(CLOCK_MONOTONIC, &end);
 
 #ifdef DEBUG_MODE
-    test_correlation(d_fullVec, d_puncVec, d_choiceVec, delta);
+    test_cot(d_fullVec, d_puncVec, d_choiceVec, delta);
 #endif
 
-    expDuration += (multStart.tv_sec - expStart.tv_sec) * 1000;
-    expDuration += (multStart.tv_nsec - expStart.tv_nsec) / 1000000.0;
-    multDuration += (end.tv_sec - multStart.tv_sec) * 1000;
-    multDuration += (end.tv_nsec - multStart.tv_nsec) / 1000000.0;
+    expDuration += (hashStart.tv_sec - expStart.tv_sec) * 1000;
+    expDuration += (hashStart.tv_nsec - expStart.tv_nsec) / 1000000.0;
+    hashDuration += (end.tv_sec - hashStart.tv_sec) * 1000;
+    hashDuration += (end.tv_nsec - hashStart.tv_nsec) / 1000000.0;
   }
 
-  del_rand_gpu();
+  del_rand();
   printf("Seed exp using GPU: %0.4f ms\n", expDuration / NUM_SAMPLES);
   printf("chunk = %d x %d\n", 2 * numOT / CHUNK_SIDE, numOT / CHUNK_SIDE);
-  printf("Matrix mult using GPU: %0.4f ms\n\n", multDuration / NUM_SAMPLES);
+  printf("Matrix hash using GPU: %0.4f ms\n\n", hashDuration / NUM_SAMPLES);
 }
 
 int main(int argc, char** argv) {

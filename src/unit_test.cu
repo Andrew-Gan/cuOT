@@ -61,7 +61,7 @@ void test_aes() {
 
 // test A ^ C =  B & delta
 //  delta should be 0b00000000 or 0b11111111
-void test_correlation(Vector d_fullVec, Vector d_puncVec, Vector d_choiceVec, uint8_t delta) {
+void test_cot(Vector d_fullVec, Vector d_puncVec, Vector d_choiceVec, uint8_t delta) {
   int nBytes = d_fullVec.n / 8;
 
   Vector lhs = { .n = d_fullVec.n };

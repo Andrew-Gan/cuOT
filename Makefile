@@ -1,9 +1,9 @@
 SRC_DIR := src
 INC_DIR := inc
 
-CC := nvcc -g -G -std=c++17 -lcurand --compiler-options='-std=c++17 -msse2 -msse -march=native -maes -lpthread'
+CC := nvcc -std=c++17 -lcurand
 SRC := $(wildcard $(SRC_DIR)/*) main.cu
-LIB := -lboost_system -lboost_filesystem
+LIB :=
 INC := -Iinc
 OUT := pprf
 INPUT_SIZE=20

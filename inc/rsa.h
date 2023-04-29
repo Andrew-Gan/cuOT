@@ -2,6 +2,7 @@
 #define __RSA_H__
 
 #include "util.h"
+#include <utility>
 
 class Rsa {
 private:

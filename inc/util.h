@@ -27,18 +27,6 @@ typedef struct {
 } AES_ctx;
 
 typedef struct {
-  size_t length;
-  uint8_t *content;
-} AES_buffer;
-
-typedef struct {
-  AES_ctx *ctx;
-  AES_buffer *buf;
-  size_t start;
-  size_t end;
-} ThreadArgs;
-
-typedef struct {
   uint32_t data[TREENODE_SIZE / 4];
 } TreeNode;
 
