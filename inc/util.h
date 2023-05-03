@@ -20,10 +20,10 @@
 
 #define AES_BSIZE 256
 
-// #define DEBUG_MODE
+#define DEBUG_MODE
 
 typedef struct {
-  uint8_t roundKey[320];
+  uint8_t roundKey[176];
 } AES_ctx;
 
 typedef struct {

@@ -73,7 +73,7 @@ void BaseOT::recverInit(int id) {
 
   while (initStatus < rsaInitDone);
   rsa = Rsa(e, n);
-  cudaMemcpy(aesKey_enc, aes.d_key, AES_BLOCKLEN, cudaMemcpyDeviceToHost);
+  memcpy(aesKey_enc, aes.key, AES_BLOCKLEN);
   rsa.encrypt((uint32_t*) aesKey_enc, 16);
   memcpy(other->aesKey_enc, aesKey_enc, sizeof(aesKey_enc));
   other->initStatus = initStatus = aesInitDone;

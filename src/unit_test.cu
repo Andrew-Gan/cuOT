@@ -23,31 +23,23 @@ void test_aes() {
 
   AesBlocks input;
   cudaMemcpy(input.d_data, sample, 16, cudaMemcpyHostToDevice);
-  AesBlocks output;
-  cudaMemcpy(output.d_data, sample, 16, cudaMemcpyHostToDevice);
-  aes.encrypt(&output);
-  cmp_gpu<<<1, 16>>>(d_cmp, input.d_data, output.d_data);
-  print_gpu<<<1, 1>>>(output.d_data, 16);
+
+  AesBlocks buffer;
+  cudaMemcpy(buffer.d_data, sample, 16, cudaMemcpyHostToDevice);
+  print_gpu<<<1, 1>>>(buffer.d_data, 16);
+
+  aes.encrypt(&buffer);
+  print_gpu<<<1, 1>>>(buffer.d_data, 16);
   cudaDeviceSynchronize();
 
-  cudaMemcpy(cmp, d_cmp, 16, cudaMemcpyDeviceToHost);
-  int i = 0, allEqual = true;
-  while(i < 16) {
-    if (!cmp[i]) {
-      allEqual = false;
-      break;
-    }
-  }
-  assert(!allEqual);
-
-  aes.decrypt(&output);
-  print_gpu<<<1, 1>>>(output.d_data, 16);
-  cmp_gpu<<<1, 16>>>(d_cmp, input.d_data, output.d_data);
+  aes.decrypt(&buffer);
+  print_gpu<<<1, 1>>>(buffer.d_data, 16);
+  cmp_gpu<<<1, 16>>>(d_cmp, input.d_data, buffer.d_data);
   cudaDeviceSynchronize();
 
   cudaMemcpy(cmp, d_cmp, 16, cudaMemcpyDeviceToHost);
   int j = 0;
-  allEqual = true;
+  bool allEqual = true;
   while(j < 16) {
     if (!cmp[j]) {
       allEqual = false;

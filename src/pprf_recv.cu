@@ -79,13 +79,13 @@ std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees
   unsigned *d_leftKey, *d_rightKey;
 
   memcpy(&k_blk[8], &k0, sizeof(k0));
-  Aes::expand_key(leftAesKey.roundKey, k_blk);
+  Aes::expand_encKey(leftAesKey.roundKey, k_blk);
   cudaMalloc(&d_leftKey, sizeof(leftAesKey));
   cudaMemcpy(d_leftKey, &leftAesKey, sizeof(leftAesKey), cudaMemcpyHostToDevice);
   memset(&k_blk, 0, sizeof(k_blk));
 
   memcpy(&k_blk[8], &k1, sizeof(k1));
-  Aes::expand_key(rightAesKey.roundKey, k_blk);
+  Aes::expand_encKey(rightAesKey.roundKey, k_blk);
   cudaMalloc(&d_rightKey, sizeof(rightAesKey));
   cudaMemcpy(d_rightKey, &rightAesKey, sizeof(rightAesKey), cudaMemcpyHostToDevice);
 

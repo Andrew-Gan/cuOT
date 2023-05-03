@@ -2,6 +2,15 @@
 #include "aesEncrypt.h"
 #include "aesDecrypt.h"
 #include "utilsBox.h"
+#include <vector>
+#include <algorithm>
+
+#define Nb 4
+#define Nk 4
+#define KEYSIZE_BITS 128
+
+// state - array holding the intermediate results during decryption.
+typedef uint8_t state_t[4][4];
 
 AesBlocks::AesBlocks() : AesBlocks(64) {}
 
@@ -51,103 +60,140 @@ AesBlocks AesBlocks::operator=(const AesBlocks &rhs) {
 }
 
 Aes::Aes() {
-  uint8_t key[AES_KEYLEN];
   for (int i = 0; i < AES_KEYLEN / 4; i++) {
     ((uint32_t*) key)[i] = rand();
   }
-  AES_ctx exp_key;
-  Aes::expand_key(exp_key.roundKey, key);
-  cudaMalloc(&d_key, sizeof(exp_key.roundKey));
-  cudaMemcpy(d_key, exp_key.roundKey, sizeof(exp_key.roundKey), cudaMemcpyHostToDevice);
+  AES_ctx encExpKey;
+  AES_ctx decExpKey;
+  Aes::expand_encKey(encExpKey.roundKey, key);
+  Aes::expand_decKey(decExpKey.roundKey, key);
+  cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
+  cudaMemcpy(encExpKey_d, encExpKey.roundKey, sizeof(encExpKey.roundKey), cudaMemcpyHostToDevice);
+  cudaMalloc(&decExpKey_d, sizeof(decExpKey.roundKey));
+  cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
 }
 
 Aes::Aes(uint8_t *newkey) {
-  AES_ctx exp_key;
-  Aes::expand_key(exp_key.roundKey, newkey);
-  cudaMalloc(&d_key, sizeof(exp_key.roundKey));
-  cudaMemcpy(d_key, exp_key.roundKey, sizeof(exp_key.roundKey), cudaMemcpyHostToDevice);
+  memcpy(key, newkey, 16);
+  AES_ctx encExpKey;
+  AES_ctx decExpKey;
+  Aes::expand_encKey(encExpKey.roundKey, key);
+  Aes::expand_decKey(decExpKey.roundKey, key);
+  cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
+  cudaMemcpy(encExpKey_d, encExpKey.roundKey, sizeof(encExpKey.roundKey), cudaMemcpyHostToDevice);
+  cudaMalloc(&decExpKey_d, sizeof(decExpKey.roundKey));
+  cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
 }
 
 Aes::~Aes() {
-  cudaFree(d_key);
+  cudaFree(encExpKey_d);
+  cudaFree(decExpKey_d);
 }
 
 void Aes::decrypt(AesBlocks *msg) {
-  if (d_key == nullptr)
+  if (decExpKey_d == nullptr)
     return;
   uint8_t *d_buffer;
   cudaMalloc(&d_buffer, 16 * msg->nBlock);
-  aesDecrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((unsigned*) d_key, (unsigned*) d_buffer, (unsigned*) msg->d_data);
+  aesDecrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg->d_data);
   cudaDeviceSynchronize();
   cudaMemcpy(msg->d_data, d_buffer, 16 * msg->nBlock, cudaMemcpyDeviceToDevice);
   cudaFree(d_buffer);
 }
 
 void Aes::encrypt(AesBlocks *msg) {
-  if (d_key == nullptr)
+  if (encExpKey_d == nullptr)
     return;
   uint8_t *d_buffer;
   cudaMalloc(&d_buffer, 16 * msg->nBlock);
-  aesEncrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((unsigned*) d_key, (unsigned*) d_buffer, (unsigned*) msg->d_data);
+  aesEncrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg->d_data);
   cudaDeviceSynchronize();
   cudaMemcpy(msg->d_data, d_buffer, 16 * msg->nBlock, cudaMemcpyDeviceToDevice);
   cudaFree(d_buffer);
 }
 
-#define Nb 4
-#define Nk 4
+static uint32_t myXor(uint32_t num1, uint32_t num2) {
+	return num1 ^ num2;
+}
 
-// state - array holding the intermediate results during decryption.
-typedef uint8_t state_t[4][4];
+static void single_step(std::vector<uint32_t> &expKey, uint32_t stepIdx){
+	uint32_t num = 16;
+	uint32_t idx = 16 * stepIdx;
 
-// This function produces Nb(NUM_ROUNDS+1) round keys. The round keys are used in each round to decrypt the states.
-void Aes::expand_key(uint8_t* roundKey, const uint8_t* Key) {
-  unsigned i, j, k;
-  uint8_t tempa[4]; // Used for the column/row operations
+	copy(expKey.begin()+(idx)-4, expKey.begin()+(idx),expKey.begin()+(idx));
+	rotate(expKey.begin()+(idx), expKey.begin()+(idx)+1, expKey.begin()+(idx)+4);
+	transform(expKey.begin()+idx, expKey.begin()+idx+4, expKey.begin()+idx, [](int n){return SBox[n];});
+	expKey[idx] = expKey[idx] ^ Rcon[stepIdx-1];
+	transform(expKey.begin()+(idx), expKey.begin()+(idx)+4, expKey.begin()+(idx)-num, expKey.begin()+(idx), myXor);
+	for (int cnt = 0; cnt < 3; cnt++) {
+		copy(expKey.begin()+(idx)+4*cnt, expKey.begin()+(idx)+4*(cnt+1),expKey.begin()+(idx)+(4*(cnt+1)));
+		transform(expKey.begin()+(idx)+4*(cnt+1), expKey.begin()+(idx)+4*(cnt+2), expKey.begin()+(idx)-(num-4*(cnt+1)), expKey.begin()+(idx)+4*(cnt+1), myXor);
+	}
+}
 
-  // The first round key is the key itself.
-  for (i = 0; i < Nk; ++i) {
-    roundKey[(i * 4) + 0] = Key[(i * 4) + 0];
-    roundKey[(i * 4) + 1] = Key[(i * 4) + 1];
-    roundKey[(i * 4) + 2] = Key[(i * 4) + 2];
-    roundKey[(i * 4) + 3] = Key[(i * 4) + 3];
+static void _exp_func(std::vector<uint32_t> &keyArray, std::vector<uint32_t> &expKeyArray){
+	copy(keyArray.begin(), keyArray.end(), expKeyArray.begin());
+	for (int i = 1; i < 11; i++) {
+		single_step(expKeyArray, i);
+	}
+}
+
+static uint32_t _galois_prod(uint32_t a, uint32_t b) {
+
+	if (a==0 || b==0) return 0;
+	else {
+		a = LogTable[a];
+		b = LogTable[b];
+		a = a+b;
+		a = a % 255;
+		a = ExpoTable[a];
+		return a;
+	}
+}
+
+static void _inv_mix_col(std::vector<unsigned> &temp){
+	std::vector<unsigned> result(4);
+	for(unsigned cnt=0; cnt<4; ++cnt){
+		result[0] = _galois_prod(0x0e, temp[cnt*4]) ^ _galois_prod(0x0b, temp[cnt*4+1]) ^ _galois_prod(0x0d, temp[cnt*4+2]) ^ _galois_prod(0x09, temp[cnt*4+3]);
+		result[1] = _galois_prod(0x09, temp[cnt*4]) ^ _galois_prod(0x0e, temp[cnt*4+1]) ^ _galois_prod(0x0b, temp[cnt*4+2]) ^ _galois_prod(0x0d, temp[cnt*4+3]);
+		result[2] = _galois_prod(0x0d, temp[cnt*4]) ^ _galois_prod(0x09, temp[cnt*4+1]) ^ _galois_prod(0x0e, temp[cnt*4+2]) ^ _galois_prod(0x0b, temp[cnt*4+3]);
+		result[3] = _galois_prod(0x0b, temp[cnt*4]) ^ _galois_prod(0x0d, temp[cnt*4+1]) ^ _galois_prod(0x09, temp[cnt*4+2]) ^ _galois_prod(0x0e, temp[cnt*4+3]);
+		copy(result.begin(), result.end(), temp.begin()+(4*cnt));
+	}
+}
+
+static void _inv_exp_func(std::vector<unsigned> &expKey, std::vector<unsigned> &invExpKey){
+	std::vector<unsigned> temp(16);
+	copy(expKey.begin(), expKey.begin()+16,invExpKey.end()-16);
+	copy(expKey.end()-16, expKey.end(),invExpKey.begin());
+	unsigned cycles = (expKey.size()!=240) ? 10 : 14;
+	for (unsigned cnt=1; cnt<cycles; ++cnt){
+		copy(expKey.end()-(16*cnt+16), expKey.end()-(16*cnt), temp.begin());
+		_inv_mix_col(temp);
+		copy(temp.begin(), temp.end(), invExpKey.begin()+(16*cnt));
+	}
+}
+
+void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
+  std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
+	std::vector<uint32_t> expKeyArray(176);
+  _exp_func(keyArray, expKeyArray);
+  for (int cnt = 0; cnt < expKeyArray.size(); cnt++) {
+    uint32_t val = expKeyArray[cnt];
+    uint8_t *pc = reinterpret_cast<uint8_t*>(&val);
+    encExpKey[cnt] = *pc;
   }
+}
 
-  // All other round keys are found from the previous round keys.
-  for (i = Nk; i < Nb * (NUM_ROUNDS + 1); ++i) {
-    {
-      k = (i - 1) * 4;
-      tempa[0]=roundKey[k + 0];
-      tempa[1]=roundKey[k + 1];
-      tempa[2]=roundKey[k + 2];
-      tempa[3]=roundKey[k + 3];
-
-    }
-
-    if (i % Nk == 0)
-    {
-      // This function shifts the 4 bytes in a word to the left once.
-      // [a0,a1,a2,a3] becomes [a1,a2,a3,a0]
-      const uint8_t u8tmp = tempa[0];
-      tempa[0] = tempa[1];
-      tempa[1] = tempa[2];
-      tempa[2] = tempa[3];
-      tempa[3] = u8tmp;
-
-      // SubWord() is a function that takes a four-byte input word and
-      // applies the S-box to each of the four bytes to produce an output word.
-      tempa[0] = SBox[tempa[0]];
-      tempa[1] = SBox[tempa[1]];
-      tempa[2] = SBox[tempa[2]];
-      tempa[3] = SBox[tempa[3]];
-
-      tempa[0] = tempa[0] ^ Rcon[i/Nk];
-    }
-
-    j = i * 4; k=(i - Nk) * 4;
-    roundKey[j + 0] = roundKey[k + 0] ^ tempa[0];
-    roundKey[j + 1] = roundKey[k + 1] ^ tempa[1];
-    roundKey[j + 2] = roundKey[k + 2] ^ tempa[2];
-    roundKey[j + 3] = roundKey[k + 3] ^ tempa[3];
+void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
+  std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
+  std::vector<uint32_t> expKeyArray(176);
+	std::vector<uint32_t> invExpKeyArray(176);
+  _exp_func(keyArray, expKeyArray);
+  _inv_exp_func(expKeyArray, invExpKeyArray);
+  for (int cnt = 0; cnt < invExpKeyArray.size(); cnt++) {
+    uint32_t val = invExpKeyArray[cnt];
+    uint8_t *pc = reinterpret_cast<uint8_t*>(&val);
+    decExpKey[cnt] = *pc;
   }
 }

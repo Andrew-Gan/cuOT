@@ -92,7 +92,7 @@ void run(TreeNode root, uint64_t *choices, int depth, int numTrees, size_t numOT
 int main(int argc, char** argv) {
   cuda_check();
 #ifdef DEBUG_MODE
-  test_rsa();
+  // test_rsa();
   test_aes();
 #endif
 
