@@ -16,11 +16,11 @@ AesBlocks::AesBlocks() : AesBlocks(64) {}
 
 AesBlocks::AesBlocks(size_t i_nBlock) {
   nBlock = i_nBlock;
-  cudaMalloc(&d_data, 16 * nBlock);
+  cudaMalloc(&data_d, 16 * nBlock);
 }
 
 AesBlocks::~AesBlocks() {
-  cudaFree(d_data);
+  cudaFree(data_d);
 }
 
 __global__
@@ -38,24 +38,24 @@ static void xor_uneven(uint8_t *d_out, uint8_t *d_in, uint8_t *d_rep) {
 AesBlocks AesBlocks::operator^(const AesBlocks &rhs) {
   AesBlocks res(nBlock);
   if (nBlock == rhs.nBlock)
-    xor_pairwise<<<nBlock, 16>>>(res.d_data, d_data, rhs.d_data);
+    xor_pairwise<<<nBlock, 16>>>(res.data_d, data_d, rhs.data_d);
   else if (rhs.nBlock == 1)
-    xor_uneven<<<nBlock, 16>>>(res.d_data, d_data, rhs.d_data);
+    xor_uneven<<<nBlock, 16>>>(res.data_d, data_d, rhs.data_d);
   return res;
 }
 
 AesBlocks AesBlocks::operator=(uint32_t rhs) {
-  cudaMemcpy(d_data, &rhs, sizeof(rhs), cudaMemcpyHostToDevice);
+  cudaMemcpy(data_d, &rhs, sizeof(rhs), cudaMemcpyHostToDevice);
   return *this;
 }
 
 AesBlocks AesBlocks::operator=(const AesBlocks &rhs) {
   if (nBlock != rhs.nBlock) {
-    cudaFree(d_data);
-    cudaMalloc(&d_data, 16 * rhs.nBlock);
+    cudaFree(data_d);
+    cudaMalloc(&data_d, 16 * rhs.nBlock);
     nBlock = rhs.nBlock;
   }
-  cudaMemcpy(d_data, rhs.d_data, 16 * nBlock, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(data_d, rhs.data_d, 16 * nBlock, cudaMemcpyDeviceToDevice);
   return *this;
 }
 
@@ -95,9 +95,9 @@ void Aes::decrypt(AesBlocks *msg) {
     return;
   uint8_t *d_buffer;
   cudaMalloc(&d_buffer, 16 * msg->nBlock);
-  aesDecrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg->d_data);
+  aesDecrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg->data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg->d_data, d_buffer, 16 * msg->nBlock, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(msg->data_d, d_buffer, 16 * msg->nBlock, cudaMemcpyDeviceToDevice);
   cudaFree(d_buffer);
 }
 
@@ -106,9 +106,9 @@ void Aes::encrypt(AesBlocks *msg) {
     return;
   uint8_t *d_buffer;
   cudaMalloc(&d_buffer, 16 * msg->nBlock);
-  aesEncrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg->d_data);
+  aesEncrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg->data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg->d_data, d_buffer, 16 * msg->nBlock, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(msg->data_d, d_buffer, 16 * msg->nBlock, cudaMemcpyDeviceToDevice);
   cudaFree(d_buffer);
 }
 

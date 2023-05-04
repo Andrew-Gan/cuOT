@@ -22,19 +22,16 @@ void test_aes() {
   cudaMalloc(&d_cmp, 16);
 
   AesBlocks input;
-  cudaMemcpy(input.d_data, sample, 16, cudaMemcpyHostToDevice);
+  cudaMemcpy(input.data_d, sample, 16, cudaMemcpyHostToDevice);
 
   AesBlocks buffer;
-  cudaMemcpy(buffer.d_data, sample, 16, cudaMemcpyHostToDevice);
-  print_gpu<<<1, 1>>>(buffer.d_data, 16);
+  cudaMemcpy(buffer.data_d, sample, 16, cudaMemcpyHostToDevice);
 
   aes.encrypt(&buffer);
-  print_gpu<<<1, 1>>>(buffer.d_data, 16);
   cudaDeviceSynchronize();
 
   aes.decrypt(&buffer);
-  print_gpu<<<1, 1>>>(buffer.d_data, 16);
-  cmp_gpu<<<1, 16>>>(d_cmp, input.d_data, buffer.d_data);
+  cmp_gpu<<<1, 16>>>(d_cmp, input.data_d, buffer.data_d);
   cudaDeviceSynchronize();
 
   cudaMemcpy(cmp, d_cmp, 16, cudaMemcpyDeviceToHost);

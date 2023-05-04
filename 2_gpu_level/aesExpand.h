@@ -2,9 +2,10 @@
 #define _AESEXPAND_KERNEL_H_
 
 #include "util.h"
+#include "aes.h"
 
 __global__
-void aesExpand128(unsigned *aesKey, TreeNode *leaves,
+void aesExpand128(unsigned *aesKey, TreeNode *leaves, AesBlocks *m,
 	unsigned *inData, int expandDir, size_t width);
 
 #endif

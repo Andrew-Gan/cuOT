@@ -5,6 +5,7 @@
 #include "aes.h"
 #include "pprf.h"
 #include "aesExpand.h"
+#include "base_ot.h"
 
 using KeyPair = std::pair<unsigned*, unsigned*>;
 
@@ -18,6 +19,7 @@ void set_choice(Vector choiceVec, int index) {
 
 __host__
 TreeNode* worker_recver(Vector d_choiceVector, KeyPair keys, uint64_t *choices, int tid, int treeStart, int treeEnd, int depth) {
+  BaseOT baseOT = BaseOT(Recver, tid);
   int numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
   TreeNode *d_input, *d_output, *d_subtotal;
@@ -48,14 +50,15 @@ TreeNode* worker_recver(Vector d_choiceVector, KeyPair keys, uint64_t *choices, 
       static int thread_per_aesblock = 4;
       dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
       dim3 thread(AES_BSIZE, 1);
-      aesExpand128<<<grid, thread>>>(keys.first, d_output, (unsigned*) d_input, 0, width);
-      aesExpand128<<<grid, thread>>>(keys.second, d_output, (unsigned*) d_input, 1, width);
+      aesExpand128<<<grid, thread>>>(keys.first, d_output, nullptr, (unsigned*) d_input, 0, width);
+      aesExpand128<<<grid, thread>>>(keys.second, d_output, nullptr, (unsigned*) d_input, 1, width);
       cudaDeviceSynchronize();
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
-      int otLeafLayerIdx = puncture * 2 + choice;
-      cudaMemcpy(&d_output[otLeafLayerIdx], &d_otNodes[t][d-1], sizeof(*d_otNodes[t]), cudaMemcpyDeviceToDevice);
       puncture = puncture * 2 + (1 - choice);
+
+      AesBlocks mb = baseOT.recv(choice);
+      // do stuff
     }
 
     xor_prf<<<tBlock, 1024>>>(d_subtotal, d_output, numLeaves);

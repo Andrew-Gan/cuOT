@@ -5,11 +5,13 @@
 #include "aes.h"
 #include "pprf.h"
 #include "aesExpand.h"
+#include "base_ot.h"
 
 using KeyPair = std::pair<unsigned*, unsigned*>;
 
 __host__
-TreeNode* worker_sender(TreeNode root, KeyPair keys, uint64_t *choices, int tid, int treeStart, int treeEnd, int depth) {
+TreeNode* worker_sender(TreeNode root, KeyPair keys, int tid, int treeStart, int treeEnd, int depth) {
+  BaseOT baseOT = BaseOT(Sender, tid);
   int numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
   TreeNode *d_input, *d_output, *d_subtotal;
@@ -29,7 +31,6 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, uint64_t *choices, int tid,
     cudaMalloc(&tmp, sizeof(*d_otNodes[t]) * depth);
     d_otNodes[t] = tmp;
 
-    int puncture = 0;
     cudaMemcpy(d_output, &root, sizeof(root), cudaMemcpyHostToDevice);
 
     for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
@@ -42,14 +43,12 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, uint64_t *choices, int tid,
       static int thread_per_aesblock = 4;
       dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
       dim3 thread(AES_BSIZE, 1);
-      aesExpand128<<<grid, thread>>>(keys.first, d_output,  (unsigned*) d_input, 0, width);
-      aesExpand128<<<grid, thread>>>(keys.second, d_output,  (unsigned*) d_input, 1, width);
+      AesBlocks m0(width / 2), m1(width / 2);
+      aesExpand128<<<grid, thread>>>(keys.first, d_output,  &m0, (unsigned*) d_input, 0, width);
+      aesExpand128<<<grid, thread>>>(keys.second, d_output,  &m1, (unsigned*) d_input, 1, width);
       cudaDeviceSynchronize();
 
-      int choice = (choices[t] & (1 << d-1)) >> d-1;
-      int otLeafLayerIdx = puncture * 2 + 1 - (width - 1) + choice;
-      cudaMemcpy(&d_otNodes[t][d-1], &d_output[otLeafLayerIdx], sizeof(*d_output), cudaMemcpyDeviceToDevice);
-      puncture = puncture * 2 + 1 + (1 - choice);
+      baseOT.send(m0, m1);
     }
 
     treeExpanded[t] = true;
@@ -62,7 +61,7 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, uint64_t *choices, int tid,
   return d_subtotal;
 }
 
-std::pair<Vector, uint64_t> pprf_sender(uint64_t *choices, TreeNode root, int depth, int numTrees) {
+std::pair<Vector, uint64_t> pprf_sender(TreeNode root, int depth, int numTrees) {
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
@@ -102,7 +101,7 @@ std::pair<Vector, uint64_t> pprf_sender(uint64_t *choices, TreeNode root, int de
     int treeEnd = ((tid+1) * workload - 1);
     if (treeEnd > (numTrees - 1))
       treeEnd = numTrees - 1;
-    workers.push_back(std::async(worker_sender, root, keys, choices, tid, treeStart, treeEnd, depth));
+    workers.push_back(std::async(worker_sender, root, keys, tid, treeStart, treeEnd, depth));
   }
   int tBlock = (numLeaves - 1) / 1024 + 1;
   for (int tid = 0; tid < EXP_NUM_THREAD; tid++) {

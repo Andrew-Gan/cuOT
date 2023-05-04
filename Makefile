@@ -1,10 +1,7 @@
-SRC_DIR := src
-INC_DIR := inc
-
 CC := nvcc -std=c++17 -lcurand
-SRC := $(wildcard $(SRC_DIR)/*) main.cu
+SRC := $(wildcard */*.cu)
 LIB :=
-INC := -Iinc
+INC := -I0_app_level -I1_module_level -I2_gpu_level
 OUT := pprf
 INPUT_SIZE=20
 NUM_TREES=16
@@ -17,9 +14,6 @@ NUM_GPU=1
 
 make:
 	$(CC) $(SRC) $(LIB) $(INC) -o $(OUT)
-
-run:
-	./$(OUT) $(INPUT_SIZE) $(NUM_TREES)
 
 nsys:
 	nsys profile --stats=true --output=nsys-stats ./$(OUT) exp $(INPUT_SIZE)

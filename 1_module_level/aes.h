@@ -9,7 +9,7 @@ public:
   AesBlocks();
   AesBlocks(size_t nBlock);
   virtual ~AesBlocks();
-  uint8_t *d_data = nullptr;
+  uint8_t *data_d = nullptr;
   size_t nBlock = 0;
   AesBlocks operator^(const AesBlocks &d_rhs);
   AesBlocks operator=(uint32_t rhs);

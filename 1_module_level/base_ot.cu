@@ -8,40 +8,40 @@ BaseOT::BaseOT(Role role, int id) {
   initStatus = noInit;
   otStatus = notReady;
   if (role == Sender) {
-    senderInit(id);
+    sender_init(id);
   }
   else {
-    recverInit(id);
+    recver_init(id);
   }
 }
 
-void BaseOT::ot_send(AesBlocks d_m0, AesBlocks d_m1) {
+void BaseOT::send(AesBlocks m0, AesBlocks m1) {
   while(otStatus < vReady);
-  d_k0 = v ^ x[0];
-  aes.decrypt(&d_k0);
-  d_k1 = v ^ x[1];
-  aes.decrypt(&d_k1);
-  other->d_mp[0] = d_mp[0] = d_m0 ^ d_k0;
-  other->d_mp[1] = d_mp[1] = d_m1 ^ d_k1;
+  k0 = v ^ x[0];
+  aes.decrypt(&k0);
+  k1 = v ^ x[1];
+  aes.decrypt(&k1);
+  other->mp[0] = mp[0] = m0 ^ k0;
+  other->mp[1] = mp[1] = m1 ^ k1;
   cudaDeviceSynchronize();
   otStatus = mReady;
   other->otStatus = mReady;
 }
 
-AesBlocks BaseOT::ot_recv(uint8_t b, size_t nBytes) {
-  AesBlocks d_k = rand();
-  AesBlocks d_k_enc = d_k;
-  aes.encrypt(&d_k_enc);
-  other->v = v = x[b] ^ d_k_enc;
+AesBlocks BaseOT::recv(uint8_t b) {
+  AesBlocks k = rand();
+  AesBlocks k_enc = k;
+  aes.encrypt(&k_enc);
+  other->v = v = x[b] ^ k_enc;
   other->otStatus = otStatus = vReady;
   while(otStatus < mReady);
-  AesBlocks mb = d_mp[b] ^ d_k;
+  AesBlocks mb = mp[b] ^ k;
   otStatus = notReady;
   other->otStatus = notReady;
   return mb;
 }
 
-void BaseOT::senderInit(int id) {
+void BaseOT::sender_init(int id) {
   if (senders[id] != nullptr) {
     fprintf(stderr, "More than one OT sender for tree id: %d\n", id);
     return;
@@ -62,7 +62,7 @@ void BaseOT::senderInit(int id) {
   aes = Aes(aesKey_enc);
 }
 
-void BaseOT::recverInit(int id) {
+void BaseOT::recver_init(int id) {
   if (recvers[id] != nullptr) {
     fprintf(stderr, "More than one OT recver for tree id: %d\n", id);
     return;

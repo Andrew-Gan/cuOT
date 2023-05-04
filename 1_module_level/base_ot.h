@@ -16,11 +16,11 @@ private:
   uint64_t e = 0, n = 0;
   uint8_t aesKey_enc[16] = {};
   AesBlocks x[2], v;
-  AesBlocks d_mp[2];
+  AesBlocks mp[2];
   std::atomic<InitStatus> initStatus;
   std::atomic<OTStatus> otStatus;
   // sender only
-  AesBlocks d_k0, d_k1;
+  AesBlocks k0, k1;
   curandGenerator_t prng_s;
   // recver only
   curandGenerator_t prng_r;
@@ -29,13 +29,13 @@ private:
   Aes aes;
   Role role;
   BaseOT *other;
-  void senderInit(int id);
-  void recverInit(int id);
+  void sender_init(int id);
+  void recver_init(int id);
 
 public:
   BaseOT(Role role, int id);
-  void ot_send(AesBlocks d_m0, AesBlocks d_m1);
-  AesBlocks ot_recv(uint8_t b, size_t nBytes);
+  void send(AesBlocks m0, AesBlocks m1);
+  AesBlocks recv(uint8_t b);
 };
 
 #endif

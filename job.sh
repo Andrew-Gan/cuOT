@@ -9,12 +9,12 @@ rm -f nsys* out out-nsys
 
 make
 
-./pprf 11 75 >> out
-./pprf 14 73 >> out
-./pprf 17 72 >> out
-./pprf 20 70 >> out
-./pprf 23 69 >> out
+./pprf 1 11 75 >> out
+./pprf 1 14 73 >> out
+./pprf 1 17 72 >> out
+./pprf 1 20 70 >> out
+./pprf 1 23 69 >> out
 
-nsys profile --stats=true --output=nsys-stats ./pprf 14 73 > out-nsys
+nsys profile --stats=true --output=nsys-stats ./pprf 1 14 73 > out-nsys
 
 make clean

@@ -34,13 +34,13 @@
 #include "aesExpand.h"
 
 __global__
-void aesExpand128(unsigned *aesKey, TreeNode *leaves,
-	unsigned *inData, int expandDir, size_t width) {
-	unsigned bx		= blockIdx.x;
-    unsigned tx		= threadIdx.x;
-    unsigned mod4tx = tx%4;
-    unsigned int4tx = tx/4;
-    unsigned idx2	= int4tx*4;
+void aesExpand128(uint32_t *aesKey, TreeNode *leaves, AesBlocks *m,
+	uint32_t *inData, int expandDir, size_t width) {
+	uint32_t bx		= blockIdx.x;
+    uint32_t tx		= threadIdx.x;
+    uint32_t mod4tx = tx%4;
+    uint32_t int4tx = tx/4;
+    uint32_t idx2	= int4tx*4;
 	int x;
 
     __shared__ UByte4 stageBlock1[AES_BSIZE];
@@ -54,8 +54,8 @@ void aesExpand128(unsigned *aesKey, TreeNode *leaves,
 	// input caricati in memoria
 	stageBlock1[tx].uival	= inData[AES_BSIZE * bx + tx ];
 
-	unsigned elemPerThread = 256/AES_BSIZE;
-	for (unsigned cnt=0; cnt<elemPerThread; cnt++) {
+	uint32_t elemPerThread = 256/AES_BSIZE;
+	for (uint32_t cnt=0; cnt<elemPerThread; cnt++) {
 		tBox0Block[tx*elemPerThread + cnt].uival	= TBox0[tx*elemPerThread + cnt];
 		tBox1Block[tx*elemPerThread + cnt].uival	= TBox1[tx*elemPerThread + cnt];
 		tBox2Block[tx*elemPerThread + cnt].uival	= TBox2[tx*elemPerThread + cnt];
@@ -76,10 +76,10 @@ void aesExpand128(unsigned *aesKey, TreeNode *leaves,
 
 	//----------------------------------- 2nd stage -----------------------------------
 
-    unsigned op1 = stageBlock2[posIdx_E[mod4tx*4]   + idx2].ubval[0];
-	unsigned op2 = stageBlock2[posIdx_E[mod4tx*4+1] + idx2].ubval[1];
-	unsigned op3 = stageBlock2[posIdx_E[mod4tx*4+2] + idx2].ubval[2];
-	unsigned op4 = stageBlock2[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
+    uint32_t op1 = stageBlock2[posIdx_E[mod4tx*4]   + idx2].ubval[0];
+	uint32_t op2 = stageBlock2[posIdx_E[mod4tx*4+1] + idx2].ubval[1];
+	uint32_t op3 = stageBlock2[posIdx_E[mod4tx*4+2] + idx2].ubval[2];
+	uint32_t op4 = stageBlock2[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
 
@@ -292,9 +292,12 @@ void aesExpand128(unsigned *aesKey, TreeNode *leaves,
 	//-------------------------------- end of 15th stage --------------------------------
 
 	int elemPerNode = TREENODE_SIZE / 4;
-	size_t node_id = 2 * ((bx * AES_BSIZE + tx) / elemPerNode) + expandDir;
-	if (node_id < width) {
-		leaves[node_id].data[tx % elemPerNode] = stageBlock2[tx].uival;
+	size_t pairId =  (bx * AES_BSIZE + tx) / elemPerNode;
+	size_t leavesId = 2 * pairId + expandDir;
+	if (leavesId < width) {
+		leaves[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
-	// end of AES
+	if (m != nullptr) {
+		m->data_d[pairId * TREENODE_SIZE + tx % elemPerNode] = stageBlock2[tx].uival;
+	}
 }
