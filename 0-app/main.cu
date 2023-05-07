@@ -24,6 +24,7 @@ void cuda_check() {
     fprintf(stderr, "There is no device supporting CUDA.\n");
   else
     cudaSetDevice(dev);
+  printf("cuda_check passed!\n");
 }
 
 uint64_t* gen_choices(int numTrees) {
@@ -37,10 +38,12 @@ uint64_t* gen_choices(int numTrees) {
 #include "aes.h"
 
 int main(int argc, char** argv) {
+#ifdef UNIT_TEST
   cuda_check();
-  // test_rsa();
-  // test_aes();
+  test_rsa();
+  test_aes();
   test_base_ot();
+#endif
 
   if (argc < 4) {
     fprintf(stderr, "Usage: ./ot protocol depth trees\n");

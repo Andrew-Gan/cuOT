@@ -25,6 +25,7 @@ private:
   // recver only
   curandGenerator_t prng_r;
   // misc
+  int id = -1;
   Rsa *rsa;
   Aes *aes = nullptr;
   Role role;

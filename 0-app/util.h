@@ -17,10 +17,8 @@
 #define CHUNK_SIDE (1<<17)
 
 #define EXP_NUM_THREAD 16
-
 #define AES_BSIZE 256
-
-#define DEBUG_MODE
+#define UNIT_TEST
 
 typedef struct {
   uint8_t roundKey[176];

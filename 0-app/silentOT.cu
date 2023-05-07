@@ -42,7 +42,7 @@ void silentOT(TreeNode root, uint64_t *choices, int depth, int numTrees) {
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 
-#ifdef DEBUG_MODE
+#ifdef UNIT_TEST
     test_cot(d_fullVec, d_puncVec, d_choiceVec, delta);
 #endif
 

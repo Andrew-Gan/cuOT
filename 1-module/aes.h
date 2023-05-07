@@ -23,6 +23,7 @@ private:
   curandGenerator_t prng;
   uint8_t *encExpKey_d = nullptr;
   uint8_t *decExpKey_d = nullptr;
+  void init();
 public:
   uint8_t key[AES_KEYLEN];
   Aes();
