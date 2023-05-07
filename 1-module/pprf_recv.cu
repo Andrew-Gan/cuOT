@@ -53,10 +53,11 @@ TreeNode* worker_recver(Vector d_choiceVector, KeyPair keys, uint64_t *choices, 
       cudaDeviceSynchronize();
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
-      puncture = puncture * 2 + (1 - choice);
-
+      int sharedNode = puncture * 2 + choice;
       AesBlocks mb = baseOT.recv(choice);
-      // do stuff
+      cudaMemcpy(&d_output[sharedNode], mb[puncture], TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+
+      puncture = puncture * 2 + (1 - choice);
     }
 
     xor_prf<<<tBlock, 1024>>>(d_subtotal, d_output, numLeaves);

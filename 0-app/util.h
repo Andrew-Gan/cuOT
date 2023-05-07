@@ -18,7 +18,7 @@
 
 #define EXP_NUM_THREAD 16
 #define AES_BSIZE 256
-#define UNIT_TEST
+// #define UNIT_TEST
 
 typedef struct {
   uint8_t roundKey[176];

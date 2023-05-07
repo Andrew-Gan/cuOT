@@ -15,6 +15,7 @@ public:
   AesBlocks operator^(const AesBlocks &d_rhs);
   AesBlocks operator=(const AesBlocks &rhs);
   bool operator==(const AesBlocks &rhs);
+  uint8_t* operator[](int index);
   void set(uint32_t rhs);
 };
 

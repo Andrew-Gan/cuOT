@@ -84,6 +84,10 @@ bool AesBlocks::operator==(const AesBlocks &rhs) {
   return true;
 }
 
+uint8_t* AesBlocks::operator[](int index) {
+  return &data_d[index * AES_BLOCKLEN];
+}
+
 void AesBlocks::set(uint32_t rhs) {
   uint32_t *casted = (uint32_t*) data_d;
   for (int i = 0; i < nBlock * AES_BLOCKLEN / sizeof(rhs); i++) {
