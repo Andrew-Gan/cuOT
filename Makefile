@@ -1,4 +1,4 @@
-CC := nvcc -g -G -std=c++17 -lcurand
+CC := nvcc -g -G -std=c++17 -lcurand --compiler-options='-g'
 LIB :=
 INC := -I0-app -I1-module -I2-device
 EXE := ot

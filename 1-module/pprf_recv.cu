@@ -28,11 +28,9 @@ TreeNode* worker_recver(Vector d_choiceVector, KeyPair keys, uint64_t *choices, 
   cudaError_t err2 = cudaMalloc(&d_subtotal, sizeof(*d_subtotal) * numLeaves);
   cudaMemset(d_subtotal, 0, sizeof(*d_subtotal) * numLeaves);
 
-#ifdef DEBUG_MODE
-  if (err0 != cudaSuccess) printf("recv in: %s\n", cudaGetErrorString(err0));
-  if (err1 != cudaSuccess) printf("recv out: %s\n", cudaGetErrorString(err1));
-  if (err2 != cudaSuccess) printf("recv sub: %s\n", cudaGetErrorString(err2));
-#endif
+  if (err0 != cudaSuccess) fprintf(stderr, "recv in: %s\n", cudaGetErrorString(err0));
+  if (err1 != cudaSuccess) fprintf(stderr, "recv out: %s\n", cudaGetErrorString(err1));
+  if (err2 != cudaSuccess) fprintf(stderr, "recv sub: %s\n", cudaGetErrorString(err2));
 
   for (int t = treeStart; t <= treeEnd; t++) {
     while (!treeExpanded[t]);
@@ -101,10 +99,8 @@ std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees
   cudaError_t err1 = cudaMalloc(&d_choiceVector.data, numLeaves * sizeof(*d_puncVec));
   cudaMemset(d_choiceVector.data, 0, numLeaves * sizeof(*d_puncVec));
 
-#ifdef DEBUG_MODE
-  if (err0 != cudaSuccess) printf("recv punc: %s\n", cudaGetErrorString(err0));
-  if (err1 != cudaSuccess) printf("recv choice: %s\n", cudaGetErrorString(err1));
-#endif
+  if (err0 != cudaSuccess) fprintf(stderr, "recv punc: %s\n", cudaGetErrorString(err0));
+  if (err1 != cudaSuccess) fprintf(stderr, "recv choice: %s\n", cudaGetErrorString(err1));
 
   int workload = (numTrees - 1) / EXP_NUM_THREAD + 1;
   std::vector<std::future<TreeNode*>> workers;

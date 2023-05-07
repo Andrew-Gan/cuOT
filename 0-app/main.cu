@@ -34,16 +34,16 @@ uint64_t* gen_choices(int numTrees) {
   return choices;
 }
 
+#include "aes.h"
+
 int main(int argc, char** argv) {
   cuda_check();
-#ifdef DEBUG_MODE
   // test_rsa();
   // test_aes();
   test_base_ot();
-#endif
 
   if (argc < 4) {
-    fprintf(stderr, "Usage: ./pprf p d t\n");
+    fprintf(stderr, "Usage: ./ot protocol depth trees\n");
     return EXIT_FAILURE;
   }
 

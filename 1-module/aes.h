@@ -14,7 +14,7 @@ public:
   size_t nBlock = 0;
   AesBlocks operator^(const AesBlocks &d_rhs);
   AesBlocks operator=(const AesBlocks &rhs);
-  bool operator==(AesBlocks rhs);
+  bool operator==(const AesBlocks &rhs);
   void set(uint32_t rhs);
 };
 

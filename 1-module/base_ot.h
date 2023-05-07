@@ -25,8 +25,8 @@ private:
   // recver only
   curandGenerator_t prng_r;
   // misc
-  Rsa rsa;
-  Aes aes;
+  Rsa *rsa;
+  Aes *aes = nullptr;
   Role role;
   BaseOT *other;
   void sender_init(int id);
@@ -34,6 +34,7 @@ private:
 
 public:
   BaseOT(Role role, int id);
+  virtual ~BaseOT();
   void send(AesBlocks &m0, AesBlocks &m1);
   AesBlocks recv(uint8_t b);
 };

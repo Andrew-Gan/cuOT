@@ -20,11 +20,9 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, int tid, int treeStart, int
   cudaError_t err2 = cudaMalloc(&d_subtotal, sizeof(*d_subtotal) * numLeaves);
   cudaMemset(d_subtotal, 0, sizeof(*d_subtotal) * numLeaves);
 
-#ifdef DEBUG_MODE
-  if (err0 != cudaSuccess) printf("send in: %s\n", cudaGetErrorString(err0));
-  if (err1 != cudaSuccess) printf("send out: %s\n", cudaGetErrorString(err1));
-  if (err2 != cudaSuccess) printf("send sub: %s\n", cudaGetErrorString(err2));
-#endif
+  if (err0 != cudaSuccess) fprintf(stderr, "send in: %s\n", cudaGetErrorString(err0));
+  if (err1 != cudaSuccess) fprintf(stderr, "send out: %s\n", cudaGetErrorString(err1));
+  if (err2 != cudaSuccess) fprintf(stderr, "send sub: %s\n", cudaGetErrorString(err2));
 
   for (int t = treeStart; t <= treeEnd; t++) {
     TreeNode *tmp;
@@ -85,9 +83,7 @@ std::pair<Vector, uint64_t> pprf_sender(TreeNode root, int depth, int numTrees) 
   cudaError_t err = cudaMalloc(&d_fullVec, sizeof(*d_fullVec) * numLeaves);
   cudaMemset(d_fullVec, 0, sizeof(*d_fullVec) * numLeaves);
 
-#ifdef DEBUG_MODE
-  if (err != cudaSuccess) printf("send full: %s\n", cudaGetErrorString(err));
-#endif
+  if (err != cudaSuccess) fprintf(stderr, "send full: %s\n", cudaGetErrorString(err));
 
   uint64_t delta = 0;
   d_otNodes = new std::atomic<TreeNode*>[numTrees];
