@@ -8,12 +8,14 @@ class AesBlocks {
 public:
   AesBlocks();
   AesBlocks(size_t nBlock);
+  AesBlocks(const AesBlocks &blk);
   virtual ~AesBlocks();
   uint8_t *data_d = nullptr;
   size_t nBlock = 0;
   AesBlocks operator^(const AesBlocks &d_rhs);
-  AesBlocks operator=(uint32_t rhs);
   AesBlocks operator=(const AesBlocks &rhs);
+  bool operator==(AesBlocks rhs);
+  void set(uint32_t rhs);
 };
 
 class Aes {
@@ -28,8 +30,8 @@ public:
   virtual ~Aes();
   static void expand_encKey(uint8_t *encExpKey, uint8_t *key);
   static void expand_decKey(uint8_t *decExpKey, uint8_t *key);
-  void decrypt(AesBlocks *msg);
-  void encrypt(AesBlocks *msg);
+  void decrypt(AesBlocks &msg);
+  void encrypt(AesBlocks &msg);
 };
 
 #endif

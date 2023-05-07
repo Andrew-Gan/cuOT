@@ -16,7 +16,16 @@ AesBlocks::AesBlocks() : AesBlocks(64) {}
 
 AesBlocks::AesBlocks(size_t i_nBlock) {
   nBlock = i_nBlock;
-  cudaMalloc(&data_d, 16 * nBlock);
+  cudaError_t err = cudaMalloc(&data_d, 16 * nBlock);
+  printf("%s\n", cudaGetErrorString(err));
+}
+
+
+AesBlocks::AesBlocks(const AesBlocks &blk) {
+  cudaError_t err = cudaMalloc(&data_d, 16 * blk.nBlock);
+  printf("%s\n", cudaGetErrorString(err));
+  nBlock = blk.nBlock;
+  cudaMemcpy(data_d, blk.data_d, 16 * nBlock, cudaMemcpyDeviceToDevice);
 }
 
 AesBlocks::~AesBlocks() {
@@ -44,19 +53,39 @@ AesBlocks AesBlocks::operator^(const AesBlocks &rhs) {
   return res;
 }
 
-AesBlocks AesBlocks::operator=(uint32_t rhs) {
-  cudaMemcpy(data_d, &rhs, sizeof(rhs), cudaMemcpyHostToDevice);
-  return *this;
-}
-
 AesBlocks AesBlocks::operator=(const AesBlocks &rhs) {
   if (nBlock != rhs.nBlock) {
     cudaFree(data_d);
-    cudaMalloc(&data_d, 16 * rhs.nBlock);
+    cudaError_t err = cudaMalloc(&data_d, AES_BLOCKLEN * rhs.nBlock);
+    printf("%s\n", cudaGetErrorString(err));
     nBlock = rhs.nBlock;
   }
   cudaMemcpy(data_d, rhs.data_d, 16 * nBlock, cudaMemcpyDeviceToDevice);
   return *this;
+}
+
+bool AesBlocks::operator==(AesBlocks rhs) {
+  int nBytes = nBlock * AES_BLOCKLEN;
+  bool *cmp_d;
+  cudaError_t err = cudaMalloc(&cmp_d, nBytes);
+  printf("%s\n", cudaGetErrorString(err));
+  cmp_gpu<<<nBytes/AES_BLOCKLEN, AES_BLOCKLEN>>>(cmp_d, data_d, rhs.data_d);
+  cudaDeviceSynchronize();
+  bool *cmp = new bool[nBytes];
+  cudaMemcpy(&cmp, cmp_d, nBytes, cudaMemcpyDeviceToHost);
+  int i = 0;
+  while(i < nBytes) {
+    if (!cmp[i++]) {
+      return false;
+    }
+  }
+  delete cmp;
+  return true;
+}
+
+void AesBlocks::set(uint32_t rhs) {
+  cudaMemset(data_d, 0, 16 * nBlock);
+  cudaMemcpy(data_d, &rhs, sizeof(rhs), cudaMemcpyHostToDevice);
 }
 
 Aes::Aes() {
@@ -67,9 +96,10 @@ Aes::Aes() {
   AES_ctx decExpKey;
   Aes::expand_encKey(encExpKey.roundKey, key);
   Aes::expand_decKey(decExpKey.roundKey, key);
-  cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
+  cudaError_t err = cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
+  printf("%s\n", cudaGetErrorString(err));
   cudaMemcpy(encExpKey_d, encExpKey.roundKey, sizeof(encExpKey.roundKey), cudaMemcpyHostToDevice);
-  cudaMalloc(&decExpKey_d, sizeof(decExpKey.roundKey));
+  err = cudaMalloc(&decExpKey_d, sizeof(decExpKey.roundKey));
   cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
 }
 
@@ -79,9 +109,10 @@ Aes::Aes(uint8_t *newkey) {
   AES_ctx decExpKey;
   Aes::expand_encKey(encExpKey.roundKey, key);
   Aes::expand_decKey(decExpKey.roundKey, key);
-  cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
+  cudaError_t err = cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
+  printf("%s\n", cudaGetErrorString(err));
   cudaMemcpy(encExpKey_d, encExpKey.roundKey, sizeof(encExpKey.roundKey), cudaMemcpyHostToDevice);
-  cudaMalloc(&decExpKey_d, sizeof(decExpKey.roundKey));
+  err = cudaMalloc(&decExpKey_d, sizeof(decExpKey.roundKey));
   cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
 }
 
@@ -90,25 +121,27 @@ Aes::~Aes() {
   cudaFree(decExpKey_d);
 }
 
-void Aes::decrypt(AesBlocks *msg) {
+void Aes::decrypt(AesBlocks &msg) {
   if (decExpKey_d == nullptr)
     return;
   uint8_t *d_buffer;
-  cudaMalloc(&d_buffer, 16 * msg->nBlock);
-  aesDecrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg->data_d);
+  cudaError_t err = cudaMalloc(&d_buffer, 16 * msg.nBlock);
+  printf("%s\n", cudaGetErrorString(err));
+  aesDecrypt128<<<4*msg.nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg->data_d, d_buffer, 16 * msg->nBlock, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(msg.data_d, d_buffer, 16 * msg.nBlock, cudaMemcpyDeviceToDevice);
   cudaFree(d_buffer);
 }
 
-void Aes::encrypt(AesBlocks *msg) {
+void Aes::encrypt(AesBlocks &msg) {
   if (encExpKey_d == nullptr)
     return;
   uint8_t *d_buffer;
-  cudaMalloc(&d_buffer, 16 * msg->nBlock);
-  aesEncrypt128<<<4*msg->nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg->data_d);
+  cudaError_t err = cudaMalloc(&d_buffer, 16 * msg.nBlock);
+  printf("%s\n", cudaGetErrorString(err));
+  aesEncrypt128<<<4*msg.nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) d_buffer, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg->data_d, d_buffer, 16 * msg->nBlock, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(msg.data_d, d_buffer, 16 * msg.nBlock, cudaMemcpyDeviceToDevice);
   cudaFree(d_buffer);
 }
 

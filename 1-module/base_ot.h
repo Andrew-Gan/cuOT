@@ -34,7 +34,7 @@ private:
 
 public:
   BaseOT(Role role, int id);
-  void send(AesBlocks m0, AesBlocks m1);
+  void send(AesBlocks &m0, AesBlocks &m1);
   AesBlocks recv(uint8_t b);
 };
 

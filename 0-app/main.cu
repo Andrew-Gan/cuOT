@@ -38,7 +38,8 @@ int main(int argc, char** argv) {
   cuda_check();
 #ifdef DEBUG_MODE
   // test_rsa();
-  test_aes();
+  // test_aes();
+  test_base_ot();
 #endif
 
   if (argc < 4) {
