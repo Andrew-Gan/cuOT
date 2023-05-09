@@ -5,21 +5,20 @@ A platform for running existing or designing new Oblivious Transfer protocols by
 
 
 
-## Software tools:
-* gcc 9.3.0
-* nvcc 11.2
-
 ## Dependencies:
-**Ubuntu/Debian**:
-```
-apt-get install gcc nvcc
-```
+* gcc 9.3.0+
+* nvcc 11.2+
 
-## Run Instruction:
+## Run instruction:
 ```
 make
 ./pprf <protocol id> <depth or logOT> <number of trees>
 ```
+
+## File structure:
+* App Level - integration of low-level modules to perform OT protocols, i.e. Silent OT
+* Module Level - independent components that interface with CUDA, i.e. AES, BaseOT
+* Device Level - CUDA code to perform GPU operations, i.e. GPU tree exp, matmul
 
 ## Protocols Currently Available
 

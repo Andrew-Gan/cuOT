@@ -5,7 +5,7 @@
 #include "aes.h"
 
 __global__
-void aesExpand128(unsigned *aesKey, TreeNode *leaves, AesBlocks *m,
+void aesExpand128(unsigned *aesKey, TreeNode *leaves, uint32_t *m,
 	unsigned *inData, int expandDir, size_t width);
 
 #endif

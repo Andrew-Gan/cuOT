@@ -12,8 +12,8 @@ public:
   virtual ~AesBlocks();
   uint8_t *data_d = nullptr;
   size_t nBlock = 0;
-  AesBlocks operator^(const AesBlocks &d_rhs);
-  AesBlocks operator=(const AesBlocks &rhs);
+  AesBlocks operator^(const AesBlocks &rhs);
+  AesBlocks& operator=(const AesBlocks &rhs);
   bool operator==(const AesBlocks &rhs);
   uint8_t* operator[](int index);
   void set(uint32_t rhs);

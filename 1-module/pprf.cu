@@ -1,8 +1,5 @@
 #include "pprf.h"
 
-std::atomic<TreeNode*>* d_otNodes = nullptr;
-std::atomic<bool>* treeExpanded = nullptr;
-
 __global__
 void xor_prf(TreeNode *sum, TreeNode *operand, size_t numLeaves) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;

@@ -8,25 +8,6 @@
 #include "unit_test.h"
 #include "protocols.h"
 
-void cuda_check() {
-  int deviceCount = 0;
-  cudaGetDeviceCount(&deviceCount);
-  if (deviceCount == 0)
-    fprintf(stderr, "There is no device.\n");
-  int dev;
-  for (dev = 0; dev < deviceCount; ++dev) {
-    cudaDeviceProp deviceProp;
-    cudaGetDeviceProperties(&deviceProp, dev);
-    if (deviceProp.major >= 1)
-      break;
-  }
-  if (dev == deviceCount)
-    fprintf(stderr, "There is no device supporting CUDA.\n");
-  else
-    cudaSetDevice(dev);
-  printf("cuda_check passed!\n");
-}
-
 uint64_t* gen_choices(int numTrees) {
   uint64_t *choices = (uint64_t*) malloc(sizeof(uint64_t) * numTrees);
   for (int t = 0; t < numTrees; t++) {
@@ -38,12 +19,10 @@ uint64_t* gen_choices(int numTrees) {
 #include "aes.h"
 
 int main(int argc, char** argv) {
-#ifdef UNIT_TEST
-  cuda_check();
-  test_rsa();
-  test_aes();
-  test_base_ot();
-#endif
+  // test_cuda();
+  // test_rsa();
+  // test_aes();
+  // test_base_ot();
 
   if (argc < 4) {
     fprintf(stderr, "Usage: ./ot protocol depth trees\n");
@@ -51,7 +30,6 @@ int main(int argc, char** argv) {
   }
 
   int protocol = atoi(argv[1]);
-
   int userDepth = atoi(argv[2]);
   size_t numOT = pow(2, userDepth);
   // each node has 2^7 bits
@@ -65,13 +43,11 @@ int main(int argc, char** argv) {
   printf("OTs: %lu, Trees: %d\n", numOT, numTrees);
 
   uint64_t *choices = gen_choices(numTrees);
-
   switch (protocol) {
     case 1: silentOT(root, choices, actualDepth, numTrees);
       break;
   }
 
   free(choices);
-
   return EXIT_SUCCESS;
 }

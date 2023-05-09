@@ -7,7 +7,7 @@
 #include "aes.h"
 
 enum Role { Sender, Recver };
-enum InitStatus {noInit, rsaInitDone, aesInitDone};
+enum InitStatus {noInit, rsaInitDone, xInitDone, aesInitDone};
 enum OTStatus {notReady, vReady, mReady};
 
 class BaseOT {
@@ -17,8 +17,6 @@ private:
   uint8_t aesKey_enc[16] = {};
   AesBlocks x[2], v;
   AesBlocks mp[2];
-  std::atomic<InitStatus> initStatus;
-  std::atomic<OTStatus> otStatus;
   // sender only
   AesBlocks k0, k1;
   curandGenerator_t prng_s;

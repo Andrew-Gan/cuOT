@@ -5,6 +5,25 @@
 #include "aes.h"
 #include "base_ot.h"
 
+void test_cuda() {
+  int deviceCount = 0;
+  cudaGetDeviceCount(&deviceCount);
+  if (deviceCount == 0)
+    fprintf(stderr, "There is no device.\n");
+  int dev;
+  for (dev = 0; dev < deviceCount; ++dev) {
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, dev);
+    if (deviceProp.major >= 1)
+      break;
+  }
+  if (dev == deviceCount)
+    fprintf(stderr, "There is no device supporting CUDA.\n");
+  else
+    cudaSetDevice(dev);
+  printf("test_cuda passed!\n");
+}
+
 void test_rsa() {
   Rsa rsa;
   const char *input = "this is a test";
@@ -65,32 +84,34 @@ void test_base_ot() {
   AesBlocks m0, m1, mb;
   m0.set(32);
   m1.set(64);
+
   std::future sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
   std::future recver = std::async(recverFunc, 0);
   sender.get();
   mb = recver.get();
   assert(mb == m0);
 
-  // sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
-  // recver = std::async(recverFunc, 1);
-  // sender.get();
-  // mb = recver.get();
-  // assert(mb == m1);
+  sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
+  recver = std::async(recverFunc, 1);
+  sender.get();
+  mb = recver.get();
+  assert(mb == m1);
+
   printf("test_base_ot passed!\n");
 }
 
 // test A ^ C =  B & delta
 //  delta should be 0b00000000 or 0b11111111
-void test_cot(Vector d_fullVec, Vector d_puncVec, Vector d_choiceVec, uint8_t delta) {
-  int nBytes = d_fullVec.n / 8;
+void test_cot(Vector fullVec_d, Vector puncVec_d, Vector choiceVec_d, uint8_t delta) {
+  int nBytes = fullVec_d.n / 8;
 
-  Vector lhs = { .n = d_fullVec.n };
+  Vector lhs = { .n = fullVec_d.n };
   cudaMalloc(&lhs.data, lhs.n / 8);
-  xor_gpu<<<nBytes/ 1024, 1024>>>(lhs, d_fullVec, d_puncVec);
+  xor_gpu<<<nBytes/ 1024, 1024>>>(lhs, fullVec_d, puncVec_d);
 
-  Vector rhs = { .n = d_fullVec.n };
+  Vector rhs = { .n = fullVec_d.n };
   cudaMalloc(&rhs.data, rhs.n / 8);
-  and_gpu<<<nBytes / 1024, 1024>>>(rhs, d_choiceVec, delta);
+  and_gpu<<<nBytes / 1024, 1024>>>(rhs, choiceVec_d, delta);
 
   cudaDeviceSynchronize();
 
@@ -112,6 +133,7 @@ void test_cot(Vector d_fullVec, Vector d_puncVec, Vector d_choiceVec, uint8_t de
       allEqual = false;
     }
   }
+  delete[] cmp;
   assert(allEqual);
   printf("test_cot passed!\n");
 }

@@ -45,42 +45,42 @@ void mat_vec_hash(Vector out, uint8_t *subTotal, Matrix matrix, Vector vec, int 
 }
 
 __host__
-void hash_sender(Matrix d_randMatrix, Vector d_fullVec, int chunkC) {
+void hash_sender(Matrix randMatrix_d, Vector fullVec_d, int chunkC) {
   // for when matrix size < tile
-  size_t numRowsPerTile = std::min(d_randMatrix.rows, TILE_H);
-  int numColsPerTile = std::min(d_randMatrix.cols / 8, TILE_W / 8);
-  dim3 grid((d_randMatrix.cols-1) / TILE_W + 1, (d_randMatrix.rows-1) / TILE_H + 1);
+  size_t numRowsPerTile = std::min(randMatrix_d.rows, TILE_H);
+  int numColsPerTile = std::min(randMatrix_d.cols / 8, TILE_W / 8);
+  dim3 grid((randMatrix_d.cols-1) / TILE_W + 1, (randMatrix_d.rows-1) / TILE_H + 1);
   dim3 block(numColsPerTile);
 
-  uint8_t *d_subTotal;
-  cudaMalloc(&d_subTotal, grid.y * d_randMatrix.cols / 8);
-  Vector d_randomVec = { .n = d_randMatrix.cols };
-  cudaMalloc(&d_randomVec.data, d_randomVec.n / 8);
+  uint8_t *subTotal_d;
+  cudaMalloc(&subTotal_d, grid.y * randMatrix_d.cols / 8);
+  Vector randomVec_d = { .n = randMatrix_d.cols };
+  cudaMalloc(&randomVec_d.data, randomVec_d.n / 8);
 
-  mat_vec_hash<<<grid, block>>>(d_randomVec, d_subTotal, d_randMatrix,
-    d_fullVec, numRowsPerTile, chunkC * d_randMatrix.cols);
+  mat_vec_hash<<<grid, block>>>(randomVec_d, subTotal_d, randMatrix_d,
+    fullVec_d, numRowsPerTile, chunkC * randMatrix_d.cols);
   cudaDeviceSynchronize();
 }
 
 __host__
-void hash_recver(Matrix d_randMatrix, Vector d_choiceVec, Vector d_puncVec, int chunkC) {
+void hash_recver(Matrix randMatrix_d, Vector choiceVec_d, Vector puncVec_d, int chunkC) {
   // for when matrix size < tile
-  size_t numRowsPerTile = std::min(d_randMatrix.rows, TILE_H);
-  int numColsPerTile = std::min(d_randMatrix.cols / 8, TILE_W / 8);
-  dim3 grid((d_randMatrix.cols-1) / TILE_W + 1, (d_randMatrix.rows-1) / TILE_H + 1);
+  size_t numRowsPerTile = std::min(randMatrix_d.rows, TILE_H);
+  int numColsPerTile = std::min(randMatrix_d.cols / 8, TILE_W / 8);
+  dim3 grid((randMatrix_d.cols-1) / TILE_W + 1, (randMatrix_d.rows-1) / TILE_H + 1);
   dim3 block(numColsPerTile);
 
-  uint8_t *d_subTotalChoice, *d_subTotalPunctured;
-  cudaMalloc(&d_subTotalChoice, grid.y * d_randMatrix.cols / 8);
-  cudaMalloc(&d_subTotalPunctured, grid.y * d_randMatrix.cols / 8);
-  Vector d_choiceVecRand = { .n = d_randMatrix.cols };
-  Vector d_puncVecRand  =  { .n = d_randMatrix.cols };
-  cudaMalloc(&d_choiceVecRand.data, d_choiceVecRand.n / 8);
-  cudaMalloc(&d_puncVecRand.data, d_puncVecRand.n / 8);
+  uint8_t *subTotalChoice_d, *subTotalPunctured_d;
+  cudaMalloc(&subTotalChoice_d, grid.y * randMatrix_d.cols / 8);
+  cudaMalloc(&subTotalPunctured_d, grid.y * randMatrix_d.cols / 8);
+  Vector choiceVecRand_d = { .n = randMatrix_d.cols };
+  Vector puncVecRand_d  =  { .n = randMatrix_d.cols };
+  cudaMalloc(&choiceVecRand_d.data, choiceVecRand_d.n / 8);
+  cudaMalloc(&puncVecRand_d.data, puncVecRand_d.n / 8);
 
-  mat_vec_hash<<<grid, block>>>(d_choiceVecRand, d_subTotalChoice,
-    d_randMatrix, d_choiceVec, numRowsPerTile, chunkC * d_randMatrix.cols);
-  mat_vec_hash<<<grid, block>>>(d_puncVecRand, d_subTotalPunctured,
-    d_randMatrix, d_puncVec, numRowsPerTile, chunkC * d_randMatrix.cols);
+  mat_vec_hash<<<grid, block>>>(choiceVecRand_d, subTotalChoice_d,
+    randMatrix_d, choiceVec_d, numRowsPerTile, chunkC * randMatrix_d.cols);
+  mat_vec_hash<<<grid, block>>>(puncVecRand_d, subTotalPunctured_d,
+    randMatrix_d, puncVec_d, numRowsPerTile, chunkC * randMatrix_d.cols);
   cudaDeviceSynchronize();
 }

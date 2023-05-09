@@ -53,4 +53,4 @@ plot:
 	python plotter.py
 
 clean:
-	rm -f $(EXE) obj/*/*.o
+	rm -f $(EXE) $(APP_OBJ) $(MOD_OBJ) $(DEV_OBJ)

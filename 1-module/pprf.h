@@ -7,9 +7,6 @@
 
 #include "util.h"
 
-extern std::atomic<TreeNode*>* d_otNodes;
-extern std::atomic<bool>* treeExpanded;
-
 std::pair<Vector, uint64_t> pprf_sender(TreeNode root, int depth, int numTrees);
 std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees);
 
