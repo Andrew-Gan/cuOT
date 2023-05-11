@@ -8,7 +8,7 @@ void xor_gpu(uint8_t *c, uint8_t *a, uint8_t *b, size_t n) {
 }
 
 __global__
-void xor_uneven(uint8_t *c, uint8_t *a, uint8_t *b, size_t len_b, size_t n) {
+void xor_circular(uint8_t *c, uint8_t *a, uint8_t *b, size_t len_b, size_t n) {
   int x = blockIdx.x * blockDim.x + threadIdx.x;
   if (x < n)
     c[x] = a[x] ^ b[x % len_b];

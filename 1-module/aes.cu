@@ -1,8 +1,8 @@
 #include <vector>
 #include <algorithm>
 #include "aes.h"
-#include "aesEncrypt.h"
-#include "aesDecrypt.h"
+#include "aes_encrypt.h"
+#include "aes_decrypt.h"
 #include "utilsBox.h"
 
 #define Nb 4
@@ -51,12 +51,12 @@ void Aes::decrypt(GPUBlock &msg) {
     return;
   EventLog::start(AesDecrypt);
   uint8_t *buffer_d;
-  cudaError_t err = cudaMalloc(&buffer_d, AES_BLOCKLEN * msg.nBlock);
+  cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
   if (err != cudaSuccess)
     fprintf(stderr, "decrypt(GPUBlock): %s\n", cudaGetErrorString(err));
-  aesDecrypt128<<<4*msg.nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
+  aesDecrypt128<<<msg.nBytes/4/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg.data_d, buffer_d, AES_BLOCKLEN * msg.nBlock, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
   EventLog::end(AesDecrypt);
 }
@@ -66,12 +66,12 @@ void Aes::encrypt(GPUBlock &msg) {
     return;
   EventLog::start(AesEncrypt);
   uint8_t *buffer_d;
-  cudaError_t err = cudaMalloc(&buffer_d, AES_BLOCKLEN * msg.nBlock);
+  cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
   if (err != cudaSuccess)
     fprintf(stderr, "encrypt(GPUBlock): %s\n", cudaGetErrorString(err));
-  aesEncrypt128<<<4*msg.nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
+  aesEncrypt128<<<msg.nBytes/4/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg.data_d, buffer_d, AES_BLOCKLEN * msg.nBlock, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
   EventLog::end(AesEncrypt);
 }

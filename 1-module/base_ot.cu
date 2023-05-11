@@ -18,9 +18,8 @@ void BaseOT::sender_init(int id) {
   while (!recvers[id]);
   other = recvers[id];
   rsa = new Rsa();
-  auto [e, n] = rsa->getPublicKey();
-  other->e = e;
-  other->n = n;
+  other->e = rsa->e;
+  other->n = rsa->n;
   initStatuses[id] = rsaInitDone;
   x[0].set(rand());
   x[1].set(rand());
@@ -70,12 +69,12 @@ void BaseOT::send(GPUBlock &m0, GPUBlock &m1) {
   }
   EventLog::start(BaseOTSend);
   while(otStatuses[id] < vReady);
-  k0 = v ^ x[0];
-  rsa->decrypt(k0);
-  k1 = v ^ x[1];
-  rsa->decrypt(k1);
-  other->mp[0] = m0 ^ k0;
-  other->mp[1] = m1 ^ k1;
+  k[0] = v ^ x[0];
+  rsa->decrypt(k[0]);
+  k[1] = v ^ x[1];
+  rsa->decrypt(k[1]);
+  other->mp[0] = m0 ^ k[0];
+  other->mp[1] = m1 ^ k[1];
   otStatuses[id] = mReady;
   EventLog::end(BaseOTSend);
 }
@@ -86,10 +85,11 @@ GPUBlock BaseOT::recv(uint8_t b) {
     return GPUBlock();
   }
   EventLog::start(BaseOTRecv);
-  uint32_t k = rand();
-  GPUBlock k_enc = k;
-  rsa->encrypt(k_enc);
-  other->v = x[b] ^ k_enc;
+  GPUBlock k;
+  k.set(rand());
+  GPUBlock ke = k;
+  rsa->encrypt(ke);
+  other->v = x[b] ^ ke;
   otStatuses[id] = vReady;
   while(otStatuses[id] < mReady);
   GPUBlock mb = mp[b] ^ k;

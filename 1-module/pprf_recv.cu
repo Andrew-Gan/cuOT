@@ -4,7 +4,7 @@
 
 #include "aes.h"
 #include "pprf.h"
-#include "aesExpand.h"
+#include "aes_expand.h"
 #include "base_ot.h"
 
 using KeyPair = std::pair<unsigned*, unsigned*>;
@@ -55,7 +55,8 @@ TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       int recvNode = puncture * 2 + choice;
       GPUBlock mb = baseOT.recv(choice);
-      cudaMemcpy(&output_d[recvNode], mb[puncture], TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+      cudaMemcpy(&output_d[recvNode], &mb.data_d[puncture * TREENODE_SIZE],
+        TREENODE_SIZE, cudaMemcpyDeviceToDevice);
       puncture = puncture * 2 + (1 - choice);
 
       width *= 2;

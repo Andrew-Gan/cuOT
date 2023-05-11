@@ -30,7 +30,7 @@
  */
 
 #include "util.h"
-#include "aesDecrypt.h"
+#include "aes_decrypt.h"
 #include "sbox_D.h"
 
 __global__

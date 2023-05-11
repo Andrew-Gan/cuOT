@@ -3,6 +3,7 @@
 
 #include <curand_kernel.h>
 #include "util.h"
+#include "gpu_block.h"
 
 class Aes {
 private:

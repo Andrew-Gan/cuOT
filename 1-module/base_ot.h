@@ -2,9 +2,10 @@
 #define __BASE_OT_H__
 
 #include <atomic>
+#include <curand.h>
 #include "util.h"
 #include "rsa.h"
-#include "aes.h"
+#include "gpu_block.h"
 
 enum Role { Sender, Recver };
 enum InitStatus {noInit, rsaInitDone, xInitDone};
@@ -12,20 +13,20 @@ enum OTStatus {notReady, vReady, mReady};
 
 class BaseOT {
 private:
-  // network shared
-  uint64_t e = 0, n = 0;
-  uint8_t aesKey_enc[16] = {};
-  GPUBlock x[2], v;
-  GPUBlock mp[2];
-  // sender only
-  GPUBlock k0, k1;
+  // network shared - common
+  uint64_t e, n;
+  GPUBlock x[2];
+  // network shared - unique
+  GPUBlock v, mp[2];
+  // sender - not shared
+  GPUBlock k[2];
   curandGenerator_t prng_s;
-  // recver only
+  // recver - not shared
   curandGenerator_t prng_r;
   // misc
-  int id = -1;
-  Rsa *rsa;
   Role role;
+  int id;
+  Rsa *rsa;
   BaseOT *other;
   void sender_init(int id);
   void recver_init(int id);

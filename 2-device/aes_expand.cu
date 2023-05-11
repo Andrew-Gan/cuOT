@@ -31,7 +31,7 @@
 
 #include "util.h"
 #include "sbox_E.h"
-#include "aesExpand.h"
+#include "aes_expand.h"
 
 __global__
 void aesExpand128(uint32_t *aesKey, TreeNode *leaves, uint32_t *m,
