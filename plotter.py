@@ -1,83 +1,54 @@
+import sys
 import matplotlib.pyplot as plt
 
-def plot_enc(filename):
-    dataPoints = {}
+hideEvents = ['PprfSender', 'PprfRecver']
 
-    with open(filename, 'r') as f:
-        lineCtr = 0
-        for newline in f:
-            if lineCtr % 4 == 0:
-                inputSize = int(newline.split(',')[0].split(' ')[1])
-                nThreads = int(newline.split(',')[1].split(' ')[2])
-                if inputSize not in dataPoints:
-                    dataPoints[inputSize] = { 'AES': [], 'AESNI': [], 'AESGPU': [] }
-            else:
-                dataType = newline.split(' ')[3][:-1]
-                runTime = float(newline.split(' ')[4])
-                dataPoints[inputSize][dataType].append(runTime)
-            lineCtr += 1
+def plot_pipeline(filename):
+  eventList = {}
+  eventData = {}
+  tidFound = set()
+  parseSection = 0
+  with open(filename) as f:
+    for newline in f:
+      if '--------------------' in newline:
+        parseSection += 1
+      elif parseSection == 0:
+        eventID, eventString = newline.split()
+        eventList[int(eventID)] = eventString
+        eventData[int(eventID)] = {}
+      elif parseSection == 2:
+        startStop, tid, eventID, time = newline.split()
+        tid = int(tid)
+        eventID = int(eventID)
+        time = float(time)
+        tidFound.add(tid)
+        if tid not in eventData[eventID]:
+          eventData[eventID][tid] = [0, 0]
+        if startStop == 's':
+          eventData[eventID][tid][0] = time
+        elif startStop == 'e':
+          startTime = eventData[eventID][tid][0]
+          eventData[eventID][tid][1] = time-startTime
 
-    inputSize = [2**i for i in range(15, 26)]
-    nThread = 16
+  tidFound = sorted(list(tidFound))
+  legends = []
 
-    plt.plot(inputSize, [dataPoints[i]['AES'][nThread-1] for i in inputSize])
-    plt.plot(inputSize, [dataPoints[i]['AESNI'][nThread-1] for i in inputSize])
-    plt.plot(inputSize, [dataPoints[i]['AESGPU'][nThread-1] for i in inputSize])
+  plt.figure(figsize=(10, 5))
 
-    plt.legend(['AES', 'AESNI', 'AESGPU'])
-    plt.savefig('runtime.png')
+  for eventID, eventVal in eventData.items():
+    if len(eventVal) == 0 or eventList[eventID] in hideEvents:
+      continue
+    legends.append(eventList[eventID])
+    originalTids = eventVal.keys()
+    widths = [eventVal[t][1] for t in originalTids]
+    starts = [eventVal[t][0] for t in originalTids]
+    mappedTids = [tidFound.index(tid) for tid in eventVal.keys()]
+    plt.barh(y=mappedTids, width=widths, height=0.5, left=starts)
 
-def plot_exp(filename):
-        runtimes = {}
-        depths = set()
-        x_inf_point = 0
-
-        with open(filename, 'r') as f:
-            nThread = 0
-            for newline in f:
-                if 'Depth' in newline:
-                    depth = int(newline.split()[1][:-1])
-                    nThread = int(newline.split()[-1])
-                    depths.add(depth)
-                    if nThread not in runtimes:
-                        runtimes[nThread] = { 'aes': [], 'aesni': [], 'aesgpu': [] }
-                elif 'AESNI' in newline:
-                    runtimes[nThread]['aesni'].append(float(newline.split()[4]))
-                elif 'AESGPU' in newline:
-                    runtimes[nThread]['aesgpu'].append(float(newline.split()[4]))
-                elif 'AES' in newline:
-                    runtimes[nThread]['aes'].append(float(newline.split()[4]))
-
-        depths = list(depths)
-        depths.sort()
-
-        plt.figure(figsize=(16, 32))
-
-        for graph_idx, nThread in enumerate(runtimes):
-            plt.subplot(len(runtimes), 2, 2 * graph_idx + 1)
-            plt.title('Runtime of Tree Expansion with Num Threads = %d' % nThread)
-            plt.plot(depths, runtimes[nThread]['aes'], color='C1')
-            plt.plot(depths, runtimes[nThread]['aesni'], color='C0')
-            plt.plot(depths, runtimes[nThread]['aesgpu'], color='C2')
-            plt.legend(['AES', 'AESNI', 'AESGPU'])
-            plt.xticks(depths)
-            plt.xlabel('Tree depth')
-            plt.ylabel('Runtime (ms)')
-
-            plt.subplot(len(runtimes), 2, 2 * graph_idx + 2)
-            plt.title('Runtime of Tree Expansion with Num Threads = %d' % nThread)
-            plt.plot(depths, runtimes[nThread]['aesni'], color='C0')
-            plt.plot(depths, runtimes[nThread]['aesgpu'], color='C2')
-            plt.legend(['AESNI', 'AESGPU'])
-            plt.xticks(depths)
-            plt.xlabel('Tree depth')
-            plt.ylabel('Runtime (ms)')
-
-        graph_idx += 2
-
-        plt.tight_layout()
-
-        plt.savefig('runtime.png')
+  plt.legend(legends)
+  plt.savefig(filename.split('.')[0])
 
 if __name__ == '__main__':
-    plot_exp('out')
+  if len(sys.argv) < 2:
+    print('usage: python plotter <logfile>')
+  plot_pipeline(sys.argv[1])

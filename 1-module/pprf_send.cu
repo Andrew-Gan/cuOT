@@ -27,6 +27,8 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, int tid, int treeStart, int
   if (err2 != cudaSuccess)
     fprintf(stderr, "send sub: %s\n", cudaGetErrorString(err2));
 
+  GPUBlock m0(numLeaves), m1(numLeaves);
+
   for (int t = treeStart; t <= treeEnd; t++) {
     cudaMemcpy(output_d, &root, sizeof(root), cudaMemcpyHostToDevice);
 
@@ -40,7 +42,6 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, int tid, int treeStart, int
       static int thread_per_aesblock = 4;
       dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
       dim3 thread(AES_BSIZE, 1);
-      AesBlocks m0(width / 2), m1(width / 2);
       aesExpand128<<<grid, thread>>>(keys.first, output_d, (uint32_t*) m0.data_d, (unsigned*) input_d, 0, width);
       aesExpand128<<<grid, thread>>>(keys.second, output_d, (uint32_t*) m1.data_d, (unsigned*) input_d, 1, width);
       cudaDeviceSynchronize();
@@ -58,6 +59,7 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, int tid, int treeStart, int
 }
 
 std::pair<Vector, uint64_t> pprf_sender(TreeNode root, int depth, int numTrees) {
+  EventLog::start(PprfSender);
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
@@ -110,5 +112,6 @@ std::pair<Vector, uint64_t> pprf_sender(TreeNode root, int depth, int numTrees) 
   Vector fullVec_dtor =
     { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) fullVec_d };
 
+  EventLog::end(PprfSender);
   return {fullVec_dtor, delta};
 }

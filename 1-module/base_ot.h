@@ -7,7 +7,7 @@
 #include "aes.h"
 
 enum Role { Sender, Recver };
-enum InitStatus {noInit, rsaInitDone, xInitDone, aesInitDone};
+enum InitStatus {noInit, rsaInitDone, xInitDone};
 enum OTStatus {notReady, vReady, mReady};
 
 class BaseOT {
@@ -15,17 +15,16 @@ private:
   // network shared
   uint64_t e = 0, n = 0;
   uint8_t aesKey_enc[16] = {};
-  AesBlocks x[2], v;
-  AesBlocks mp[2];
+  GPUBlock x[2], v;
+  GPUBlock mp[2];
   // sender only
-  AesBlocks k0, k1;
+  GPUBlock k0, k1;
   curandGenerator_t prng_s;
   // recver only
   curandGenerator_t prng_r;
   // misc
   int id = -1;
   Rsa *rsa;
-  Aes *aes = nullptr;
   Role role;
   BaseOT *other;
   void sender_init(int id);
@@ -34,8 +33,8 @@ private:
 public:
   BaseOT(Role role, int id);
   virtual ~BaseOT();
-  void send(AesBlocks &m0, AesBlocks &m1);
-  AesBlocks recv(uint8_t b);
+  void send(GPUBlock &m0, GPUBlock &m1);
+  GPUBlock recv(uint8_t b);
 };
 
 #endif

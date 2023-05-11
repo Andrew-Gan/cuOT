@@ -54,7 +54,7 @@ TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, 
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       int recvNode = puncture * 2 + choice;
-      AesBlocks mb = baseOT.recv(choice);
+      GPUBlock mb = baseOT.recv(choice);
       cudaMemcpy(&output_d[recvNode], mb[puncture], TREENODE_SIZE, cudaMemcpyDeviceToDevice);
       puncture = puncture * 2 + (1 - choice);
 
@@ -72,6 +72,7 @@ TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, 
 }
 
 std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees) {
+  EventLog::start(PprfRecver);
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
@@ -130,5 +131,6 @@ std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees
   Vector puncVec_dtor =
     { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) puncVec_d };
 
+  EventLog::end(PprfRecver);
   return {puncVec_dtor, choiceVector_d};
 }

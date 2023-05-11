@@ -24,12 +24,14 @@ std::pair<uint32_t, uint32_t> Rsa::getPublicKey() {
 }
 
 void Rsa::encrypt(uint32_t *m, size_t nBytes) {
+  EventLog::start(RsaEncrypt);
   for (int i = 0; i < (nBytes-1) / 4 + 1; i++) {
     m[i] = modular_pow(m[i], e, n);
   }
 }
 
 void Rsa::decrypt(uint32_t *m, size_t nBytes) {
+  EventLog::end(RsaEncrypt);
   for (int i = 0; i < (nBytes-1) / 4 + 1; i++) {
     m[i] = modular_pow(m[i], d, n);
   }

@@ -24,8 +24,8 @@ int main(int argc, char** argv) {
   // test_aes();
   // test_base_ot();
 
-  if (argc < 4) {
-    fprintf(stderr, "Usage: ./ot protocol depth trees\n");
+  if (argc < 5) {
+    fprintf(stderr, "Usage: ./ot protocol depth trees logfile\n");
     return EXIT_FAILURE;
   }
 
@@ -43,11 +43,14 @@ int main(int argc, char** argv) {
   printf("OTs: %lu, Trees: %d\n", numOT, numTrees);
 
   uint64_t *choices = gen_choices(numTrees);
+
+  EventLog::open(argv[4]);
   switch (protocol) {
     case 1: silentOT(root, choices, actualDepth, numTrees);
       break;
   }
 
+  EventLog::close();
   free(choices);
   return EXIT_SUCCESS;
 }

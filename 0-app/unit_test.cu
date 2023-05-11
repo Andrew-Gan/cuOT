@@ -43,9 +43,9 @@ void test_aes() {
   bool *cmp_d;
   cudaMalloc(&cmp_d, 16);
 
-  AesBlocks input;
+  GPUBlock input(16);
   cudaMemcpy(input.data_d, sample, 16, cudaMemcpyHostToDevice);
-  AesBlocks buffer;
+  GPUBlock buffer(16);
   cudaMemcpy(buffer.data_d, sample, 16, cudaMemcpyHostToDevice);
 
   aes0.encrypt(buffer);
@@ -69,19 +69,19 @@ void test_aes() {
   printf("test_aes passed!\n");
 }
 
-void senderFunc(AesBlocks &m0, AesBlocks &m1) {
+void senderFunc(GPUBlock &m0, GPUBlock &m1) {
   BaseOT sender(Sender, 0);
   sender.send(m0, m1);
 }
 
-AesBlocks recverFunc(uint8_t b) {
+GPUBlock recverFunc(uint8_t b) {
   BaseOT recver(Recver, 0);
-  AesBlocks mb = recver.recv(b);
+  GPUBlock mb = recver.recv(b);
   return mb;
 }
 
 void test_base_ot() {
-  AesBlocks m0, m1, mb;
+  GPUBlock m0, m1, mb;
   m0.set(32);
   m1.set(64);
 

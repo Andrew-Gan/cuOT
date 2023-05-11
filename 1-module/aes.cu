@@ -1,9 +1,9 @@
+#include <vector>
+#include <algorithm>
 #include "aes.h"
 #include "aesEncrypt.h"
 #include "aesDecrypt.h"
 #include "utilsBox.h"
-#include <vector>
-#include <algorithm>
 
 #define Nb 4
 #define Nk 4
@@ -12,95 +12,8 @@
 // state - array holding the intermediate results during decryption.
 typedef uint8_t state_t[4][4];
 
-AesBlocks::AesBlocks() : AesBlocks(64) {}
-
-AesBlocks::AesBlocks(size_t i_nBlock) {
-  nBlock = ((i_nBlock - 1) / 64 + 1) * 64;
-  cudaError_t err = cudaMalloc(&data_d, nBlock * AES_BLOCKLEN);
-  if (err != cudaSuccess)
-    fprintf(stderr, "AesBlocks(%u): %s\n", i_nBlock, cudaGetErrorString(err));
-}
-
-
-AesBlocks::AesBlocks(const AesBlocks &blk) {
-  cudaError_t err = cudaMalloc(&data_d, blk.nBlock * AES_BLOCKLEN);
-  if (err != cudaSuccess)
-    fprintf(stderr, "AesBlocks(const AesBlocks): %s\n", cudaGetErrorString(err));
-  nBlock = blk.nBlock;
-  cudaMemcpy(data_d, blk.data_d, AES_BLOCKLEN * nBlock, cudaMemcpyDeviceToDevice);
-}
-
-AesBlocks::~AesBlocks() {
-  cudaFree(data_d);
-}
-
-__global__
-static void xor_pairwise(uint8_t *out_d, uint8_t *in0_d, uint8_t *in1_d) {
-  int x = blockIdx.x * blockDim.x + threadIdx.x;
-  out_d[x] = in0_d[x] ^ in1_d[x];
-}
-
-__global__
-static void xor_uneven(uint8_t *out_d, uint8_t *in_d, uint8_t *rep_d, size_t len) {
-  int x = blockIdx.x * blockDim.x + threadIdx.x;
-  out_d[x] = in_d[x] ^ rep_d[x % len];
-}
-
-AesBlocks AesBlocks::operator^(const AesBlocks &rhs) {
-  AesBlocks res(nBlock);
-  if (nBlock == rhs.nBlock)
-    xor_pairwise<<<nBlock, AES_BLOCKLEN>>>(res.data_d, data_d, rhs.data_d);
-  else
-    xor_uneven<<<nBlock, AES_BLOCKLEN>>>(res.data_d, data_d, rhs.data_d, rhs.nBlock * AES_BLOCKLEN);
-  return res;
-}
-
-AesBlocks& AesBlocks::operator=(const AesBlocks &rhs) {
-  if (nBlock != rhs.nBlock) {
-    cudaFree(data_d);
-    cudaError_t err = cudaMalloc(&data_d, AES_BLOCKLEN * rhs.nBlock);
-    if (err != cudaSuccess)
-      fprintf(stderr, "operator=(const AesBlocks): %s\n", cudaGetErrorString(err));
-    nBlock = rhs.nBlock;
-  }
-  cudaMemcpy(data_d, rhs.data_d, AES_BLOCKLEN * nBlock, cudaMemcpyDeviceToDevice);
-  return *this;
-}
-
-bool AesBlocks::operator==(const AesBlocks &rhs) {
-  size_t nBytes = nBlock * AES_BLOCKLEN;
-  bool *cmp_d;
-  cudaError_t err = cudaMalloc(&cmp_d, nBytes);
-  if (err != cudaSuccess)
-    fprintf(stderr, "operator==(AesBlocks): %s\n", cudaGetErrorString(err));
-  cmp_gpu<<<nBytes/AES_BLOCKLEN, AES_BLOCKLEN>>>(cmp_d, data_d, rhs.data_d);
-  cudaDeviceSynchronize();
-  bool *cmp = (bool*) malloc(1024);
-  cudaMemcpy(cmp, cmp_d, nBytes, cudaMemcpyDeviceToHost);
-  int i = 0;
-  while(i < nBytes) {
-    if (!cmp[i++]) {
-      return false;
-    }
-  }
-  cudaFree(cmp_d);
-  free(cmp);
-  return true;
-}
-
-uint8_t* AesBlocks::operator[](int index) {
-  return &data_d[index * AES_BLOCKLEN];
-}
-
-void AesBlocks::set(uint32_t rhs) {
-  cudaMemset(data_d, 0, nBlock * AES_BLOCKLEN);
-  uint32_t *casted = (uint32_t*) data_d;
-  for (int i = 0; i < nBlock * AES_BLOCKLEN / sizeof(rhs); i++) {
-    cudaMemcpy(&casted[i], &rhs, sizeof(rhs), cudaMemcpyHostToDevice);
-  }
-}
-
 void Aes::init() {
+  EventLog::start(AesInit);
   AES_ctx encExpKey;
   AES_ctx decExpKey;
   Aes::expand_encKey(encExpKey.roundKey, key);
@@ -113,6 +26,7 @@ void Aes::init() {
   if (err != cudaSuccess)
     fprintf(stderr, "Aes() dec: %s\n", cudaGetErrorString(err));
   cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
+  EventLog::end(AesInit);
 }
 
 Aes::Aes() {
@@ -132,30 +46,34 @@ Aes::~Aes() {
   cudaFree(decExpKey_d);
 }
 
-void Aes::decrypt(AesBlocks &msg) {
+void Aes::decrypt(GPUBlock &msg) {
   if (decExpKey_d == nullptr)
     return;
+  EventLog::start(AesDecrypt);
   uint8_t *buffer_d;
   cudaError_t err = cudaMalloc(&buffer_d, AES_BLOCKLEN * msg.nBlock);
   if (err != cudaSuccess)
-    fprintf(stderr, "decrypt(AesBlocks): %s\n", cudaGetErrorString(err));
+    fprintf(stderr, "decrypt(GPUBlock): %s\n", cudaGetErrorString(err));
   aesDecrypt128<<<4*msg.nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
   cudaMemcpy(msg.data_d, buffer_d, AES_BLOCKLEN * msg.nBlock, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
+  EventLog::end(AesDecrypt);
 }
 
-void Aes::encrypt(AesBlocks &msg) {
+void Aes::encrypt(GPUBlock &msg) {
   if (encExpKey_d == nullptr)
     return;
+  EventLog::start(AesEncrypt);
   uint8_t *buffer_d;
   cudaError_t err = cudaMalloc(&buffer_d, AES_BLOCKLEN * msg.nBlock);
   if (err != cudaSuccess)
-    fprintf(stderr, "encrypt(AesBlocks): %s\n", cudaGetErrorString(err));
+    fprintf(stderr, "encrypt(GPUBlock): %s\n", cudaGetErrorString(err));
   aesEncrypt128<<<4*msg.nBlock/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
   cudaMemcpy(msg.data_d, buffer_d, AES_BLOCKLEN * msg.nBlock, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
+  EventLog::end(AesEncrypt);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {

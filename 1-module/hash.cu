@@ -1,5 +1,5 @@
-#include "hash.h"
 #include <algorithm>
+#include "hash.h"
 
 /************************************************************
 Algorithm generate chunks of full matrix and pass into kernel
@@ -46,6 +46,7 @@ void mat_vec_hash(Vector out, uint8_t *subTotal, Matrix matrix, Vector vec, int 
 
 __host__
 void hash_sender(Matrix randMatrix_d, Vector fullVec_d, int chunkC) {
+  EventLog::start(HashSender);
   // for when matrix size < tile
   size_t numRowsPerTile = std::min(randMatrix_d.rows, TILE_H);
   int numColsPerTile = std::min(randMatrix_d.cols / 8, TILE_W / 8);
@@ -60,10 +61,12 @@ void hash_sender(Matrix randMatrix_d, Vector fullVec_d, int chunkC) {
   mat_vec_hash<<<grid, block>>>(randomVec_d, subTotal_d, randMatrix_d,
     fullVec_d, numRowsPerTile, chunkC * randMatrix_d.cols);
   cudaDeviceSynchronize();
+  EventLog::end(HashSender);
 }
 
 __host__
 void hash_recver(Matrix randMatrix_d, Vector choiceVec_d, Vector puncVec_d, int chunkC) {
+  EventLog::start(HashRecver);
   // for when matrix size < tile
   size_t numRowsPerTile = std::min(randMatrix_d.rows, TILE_H);
   int numColsPerTile = std::min(randMatrix_d.cols / 8, TILE_W / 8);
@@ -83,4 +86,5 @@ void hash_recver(Matrix randMatrix_d, Vector choiceVec_d, Vector puncVec_d, int 
   mat_vec_hash<<<grid, block>>>(puncVecRand_d, subTotalPunctured_d,
     randMatrix_d, puncVec_d, numRowsPerTile, chunkC * randMatrix_d.cols);
   cudaDeviceSynchronize();
+  EventLog::end(HashRecver);
 }

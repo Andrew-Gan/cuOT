@@ -3,8 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <time.h>
-#include <wmmintrin.h>
+#include "event_log.h"
 
 #define AES_BLOCKLEN 16
 #define AES_KEYLEN 16 // Key length in bytes
@@ -43,7 +42,13 @@ union UByte4 {
 };
 
 __global__
-void xor_gpu(Vector c, Vector a, Vector b);
+void xor_gpu(uint8_t *c, uint8_t *a, uint8_t *b);
+
+__global__
+void xor_uneven(uint8_t *c, uint8_t *a, uint8_t *b, size_t len_b) {
+  int x = blockIdx.x * blockDim.x + threadIdx.x;
+  c[x] = a[x] ^ b[x % len_b];
+}
 
 __global__
 void and_gpu(Vector c, Vector a, uint8_t b);

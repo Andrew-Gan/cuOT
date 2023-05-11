@@ -4,21 +4,6 @@
 #include <curand_kernel.h>
 #include "util.h"
 
-class AesBlocks {
-public:
-  AesBlocks();
-  AesBlocks(size_t nBlock);
-  AesBlocks(const AesBlocks &blk);
-  virtual ~AesBlocks();
-  uint8_t *data_d = nullptr;
-  size_t nBlock = 0;
-  AesBlocks operator^(const AesBlocks &rhs);
-  AesBlocks& operator=(const AesBlocks &rhs);
-  bool operator==(const AesBlocks &rhs);
-  uint8_t* operator[](int index);
-  void set(uint32_t rhs);
-};
-
 class Aes {
 private:
   curandGenerator_t prng;
@@ -32,8 +17,8 @@ public:
   virtual ~Aes();
   static void expand_encKey(uint8_t *encExpKey, uint8_t *key);
   static void expand_decKey(uint8_t *decExpKey, uint8_t *key);
-  void decrypt(AesBlocks &msg);
-  void encrypt(AesBlocks &msg);
+  void decrypt(GPUBlock &msg);
+  void encrypt(GPUBlock &msg);
 };
 
 #endif
