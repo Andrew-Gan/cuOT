@@ -1,4 +1,5 @@
 #include "gpu_block.h"
+#include "basic_op.h"
 
 GPUBlock::GPUBlock() : GPUBlock(0) {}
 

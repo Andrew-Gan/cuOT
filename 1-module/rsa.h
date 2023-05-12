@@ -1,17 +1,24 @@
 #ifndef __RSA_H__
 #define __RSA_H__
 
-#include <utility>
 #include "util.h"
 #include "gpu_block.h"
 
+#define RSAKEY_BITLEN 1024
+
 class Rsa {
 private:
-  uint32_t d;
+  GPUBlock p(RSAKEY_BITLEN / 2);
+  GPUBlock q(RSAKEY_BITLEN / 2);
+  GPUBlock d_p(RSAKEY_BITLEN / 2);
+  GPUBlock d_q(RSAKEY_BITLEN / 2);
+  GPUBlock q_inv(RSAKEY_BITLEN / 2);
+
 public:
-  uint32_t e, n;
+  GPUBlock e(RSAKEY_BITLEN / 2);
+  GPUBlock n(RSAKEY_BITLEN);
   Rsa();
-  Rsa(uint32_t key_e, uint32_t key_n);
+  Rsa(uint1024_t key_e, uint1024_t key_n);
   void encrypt(GPUBlock m);
   void decrypt(GPUBlock m);
 };

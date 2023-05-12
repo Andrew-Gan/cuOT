@@ -5,7 +5,7 @@
 #include "aes.h"
 #include "pprf.h"
 #include "aes_expand.h"
-#include "base_ot.h"
+#include "simplest_ot.h"
 
 using KeyPair = std::pair<unsigned*, unsigned*>;
 

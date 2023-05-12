@@ -3,7 +3,8 @@
 #include "unit_test.h"
 #include "rsa.h"
 #include "aes.h"
-#include "base_ot.h"
+#include "simplest_ot.h"
+#include "basic_op.h"
 
 void test_cuda() {
   int deviceCount = 0;

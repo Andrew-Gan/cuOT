@@ -19,10 +19,13 @@ uint64_t* gen_choices(int numTrees) {
 #include "aes.h"
 
 int main(int argc, char** argv) {
-  // test_cuda();
-  // test_rsa();
-  // test_aes();
-  // test_base_ot();
+  if (argc == 1) {
+    test_cuda();
+    test_rsa();
+    test_aes();
+    test_base_ot();
+    return 0;
+  }
 
   if (argc < 5) {
     fprintf(stderr, "Usage: ./ot protocol depth trees logfile\n");

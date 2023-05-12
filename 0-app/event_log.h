@@ -17,6 +17,7 @@ private:
   static std::mutex mtx;
   static std::ofstream logFile;
   static struct timespec initTime;
+
 public:
   static void open(const char *filename);
   static void close();

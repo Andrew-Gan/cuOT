@@ -1,5 +1,5 @@
-#ifndef __MYTYPES_H__
-#define __MYTYPES_H__
+#ifndef __UTIL_H__
+#define __UTIL_H__
 
 #include <stdint.h>
 #include <stdio.h>
@@ -17,6 +17,8 @@
 
 #define EXP_NUM_THREAD 16
 #define AES_BSIZE 256
+
+enum Role { Sender, Recver };
 
 typedef struct {
   uint8_t roundKey[176];
@@ -40,17 +42,5 @@ union UByte4 {
   unsigned int uival;
   unsigned char ubval[4];
 };
-
-__global__
-void xor_gpu(uint8_t *c, uint8_t *a, uint8_t *b, size_t n);
-
-__global__
-void xor_circular(uint8_t *c, uint8_t *a, uint8_t *b, size_t len_b, size_t n);
-
-__global__
-void and_gpu(Vector c, Vector a, uint8_t b);
-
-__global__
-void print_gpu(uint8_t *a, size_t n);
 
 #endif
