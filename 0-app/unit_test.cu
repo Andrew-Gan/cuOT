@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <future>
 #include "unit_test.h"
-#include "rsa.h"
 #include "aes.h"
 #include "simplest_ot.h"
 #include "basic_op.h"
@@ -25,19 +24,19 @@ void test_cuda() {
   printf("test_cuda passed!\n");
 }
 
-void test_rsa() {
-  Rsa rsa;
-  const char *sample = "this is a test";
-  GPUBlock input(16);
-  GPUBlock output(16);
-  input.set((uint8_t*) sample, 15);
-  output.set((uint8_t*) sample, 15);
-  rsa.encrypt(output);
-  assert(input != output);
-  rsa.decrypt(output);
-  assert(input == output);
-  printf("test_rsa passed!\n");
-}
+// void test_rsa() {
+//   Rsa rsa;
+//   const char *sample = "this is a test";
+//   GPUBlock input(16);
+//   GPUBlock output(16);
+//   input.set((uint8_t*) sample, 15);
+//   output.set((uint8_t*) sample, 15);
+//   rsa.encrypt(output);
+//   assert(input != output);
+//   rsa.decrypt(output);
+//   assert(input == output);
+//   printf("test_rsa passed!\n");
+// }
 
 void test_aes() {
   Aes aes0;
@@ -72,12 +71,12 @@ void test_aes() {
 }
 
 void senderFunc(GPUBlock &m0, GPUBlock &m1) {
-  BaseOT sender(Sender, 0);
+  SimplestOT sender(Sender, 0);
   sender.send(m0, m1);
 }
 
 GPUBlock recverFunc(uint8_t b) {
-  BaseOT recver(Recver, 0);
+  SimplestOT recver(Recver, 0);
   GPUBlock mb = recver.recv(b);
   return mb;
 }

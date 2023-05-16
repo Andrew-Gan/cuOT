@@ -19,7 +19,7 @@ void set_choice(Vector choiceVec, int index) {
 
 __host__
 TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, int tid, int treeStart, int treeEnd, int depth) {
-  BaseOT baseOT(Recver, tid);
+  SimplestOT baseOT(Recver, tid);
   int numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
   TreeNode *input_d, *output_d, *subTotal_d;

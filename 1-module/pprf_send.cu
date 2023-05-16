@@ -11,7 +11,7 @@ using KeyPair = std::pair<unsigned*, unsigned*>;
 
 __host__
 TreeNode* worker_sender(TreeNode root, KeyPair keys, int tid, int treeStart, int treeEnd, int depth) {
-  BaseOT baseOT(Sender, tid);
+  SimplestOT baseOT(Sender, tid);
   int numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
   TreeNode *input_d, *output_d, *subtotal_d;

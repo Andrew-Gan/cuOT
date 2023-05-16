@@ -1,20 +1,20 @@
 #include <curand.h>
+#include <atomic>
 #include "gpu_block.h"
+#include "ot.h"
 #include "util.h"
-
-static std::array<std::atomic<SimplestOT*, 100>> senders;
-static std::array<std::atomic<SimplestOT*, 100>> recvers;
+#include "aes.h"
 
 class SimplestOT : public OT {
 private:
   curandGenerator_t prng;
   uint8_t g = 2;
-  uint64_t A = 0, B = 0;
+  uint32_t A = 0, B = 0;
   bool eReceived = false;
-  std::array<GPUBlock, 2> e = { GPUBlock(16), GPUBlock(16) }
+  std::array<GPUBlock, 2> e = { GPUBlock(16), GPUBlock(16) };
   SimplestOT *other = nullptr;
   Aes *aes0, *aes1;
-  uint64_t hash(uint64_t v) { return v; }
+  uint8_t* hash(uint64_t v);
 
 public:
   SimplestOT(Role role, int id);
