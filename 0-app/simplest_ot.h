@@ -9,8 +9,8 @@ class SimplestOT : public OT {
 private:
   curandGenerator_t prng;
   uint8_t g = 2;
-  uint32_t A = 0, B = 0;
-  bool eReceived = false;
+  std::atomic<uint64_t> A = 0, B = 0;
+  std::atomic<bool> eReceived = false;
   std::array<GPUBlock, 2> e = { GPUBlock(16), GPUBlock(16) };
   SimplestOT *other = nullptr;
   Aes *aes0, *aes1;

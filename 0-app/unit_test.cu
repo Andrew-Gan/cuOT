@@ -24,49 +24,24 @@ void test_cuda() {
   printf("test_cuda passed!\n");
 }
 
-// void test_rsa() {
-//   Rsa rsa;
-//   const char *sample = "this is a test";
-//   GPUBlock input(16);
-//   GPUBlock output(16);
-//   input.set((uint8_t*) sample, 15);
-//   output.set((uint8_t*) sample, 15);
-//   rsa.encrypt(output);
-//   assert(input != output);
-//   rsa.decrypt(output);
-//   assert(input == output);
-//   printf("test_rsa passed!\n");
-// }
-
 void test_aes() {
   Aes aes0;
+  Aes aes1(aes0.key);
   const char *sample = "this is a test";
-  bool cmp[16];
-  bool *cmp_d;
-  cudaMalloc(&cmp_d, 16);
 
-  GPUBlock input(16), buffer(16);
-  input.set((const uint8_t*) sample, 16);
-  buffer.set((const uint8_t*)sample, 16);
+  GPUBlock buffer(1024);
+  buffer.set((const uint8_t*) sample, 16);
 
   aes0.encrypt(buffer);
+  uint8_t encryptedData[16];
+  cudaMemcpy(encryptedData, buffer.data_d, 16, cudaMemcpyDeviceToHost);
+  assert(memcmp(sample, encryptedData, 16) != 0);
 
-  Aes aes1(aes0.key);
   aes1.decrypt(buffer);
-  // cmp_gpu<<<1, 16>>>(cmp_d, input.data_d, buffer.data_d);
-  // cudaDeviceSynchronize();
+  uint8_t decryptedData[16];
+  cudaMemcpy(decryptedData, buffer.data_d, 16, cudaMemcpyDeviceToHost);
+  assert(memcmp(sample, decryptedData, 16) == 0);
 
-  cudaMemcpy(cmp, cmp_d, 16, cudaMemcpyDeviceToHost);
-  int j = 0;
-  bool allEqual = true;
-  while(j < 16) {
-    if (!cmp[j++]) {
-      allEqual = false;
-      break;
-    }
-  }
-  assert(allEqual);
-  cudaFree(cmp_d);
   printf("test_aes passed!\n");
 }
 
@@ -82,10 +57,9 @@ GPUBlock recverFunc(uint8_t b) {
 }
 
 void test_base_ot() {
-  GPUBlock m0, m1, mb;
-  m0.set(32);
-  m1.set(64);
-
+  GPUBlock m0(1024), m1(1024), mb;
+  m0.set(0x20);
+  m1.set(0x40);
   std::future sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
   std::future recver = std::async(recverFunc, 0);
   sender.get();

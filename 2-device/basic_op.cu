@@ -20,13 +20,6 @@ void and_gpu(Vector c, Vector a, uint8_t b) {
   c.data[x] = a.data[x] & b;
 }
 
-__global__
-void print_gpu(uint8_t *a, size_t n) {
-  for (int i = 0; i < n; i++)
-    printf("%x ", a[i]);
-  printf("\n");
-}
-
 __device__
 void modular_exp_helper(uint32_t *b, uint32_t e, uint32_t n) {
   uint64_t c = 1;

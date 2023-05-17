@@ -20,4 +20,6 @@ public:
   void set(const uint8_t *val, size_t n);
 };
 
+std::ostream& operator<<(std::ostream &os, const GPUBlock &obj);
+
 #endif

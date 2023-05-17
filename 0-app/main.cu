@@ -1,8 +1,4 @@
-// seed gen -> seed expansion -> matrix gen -> random matrix hashing -> cot
-
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <random>
 #include <future>
 
@@ -24,7 +20,7 @@ static void sender_worker(OT *ot) {
 
 static void recver_worker(OT *ot, int numTrees) {
   uint64_t *choices = gen_choices(numTrees);
-  GPUBlock mb = ot->recv(choices);
+  GPUBlock mb = dynamic_cast<SilentOT*>(ot)->recv(choices);
   delete[] choices;
 }
 

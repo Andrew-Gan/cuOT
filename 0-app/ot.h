@@ -16,7 +16,7 @@ public:
   virtual GPUBlock recv(uint8_t b) = 0;
 };
 
-static std::array<std::atomic<OT*>, 100> senders;
-static std::array<std::atomic<OT*>, 100> recvers;
+extern std::array<std::atomic<OT*>, 100> senders;
+extern std::array<std::atomic<OT*>, 100> recvers;
 
 #endif

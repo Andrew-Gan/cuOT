@@ -13,9 +13,6 @@ __global__
 void and_gpu(Vector c, Vector a, uint8_t b);
 
 __global__
-void print_gpu(uint8_t *a, size_t n);
-
-__global__
 void modular_exp_gpu(uint32_t *b, uint32_t e, uint32_t n);
 
 __global__

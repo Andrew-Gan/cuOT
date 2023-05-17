@@ -2,7 +2,7 @@
 #define __UTIL_H__
 
 #include <stdint.h>
-#include <stdio.h>
+#include <iostream>
 #include "event_log.h"
 
 #define AES_BLOCKLEN 16

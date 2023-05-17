@@ -72,5 +72,17 @@ void GPUBlock::set(uint32_t val) {
 void GPUBlock::set(const uint8_t *val, size_t n) {
   cudaMemset(data_d, 0, nBytes);
   size_t min = nBytes < n ? nBytes : n;
-  cudaMemcpy(data_d, &val, min, cudaMemcpyHostToDevice);
+  cudaMemcpy(data_d, val, min, cudaMemcpyHostToDevice);
+}
+
+std::ostream& operator<<(std::ostream &os, const GPUBlock &obj) {
+  uint8_t *data = new uint8_t[obj.nBytes];
+  cudaMemcpy(data, obj.data_d, obj.nBytes, cudaMemcpyDeviceToHost);
+  for (int i = 0; i < obj.nBytes; i += 64) {
+    for (int j = i; j < i + 64; j++) {
+      os << std::hex << +data[j] << " ";
+    }
+    os << std::endl;
+  }
+  return os;
 }

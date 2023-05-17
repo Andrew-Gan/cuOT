@@ -53,4 +53,4 @@ plot:
 	python plotter.py
 
 clean:
-	rm -f $(EXE) $(APP_OBJ) $(MOD_OBJ) $(DEV_OBJ) log.txt
+	rm -f $(EXE) obj/*/* log.txt

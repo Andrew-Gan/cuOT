@@ -47,8 +47,14 @@ Aes::~Aes() {
 }
 
 void Aes::decrypt(GPUBlock &msg) {
-  if (decExpKey_d == nullptr)
+  if (decExpKey_d == nullptr) {
+    printf("Decryption key not initialised\n");
     return;
+  }
+  if (msg.nBytes < 16 * 256 / 4) {
+    printf("Message to decrypt must be at least 1024 bytes\n");
+    return;
+  }
   EventLog::start(AesDecrypt);
   uint8_t *buffer_d;
   cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
@@ -62,8 +68,14 @@ void Aes::decrypt(GPUBlock &msg) {
 }
 
 void Aes::encrypt(GPUBlock &msg) {
-  if (encExpKey_d == nullptr)
+  if (encExpKey_d == nullptr) {
+    printf("Encryption key not initialised\n");
     return;
+  }
+  if (msg.nBytes < 16 * 256 / 4) {
+    printf("Message to encrypt must be at least 1024 bytes\n");
+    return;
+  }
   EventLog::start(AesEncrypt);
   uint8_t *buffer_d;
   cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
