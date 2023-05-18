@@ -1,7 +1,8 @@
 import sys
 import matplotlib.pyplot as plt
 
-hideEvents = ['PprfSender', 'PprfRecver']
+hideEvents = ['PprfSender', 'PprfRecver', 'AesEncrypt', 'AesDecrypt',
+  'AesInit', 'BaseOTInit']
 
 def plot_pipeline(filename):
   eventList = {}

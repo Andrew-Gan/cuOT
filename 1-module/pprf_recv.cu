@@ -18,59 +18,63 @@ void set_choice(Vector choiceVec, int index) {
 }
 
 __host__
-TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, int tid, int treeStart, int treeEnd, int depth) {
-  SimplestOT baseOT(Recver, tid);
+TreeNode* worker_recver(Vector choiceVector, KeyPair keys, uint64_t *choices, int numTrees, int depth) {
   int numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
-  TreeNode *input_d, *output_d, *subTotal_d;
-  cudaError_t err0 = cudaMalloc(&input_d, sizeof(*input_d) * numLeaves / 2 + PADDED_LEN);
-  cudaError_t err1 = cudaMalloc(&output_d, sizeof(*output_d) * numLeaves);
-  cudaError_t err2 = cudaMalloc(&subTotal_d, sizeof(*subTotal_d) * numLeaves);
-  cudaMemset(subTotal_d, 0, sizeof(*subTotal_d) * numLeaves);
+  std::vector<TreeNode*> input_d(numTrees);
+  std::vector<TreeNode*> output_d(numTrees);
+  std::vector<SimplestOT*> baseOT;
+  std::vector<int> puncture(numTrees, 0);
+  TreeNode *puncVector;
 
-  if (err0 != cudaSuccess)
-    fprintf(stderr, "recv in: %s\n", cudaGetErrorString(err0));
-  if (err1 != cudaSuccess)
-    fprintf(stderr, "recv out: %s\n", cudaGetErrorString(err1));
-  if (err2 != cudaSuccess)
-    fprintf(stderr, "recv sub: %s\n", cudaGetErrorString(err2));
+  cudaMalloc(&puncVector, sizeof(*puncVector) * numLeaves);
+  cudaMemset(puncVector, 0, sizeof(*puncVector) * numLeaves);
 
-  for (int t = treeStart; t <= treeEnd; t++) {
-    int puncture = 0, width = 2;
-    for (size_t d = 1; d <= depth; d++) {
-      // copy previous layer for expansion
-      cudaMemcpy(input_d, output_d, sizeof(*output_d) * width / 2, cudaMemcpyDeviceToDevice);
-
-      size_t paddedLen = (width / 2) * sizeof(*output_d);
-      paddedLen += 16 - (paddedLen % 16);
-      paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
-      static int thread_per_aesblock = 4;
-      dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
-      dim3 thread(AES_BSIZE, 1);
-      EventLog::start(PprfRecverExpand);
-      aesExpand128<<<grid, thread>>>(keys.first, output_d, nullptr, (unsigned*) input_d, 0, width);
-      aesExpand128<<<grid, thread>>>(keys.second, output_d, nullptr, (unsigned*) input_d, 1, width);
-      cudaDeviceSynchronize();
-      EventLog::end(PprfRecverExpand);
-
-      int choice = (choices[t] & (1 << d-1)) >> d-1;
-      int recvNode = puncture * 2 + choice;
-      GPUBlock mb = baseOT.recv(choice);
-      cudaMemcpy(&output_d[recvNode], &mb.data_d[puncture * TREENODE_SIZE],
-        TREENODE_SIZE, cudaMemcpyDeviceToDevice);
-      puncture = puncture * 2 + (1 - choice);
-
-      width *= 2;
-    }
-
-    xor_prf<<<tBlock, 1024>>>(subTotal_d, output_d, numLeaves);
-    set_choice<<<1, 1>>>(choiceVector_d, puncture);
-    cudaDeviceSynchronize();
+  for (int t = 0; t < numTrees; t++) {
+    cudaMalloc(&input_d.at(t), sizeof(*input_d.at(t)) * numLeaves / 2 + PADDED_LEN);
+    cudaMalloc(&output_d.at(t), sizeof(*output_d.at(t)) * numLeaves);
+    baseOT.push_back(new SimplestOT(Recver, t));
   }
 
-  cudaFree(input_d);
-  cudaFree(output_d);
-  return subTotal_d;
+  for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
+    // copy previous layer for expansion
+    for (int t = 0; t < numTrees; t++) {
+      cudaMemcpy(input_d.at(t), output_d.at(t), sizeof(*output_d.at(t)) * width / 2, cudaMemcpyDeviceToDevice);
+    }
+
+    size_t paddedLen = (width / 2) * sizeof(*output_d.at(0));
+    paddedLen += 16 - (paddedLen % 16);
+    paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
+    static int thread_per_aesblock = 4;
+    dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
+    dim3 thread(AES_BSIZE, 1);
+
+    EventLog::start(PprfRecverExpand);
+    for (int t = 0; t < numTrees; t++) {
+      aesExpand128<<<grid, thread>>>(keys.first, output_d.at(t), nullptr, (uint32_t*) input_d.at(t), 0, width);
+      aesExpand128<<<grid, thread>>>(keys.second, output_d.at(t), nullptr, (uint32_t*) input_d.at(t), 1, width);
+    }
+    cudaDeviceSynchronize();
+    EventLog::end(PprfRecverExpand);
+
+    for (int t = 0; t < numTrees; t++) {
+      int choice = (choices[t] & (1 << d-1)) >> d-1;
+      int recvNode = puncture.at(t) * 2 + choice;
+      GPUBlock mb = baseOT.at(t)->recv(choice);
+      // cuda-memcheck returns error due to copying from another context
+      cudaMemcpy(&output_d[recvNode], &mb.data_d[puncture.at(t)*TREENODE_SIZE], TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+      puncture.at(t) = puncture.at(t) * 2 + (1 - choice);
+    }
+  }
+
+  for (int t = 0; t < numTrees; t++) {
+    xor_prf<<<tBlock, 1024>>>(puncVector, output_d.at(t), numLeaves);
+    set_choice<<<1, 1>>>(choiceVector, puncture.at(t));
+    cudaDeviceSynchronize();
+    cudaFree(input_d.at(t));
+    cudaFree(output_d.at(t));
+  }
+  return puncVector;
 }
 
 std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees) {
@@ -93,45 +97,22 @@ std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees
   cudaMalloc(&rightKey_d, sizeof(rightAesKey));
   cudaMemcpy(rightKey_d, &rightAesKey, sizeof(rightAesKey), cudaMemcpyHostToDevice);
 
-  // store tree in device memory
-  TreeNode *puncVec_d;
-  cudaError_t err0 = cudaMalloc(&puncVec_d, numLeaves * sizeof(*puncVec_d));
-  cudaMemset(puncVec_d, 0, numLeaves * sizeof(*puncVec_d));
+  Vector choiceVector = { .n = numLeaves * 8 * TREENODE_SIZE };
+  cudaError_t err = cudaMalloc(&choiceVector.data, numLeaves * TREENODE_SIZE);
+  if (err != cudaSuccess)
+    fprintf(stderr, "recv choice: %s\n", cudaGetErrorString(err));
 
-  Vector choiceVector_d;
-  cudaError_t err1 = cudaMalloc(&choiceVector_d.data, numLeaves * sizeof(*puncVec_d));
-  cudaMemset(choiceVector_d.data, 0, numLeaves * sizeof(*puncVec_d));
+  cudaMemset(choiceVector.data, 0, numLeaves * TREENODE_SIZE);
 
-  if (err0 != cudaSuccess)
-    fprintf(stderr, "recv punc: %s\n", cudaGetErrorString(err0));
-  if (err1 != cudaSuccess)
-    fprintf(stderr, "recv choice: %s\n", cudaGetErrorString(err1));
 
-  int workload = (numTrees - 1) / EXP_NUM_THREAD + 1;
-  std::vector<std::future<TreeNode*>> workers;
   KeyPair keys = std::make_pair(leftKey_d, rightKey_d);
-
-  for (int tid = 0; tid < EXP_NUM_THREAD; tid++) {
-    int treeStart = tid * workload;
-    int treeEnd = ((tid+1) * workload - 1);
-    if (treeEnd > (numTrees - 1))
-      treeEnd = numTrees - 1;
-    if (treeStart <= treeEnd)
-      workers.push_back(std::async(worker_recver, choiceVector_d, keys, choices, tid, treeStart, treeEnd, depth));
-  }
-  int tBlock = (numLeaves - 1) / 1024 + 1;
-  for (std::future<TreeNode*> &worker : workers) {
-    TreeNode *subTotal_d = worker.get();
-    xor_prf<<<tBlock, 1024>>>(puncVec_d, subTotal_d, numLeaves);
-    cudaDeviceSynchronize();
-    cudaFree(subTotal_d);
-  }
+  TreeNode *puncVector = worker_recver(choiceVector, keys, choices, numTrees, depth);
 
   cudaFree(leftKey_d);
   cudaFree(rightKey_d);
 
-  Vector puncVec_dtor =
-    { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) puncVec_d };
+  Vector puncVec =
+    { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) puncVector };
 
-  return {puncVec_dtor, choiceVector_d};
+  return {puncVec, choiceVector};
 }
