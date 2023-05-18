@@ -7,14 +7,12 @@ cd $SLURM_SUBMIT_DIR
 
 rm -f nsys* out out-nsys
 
-make
+make -j
 
-./pprf 1 11 75 >> out
-./pprf 1 14 73 >> out
-./pprf 1 17 72 >> out
-./pprf 1 20 70 >> out
-./pprf 1 23 69 >> out
-
-nsys profile --stats=true --output=nsys-stats ./pprf 1 14 73 > out-nsys
+./ot 1 11 75 out-11.txt
+./ot 1 14 73 out-14.txt
+./ot 1 17 72 out-17.txt
+./ot 1 20 70 out-20.txt
+./ot 1 23 69 out-23.txt
 
 make clean

@@ -3,21 +3,7 @@
 
 #include <curand_kernel.h>
 #include "util.h"
-
-class AesBlocks {
-public:
-  AesBlocks();
-  AesBlocks(size_t nBlock);
-  AesBlocks(const AesBlocks &blk);
-  virtual ~AesBlocks();
-  uint8_t *data_d = nullptr;
-  size_t nBlock = 0;
-  AesBlocks operator^(const AesBlocks &rhs);
-  AesBlocks& operator=(const AesBlocks &rhs);
-  bool operator==(const AesBlocks &rhs);
-  uint8_t* operator[](int index);
-  void set(uint32_t rhs);
-};
+#include "gpu_block.h"
 
 class Aes {
 private:
@@ -25,6 +11,7 @@ private:
   uint8_t *encExpKey_d = nullptr;
   uint8_t *decExpKey_d = nullptr;
   void init();
+
 public:
   uint8_t key[AES_KEYLEN];
   Aes();
@@ -32,8 +19,8 @@ public:
   virtual ~Aes();
   static void expand_encKey(uint8_t *encExpKey, uint8_t *key);
   static void expand_decKey(uint8_t *decExpKey, uint8_t *key);
-  void decrypt(AesBlocks &msg);
-  void encrypt(AesBlocks &msg);
+  void decrypt(GPUBlock &msg);
+  void encrypt(GPUBlock &msg);
 };
 
 #endif

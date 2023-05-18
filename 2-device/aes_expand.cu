@@ -31,7 +31,7 @@
 
 #include "util.h"
 #include "sbox_E.h"
-#include "aesExpand.h"
+#include "aes_expand.h"
 
 __global__
 void aesExpand128(uint32_t *aesKey, TreeNode *leaves, uint32_t *m,
@@ -298,6 +298,7 @@ void aesExpand128(uint32_t *aesKey, TreeNode *leaves, uint32_t *m,
 		leaves[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
 	if (m != nullptr) {
-		m[pairId * TREENODE_SIZE + tx % elemPerNode] = stageBlock2[tx].uival;
+		size_t offset = (pairId*TREENODE_SIZE+4*(tx%elemPerNode)) / sizeof(*m);
+		m[offset] = stageBlock2[tx].uival;
 	}
 }

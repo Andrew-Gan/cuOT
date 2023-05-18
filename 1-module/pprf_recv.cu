@@ -4,8 +4,8 @@
 
 #include "aes.h"
 #include "pprf.h"
-#include "aesExpand.h"
-#include "base_ot.h"
+#include "aes_expand.h"
+#include "simplest_ot.h"
 
 using KeyPair = std::pair<unsigned*, unsigned*>;
 
@@ -19,7 +19,7 @@ void set_choice(Vector choiceVec, int index) {
 
 __host__
 TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, int tid, int treeStart, int treeEnd, int depth) {
-  BaseOT baseOT(Recver, tid);
+  SimplestOT baseOT(Recver, tid);
   int numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
   TreeNode *input_d, *output_d, *subTotal_d;
@@ -38,7 +38,6 @@ TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, 
   for (int t = treeStart; t <= treeEnd; t++) {
     int puncture = 0, width = 2;
     for (size_t d = 1; d <= depth; d++) {
-
       // copy previous layer for expansion
       cudaMemcpy(input_d, output_d, sizeof(*output_d) * width / 2, cudaMemcpyDeviceToDevice);
 
@@ -48,14 +47,17 @@ TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, 
       static int thread_per_aesblock = 4;
       dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
       dim3 thread(AES_BSIZE, 1);
+      EventLog::start(PprfRecverExpand);
       aesExpand128<<<grid, thread>>>(keys.first, output_d, nullptr, (unsigned*) input_d, 0, width);
       aesExpand128<<<grid, thread>>>(keys.second, output_d, nullptr, (unsigned*) input_d, 1, width);
       cudaDeviceSynchronize();
+      EventLog::end(PprfRecverExpand);
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       int recvNode = puncture * 2 + choice;
-      AesBlocks mb = baseOT.recv(choice);
-      cudaMemcpy(&output_d[recvNode], mb[puncture], TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+      GPUBlock mb = baseOT.recv(choice);
+      cudaMemcpy(&output_d[recvNode], &mb.data_d[puncture * TREENODE_SIZE],
+        TREENODE_SIZE, cudaMemcpyDeviceToDevice);
       puncture = puncture * 2 + (1 - choice);
 
       width *= 2;
@@ -114,11 +116,12 @@ std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees
     int treeEnd = ((tid+1) * workload - 1);
     if (treeEnd > (numTrees - 1))
       treeEnd = numTrees - 1;
-    workers.push_back(std::async(worker_recver, choiceVector_d, keys, choices, tid, treeStart, treeEnd, depth));
+    if (treeStart <= treeEnd)
+      workers.push_back(std::async(worker_recver, choiceVector_d, keys, choices, tid, treeStart, treeEnd, depth));
   }
   int tBlock = (numLeaves - 1) / 1024 + 1;
-  for (int tid = 0; tid < EXP_NUM_THREAD; tid++) {
-    TreeNode *subTotal_d = workers.at(tid).get();
+  for (std::future<TreeNode*> &worker : workers) {
+    TreeNode *subTotal_d = worker.get();
     xor_prf<<<tBlock, 1024>>>(puncVec_d, subTotal_d, numLeaves);
     cudaDeviceSynchronize();
     cudaFree(subTotal_d);

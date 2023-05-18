@@ -32,7 +32,7 @@
 #define __AESENCRYPT_H__
 
 #include "util.h"
-#include "aesEncrypt.h"
+#include "aes_encrypt.h"
 #include "sbox_E.h"
 
 __global__

@@ -1,9 +1,9 @@
 #include <assert.h>
 #include <future>
 #include "unit_test.h"
-#include "rsa.h"
 #include "aes.h"
-#include "base_ot.h"
+#include "simplest_ot.h"
+#include "basic_op.h"
 
 void test_cuda() {
   int deviceCount = 0;
@@ -24,67 +24,42 @@ void test_cuda() {
   printf("test_cuda passed!\n");
 }
 
-void test_rsa() {
-  Rsa rsa;
-  const char *input = "this is a test";
-  uint8_t output[16] = {0};
-  memcpy(output, input, 15);
-  rsa.encrypt((uint32_t*) output, 15);
-  assert(memcmp(input, output, 15) != 0);
-  rsa.decrypt((uint32_t*) output, 15);
-  assert(memcmp(input, output, 15) == 0);
-  printf("test_rsa passed!\n");
-}
-
 void test_aes() {
   Aes aes0;
+  Aes aes1(aes0.key);
   const char *sample = "this is a test";
-  bool cmp[16];
-  bool *cmp_d;
-  cudaMalloc(&cmp_d, 16);
 
-  AesBlocks input;
-  cudaMemcpy(input.data_d, sample, 16, cudaMemcpyHostToDevice);
-  AesBlocks buffer;
-  cudaMemcpy(buffer.data_d, sample, 16, cudaMemcpyHostToDevice);
+  GPUBlock buffer(1024);
+  buffer.set((const uint8_t*) sample, 16);
 
   aes0.encrypt(buffer);
+  uint8_t encryptedData[16];
+  cudaMemcpy(encryptedData, buffer.data_d, 16, cudaMemcpyDeviceToHost);
+  assert(memcmp(sample, encryptedData, 16) != 0);
 
-  Aes aes1(aes0.key);
   aes1.decrypt(buffer);
-  cmp_gpu<<<1, 16>>>(cmp_d, input.data_d, buffer.data_d);
-  cudaDeviceSynchronize();
+  uint8_t decryptedData[16];
+  cudaMemcpy(decryptedData, buffer.data_d, 16, cudaMemcpyDeviceToHost);
+  assert(memcmp(sample, decryptedData, 16) == 0);
 
-  cudaMemcpy(cmp, cmp_d, 16, cudaMemcpyDeviceToHost);
-  int j = 0;
-  bool allEqual = true;
-  while(j < 16) {
-    if (!cmp[j++]) {
-      allEqual = false;
-      break;
-    }
-  }
-  assert(allEqual);
-  cudaFree(cmp_d);
   printf("test_aes passed!\n");
 }
 
-void senderFunc(AesBlocks &m0, AesBlocks &m1) {
-  BaseOT sender(Sender, 0);
+void senderFunc(GPUBlock &m0, GPUBlock &m1) {
+  SimplestOT sender(Sender, 0);
   sender.send(m0, m1);
 }
 
-AesBlocks recverFunc(uint8_t b) {
-  BaseOT recver(Recver, 0);
-  AesBlocks mb = recver.recv(b);
+GPUBlock recverFunc(uint8_t b) {
+  SimplestOT recver(Recver, 0);
+  GPUBlock mb = recver.recv(b);
   return mb;
 }
 
 void test_base_ot() {
-  AesBlocks m0, m1, mb;
-  m0.set(32);
-  m1.set(64);
-
+  GPUBlock m0(1024), m1(1024), mb(1024);
+  m0.set(0x20);
+  m1.set(0x40);
   std::future sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
   std::future recver = std::async(recverFunc, 0);
   sender.get();
@@ -107,7 +82,7 @@ void test_cot(Vector fullVec_d, Vector puncVec_d, Vector choiceVec_d, uint8_t de
 
   Vector lhs = { .n = fullVec_d.n };
   cudaMalloc(&lhs.data, lhs.n / 8);
-  xor_gpu<<<nBytes/ 1024, 1024>>>(lhs, fullVec_d, puncVec_d);
+  xor_gpu<<<nBytes/ 1024, 1024>>>(lhs.data, fullVec_d.data, puncVec_d.data, lhs.n);
 
   Vector rhs = { .n = fullVec_d.n };
   cudaMalloc(&rhs.data, rhs.n / 8);
@@ -117,8 +92,6 @@ void test_cot(Vector fullVec_d, Vector puncVec_d, Vector choiceVec_d, uint8_t de
 
   bool *cmp_d, *cmp;
   cudaMalloc(&cmp_d, nBytes * sizeof(*cmp_d));
-  cmp_gpu<<<nBytes / 1024, 1024>>>(cmp_d, lhs.data, rhs.data);
-  cudaDeviceSynchronize();
 
   cmp = new bool[nBytes];
   cudaMemcpy(cmp, cmp_d,  nBytes * sizeof(*cmp_d), cudaMemcpyDeviceToHost);
