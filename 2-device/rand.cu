@@ -1,26 +1,20 @@
 #include "rand.h"
-#include <curand_kernel.h>
 
-curandGenerator_t prng;
-Matrix randMatrix_d;
-
-Matrix gen_rand(size_t height, size_t width) {
-  static bool isInit = false;
-  randMatrix_d.rows = height;
-  randMatrix_d.cols = width;
-
-  if (!isInit) {
-    curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
-    curandSetPseudoRandomGeneratorSeed(prng, clock());
-    cudaMalloc(&randMatrix_d.data, height * width / 8);
-    isInit = true;
-  }
-
-  curandGenerateUniform(prng, (float*) randMatrix_d.data, width * height / 32);
-  return randMatrix_d;
+Matrix init_rand(curandGenerator_t &prng, size_t height, size_t width) {
+  Matrix randMatrix;
+  randMatrix.rows = height;
+  randMatrix.cols = width;
+  curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
+  curandSetPseudoRandomGeneratorSeed(prng, clock());
+  cudaMalloc(&randMatrix.data, height * width / 8);
+  return randMatrix;
 }
 
-void del_rand() {
+void gen_rand(curandGenerator_t prng, Matrix randMatrix) {
+  curandGenerateUniform(prng, (float*) randMatrix.data, randMatrix.rows * randMatrix.cols / 32);
+}
+
+void del_rand(curandGenerator_t prng, Matrix randMatrix) {
   curandDestroyGenerator(prng);
-  cudaFree(randMatrix_d.data);
+  cudaFree(randMatrix.data);
 }

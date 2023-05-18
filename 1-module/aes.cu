@@ -83,9 +83,9 @@ void Aes::encrypt(GPUBlock &msg) {
     fprintf(stderr, "encrypt(GPUBlock): %s\n", cudaGetErrorString(err));
   aesEncrypt128<<<msg.nBytes/4/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
+  EventLog::end(AesEncrypt);
   cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
-  EventLog::end(AesEncrypt);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {
@@ -151,6 +151,7 @@ static void _inv_exp_func(std::vector<unsigned> &expKey, std::vector<unsigned> &
 }
 
 void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
+  EventLog::start(AesKeyExpansion);
   std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
 	std::vector<uint32_t> expKeyArray(176);
   _exp_func(keyArray, expKeyArray);
@@ -159,9 +160,11 @@ void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
     uint8_t *pc = reinterpret_cast<uint8_t*>(&val);
     encExpKey[cnt] = *pc;
   }
+  EventLog::end(AesKeyExpansion);
 }
 
 void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
+  EventLog::start(AesKeyExpansion);
   std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
   std::vector<uint32_t> expKeyArray(176);
 	std::vector<uint32_t> invExpKeyArray(176);
@@ -172,4 +175,5 @@ void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
     uint8_t *pc = reinterpret_cast<uint8_t*>(&val);
     decExpKey[cnt] = *pc;
   }
+  EventLog::end(AesKeyExpansion);
 }

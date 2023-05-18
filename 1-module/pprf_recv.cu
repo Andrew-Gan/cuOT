@@ -38,7 +38,6 @@ TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, 
   for (int t = treeStart; t <= treeEnd; t++) {
     int puncture = 0, width = 2;
     for (size_t d = 1; d <= depth; d++) {
-
       // copy previous layer for expansion
       cudaMemcpy(input_d, output_d, sizeof(*output_d) * width / 2, cudaMemcpyDeviceToDevice);
 
@@ -48,9 +47,11 @@ TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, 
       static int thread_per_aesblock = 4;
       dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
       dim3 thread(AES_BSIZE, 1);
+      EventLog::start(PprfRecverExpand);
       aesExpand128<<<grid, thread>>>(keys.first, output_d, nullptr, (unsigned*) input_d, 0, width);
       aesExpand128<<<grid, thread>>>(keys.second, output_d, nullptr, (unsigned*) input_d, 1, width);
       cudaDeviceSynchronize();
+      EventLog::end(PprfRecverExpand);
 
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       int recvNode = puncture * 2 + choice;
@@ -73,7 +74,6 @@ TreeNode* worker_recver(Vector choiceVector_d, KeyPair keys, uint64_t *choices, 
 }
 
 std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees) {
-  EventLog::start(PprfRecver);
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
@@ -116,11 +116,12 @@ std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees
     int treeEnd = ((tid+1) * workload - 1);
     if (treeEnd > (numTrees - 1))
       treeEnd = numTrees - 1;
-    workers.push_back(std::async(worker_recver, choiceVector_d, keys, choices, tid, treeStart, treeEnd, depth));
+    if (treeStart <= treeEnd)
+      workers.push_back(std::async(worker_recver, choiceVector_d, keys, choices, tid, treeStart, treeEnd, depth));
   }
   int tBlock = (numLeaves - 1) / 1024 + 1;
-  for (int tid = 0; tid < EXP_NUM_THREAD; tid++) {
-    TreeNode *subTotal_d = workers.at(tid).get();
+  for (std::future<TreeNode*> &worker : workers) {
+    TreeNode *subTotal_d = worker.get();
     xor_prf<<<tBlock, 1024>>>(puncVec_d, subTotal_d, numLeaves);
     cudaDeviceSynchronize();
     cudaFree(subTotal_d);
@@ -132,6 +133,5 @@ std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees
   Vector puncVec_dtor =
     { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) puncVec_d };
 
-  EventLog::end(PprfRecver);
   return {puncVec_dtor, choiceVector_d};
 }

@@ -57,7 +57,7 @@ GPUBlock recverFunc(uint8_t b) {
 }
 
 void test_base_ot() {
-  GPUBlock m0(1024), m1(1024), mb;
+  GPUBlock m0(1024), m1(1024), mb(1024);
   m0.set(0x20);
   m1.set(0x40);
   std::future sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
@@ -92,8 +92,6 @@ void test_cot(Vector fullVec_d, Vector puncVec_d, Vector choiceVec_d, uint8_t de
 
   bool *cmp_d, *cmp;
   cudaMalloc(&cmp_d, nBytes * sizeof(*cmp_d));
-  // cmp_gpu<<<nBytes / 1024, 1024>>>(cmp_d, lhs.data, rhs.data);
-  // cudaDeviceSynchronize();
 
   cmp = new bool[nBytes];
   cudaMemcpy(cmp, cmp_d,  nBytes * sizeof(*cmp_d), cudaMemcpyDeviceToHost);

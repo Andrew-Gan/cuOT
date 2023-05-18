@@ -23,14 +23,14 @@ def plot_pipeline(filename):
         time = float(time)
         tidFound.add(tid)
         if tid not in eventData[eventID]:
-          eventData[eventID][tid] = [0, 0]
+          eventData[eventID][tid] = []
         if startStop == 's':
-          eventData[eventID][tid][0] = time
+          eventData[eventID][tid].append([time, 0])
         elif startStop == 'e':
-          startTime = eventData[eventID][tid][0]
-          eventData[eventID][tid][1] = time-startTime
+          startTime = eventData[eventID][tid][-1][0]
+          eventData[eventID][tid][-1][1] = time - startTime
 
-  tidFound = sorted(list(tidFound))
+  sortedTids = sorted(list(tidFound))
   legends = []
 
   plt.figure(figsize=(10, 5))
@@ -39,16 +39,23 @@ def plot_pipeline(filename):
     if len(eventVal) == 0 or eventList[eventID] in hideEvents:
       continue
     legends.append(eventList[eventID])
-    originalTids = eventVal.keys()
-    widths = [eventVal[t][1] for t in originalTids]
-    starts = [eventVal[t][0] for t in originalTids]
-    mappedTids = [tidFound.index(tid) for tid in eventVal.keys()]
-    plt.barh(y=mappedTids, width=widths, height=0.5, left=starts)
+    eventTids = eventVal.keys()
+    yTids = []
+    widths = []
+    starts = []
+    for t in eventTids:
+      for e in eventVal[t]:
+        yTids.append(sortedTids.index(t))
+        starts.append(e[0])
+        widths.append(e[1])
+    plt.barh(y=yTids, width=widths, height=0.5, left=starts)
 
+  plt.yticks(range(len(tidFound)))
+  plt.title('Pipeline Graph of Thread Operations over Time')
+  plt.xlabel('Time (ms)')
+  plt.ylabel('Thread ID')
   plt.legend(legends)
   plt.savefig(filename.split('.')[0])
 
 if __name__ == '__main__':
-  if len(sys.argv) < 2:
-    print('usage: python plotter <logfile>')
-  plot_pipeline(sys.argv[1])
+  plot_pipeline('log.txt')

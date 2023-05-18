@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <random>
 #include <future>
+#include <thread>
 
 #include "unit_test.h"
 #include "silent_ot.h"
@@ -13,15 +14,27 @@ uint64_t* gen_choices(int numTrees) {
   return choices;
 }
 
-static void sender_worker(OT *ot) {
+static void sender_worker(int protocol, int logOT, int numTrees) {
+  SilentOT *ot;
+  switch(protocol) {
+    case 1: ot = new SilentOT(Sender, 0, logOT, numTrees);
+      break;
+  }
   GPUBlock m0, m1;
   ot->send(m0, m1);
+  delete ot;
 }
 
-static void recver_worker(OT *ot, int numTrees) {
+static void recver_worker(int protocol, int logOT, int numTrees) {
+  SilentOT *ot;
+  switch(protocol) {
+    case 1: ot = new SilentOT(Recver, 0, logOT, numTrees);
+      break;
+  }
   uint64_t *choices = gen_choices(numTrees);
-  GPUBlock mb = dynamic_cast<SilentOT*>(ot)->recv(choices);
+  GPUBlock mb = ot->recv(choices);
   delete[] choices;
+  delete ot;
 }
 
 int main(int argc, char** argv) {
@@ -31,8 +44,8 @@ int main(int argc, char** argv) {
     test_base_ot();
     return 0;
   }
-  if (argc < 5) {
-    fprintf(stderr, "Usage: ./ot protocol depth trees logfile\n");
+  if (argc < 4) {
+    fprintf(stderr, "Usage: ./ot protocol depth trees\n");
     return EXIT_FAILURE;
   }
 
@@ -41,23 +54,11 @@ int main(int argc, char** argv) {
   int numTrees = atoi(argv[3]);
   printf("log OTs: %lu, Trees: %d\n", logOT, numTrees);
 
-  OT *ot_send, *ot_recv;
-
-  EventLog::open(argv[4]);
-  switch (protocol) {
-    case 1:
-      ot_send = new SilentOT(Sender, 0, logOT, numTrees);
-      ot_recv = new SilentOT(Recver, 0, logOT, numTrees);
-      break;
-  }
-
-  std::future sender = std::async(sender_worker, ot_send);
-  std::future recver = std::async(recver_worker, ot_recv, numTrees);
+  EventLog::open("log.txt");
+  std::future sender = std::async(sender_worker, protocol, logOT, numTrees);
+  std::future recver = std::async(recver_worker, protocol, logOT, numTrees);
   sender.get();
   recver.get();
-
   EventLog::close();
-  delete ot_send;
-  delete ot_recv;
   return EXIT_SUCCESS;
 }

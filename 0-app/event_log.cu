@@ -6,11 +6,10 @@ std::ofstream EventLog::logFile;
 struct timespec EventLog::initTime;
 
 const char *eventString[] = {
-  "AesInit", "AesEncrypt", "AesDecrypt",
-  "BaseOTSenderInit", "BaseOTRecverInit", "BaseOTSend", "BaseOTRecv",
+  "AesInit", "AesEncrypt", "AesDecrypt", "AesKeyExpansion",
+  "BaseOTInit", "BaseOTSend", "BaseOTRecv",
   "HashSender", "HashRecver",
-  "PprfSender", "PprfRecver",
-  "RsaEncrypt", "RsaDecrypt",
+  "PprfSenderExpand", "PprfRecverExpand",
 };
 
 void EventLog::open(const char *filename) {

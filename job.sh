@@ -7,7 +7,7 @@ cd $SLURM_SUBMIT_DIR
 
 rm -f nsys* out out-nsys
 
-make -j 4
+make -j
 
 ./ot 1 11 75 out-11.txt
 ./ot 1 14 73 out-14.txt

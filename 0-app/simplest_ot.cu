@@ -1,6 +1,7 @@
 #include "simplest_ot.h"
 
 SimplestOT::SimplestOT(Role role, int id) : OT(role, id) {
+  EventLog::start(BaseOTInit);
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_DEFAULT);
   curandSetPseudoRandomGeneratorSeed(prng, 1234ULL);
   if (role == Sender) {
@@ -13,6 +14,7 @@ SimplestOT::SimplestOT(Role role, int id) : OT(role, id) {
     OT *send = senders[id];
     other = dynamic_cast<SimplestOT*>(send);
   }
+  EventLog::start(BaseOTInit);
 }
 
 SimplestOT::~SimplestOT() {
@@ -35,6 +37,7 @@ uint8_t* SimplestOT::hash(uint64_t m) {
 }
 
 void SimplestOT::send(GPUBlock &m0, GPUBlock &m1) {
+  EventLog::start(BaseOTSend);
   uint8_t a = rand() % 32;
   A = other->A = pow(g, a);
   while(B == 0);
@@ -48,12 +51,15 @@ void SimplestOT::send(GPUBlock &m0, GPUBlock &m1) {
   aes1->encrypt(mp1);
   other->e[0] = mp0;
   other->e[1] = mp1;
-  other->eReceived = true;
+  eReceived = other->eReceived = true;
   delete[] k0;
   delete[] k1;
+  while(eReceived);
+  EventLog::end(BaseOTSend);
 }
 
 GPUBlock SimplestOT::recv(uint8_t c) {
+  EventLog::start(BaseOTRecv);
   uint8_t b = rand() % 32;
   while (A == 0);
   B = pow(g, b);
@@ -66,5 +72,7 @@ GPUBlock SimplestOT::recv(uint8_t c) {
   delete[] kb;
   while(!eReceived);
   aes0->decrypt(e[c]);
+  eReceived = other->eReceived = false;
+  EventLog::end(BaseOTRecv);
   return e[c];
 }
