@@ -2,7 +2,6 @@ CC := nvcc -g -G -std=c++17 -lcurand --compiler-options='-g'
 LIB :=
 INC := -I0-app -I1-module -I2-device
 EXE := ot
-INPUT_SIZE=20
 NUM_TREES=16
 
 ############################################################
@@ -43,9 +42,6 @@ $(OBJ)/device/%.o: 2-device/%.cu | $(OBJ)
 $(OBJ):
 	mkdir $@ $@/app $@/module $@/device
 
-nsys:
-	nsys profile --stats=true --output=nsys-stats ./$(EXE) exp $(INPUT_SIZE)
-
 sbatch:
 	sbatch -n $(NUM_CPU) -N 1 --gpus-per-node=$(NUM_GPU) -A $(QUEUE) job.sh
 
@@ -53,4 +49,4 @@ plot:
 	python plotter.py
 
 clean:
-	rm -f $(EXE) obj/*/* log.txt
+	rm -f $(EXE) obj/*/*

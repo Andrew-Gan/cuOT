@@ -9,10 +9,7 @@ rm -f nsys* out out-nsys
 
 make -j
 
-./ot 1 11 75 out-11.txt
-./ot 1 14 73 out-14.txt
-./ot 1 17 72 out-17.txt
-./ot 1 20 70 out-20.txt
-./ot 1 23 69 out-23.txt
+./ot 1 14 1
+nsys profile --stats=true --output=nsys-stats ./ot 1 14 1
 
 make clean

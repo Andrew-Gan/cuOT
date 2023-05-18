@@ -39,7 +39,6 @@ static void recver_worker(int protocol, int logOT, int numTrees) {
 
 int main(int argc, char** argv) {
   if (argc == 1) {
-    test_cuda();
     test_aes();
     test_base_ot();
     return 0;
@@ -48,6 +47,8 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Usage: ./ot protocol depth trees\n");
     return EXIT_FAILURE;
   }
+
+  test_cuda();
 
   int protocol = atoi(argv[1]);
   int logOT = atoi(argv[2]);

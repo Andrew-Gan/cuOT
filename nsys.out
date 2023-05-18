@@ -1,0 +1,82 @@
+CUDA API Statistics:
+
+ Time(%)  Total Time (ns)  Num Calls    Average    Minimum    Maximum            Name
+ -------  ---------------  ---------  -----------  -------  -----------  ---------------------
+    91.3      707,514,600        132  5,359,959.1    3,380  349,763,556  cudaMalloc
+     5.8       44,732,933         81    552,258.4      320   16,423,162  cudaFree
+     2.0       15,391,329         46    334,594.1    3,812    7,112,927  cudaDeviceSynchronize
+     0.5        4,244,419         66     64,309.4    4,696    2,580,506  cudaLaunchKernel
+     0.4        3,098,349        143     21,666.8    1,117      104,917  cudaMemcpy
+     0.0           63,906          3     21,302.0    4,638       37,906  cudaMemset
+     0.0            1,429          1      1,429.0    1,429        1,429  cuInit
+
+
+
+CUDA Kernel Statistics:
+
+ Time(%)  Total Time (ns)  Instances    Average     Minimum    Maximum                                                   Name
+ -------  ---------------  ---------  -----------  ---------  ---------  ----------------------------------------------------------------------------------------------------
+    71.2       12,758,593          3  4,252,864.3  1,925,495  5,644,804  mat_vec_hash(Vector, unsigned char*, Matrix, Vector, int, int)
+    13.0        2,325,908          2  1,162,954.0  1,161,178  1,164,730  generate_seed_pseudo(unsigned long long, unsigned long long, unsigned long long, curandOrdering, cu…
+     8.5        1,519,705         32     47,490.8     45,087     49,984  aesExpand128(unsigned int*, TreeNode*, unsigned int*, unsigned int*, int, unsigned long)
+     3.9          692,570         16     43,285.6     43,040     44,640  aesEncrypt128(unsigned int*, unsigned int*, unsigned int*)
+     1.9          347,871          8     43,483.9     43,328     43,616  aesDecrypt128(unsigned int*, unsigned int*, unsigned int*)
+     1.3          240,670          2    120,335.0    119,295    121,375  void gen_sequenced<curandStateXORWOW, float, int, &(float curand_uniform_noargs<curandStateXORWOW>(…
+     0.1           15,552          2      7,776.0      7,616      7,936  xor_prf(TreeNode*, TreeNode*, unsigned long)
+     0.0            5,983          1      5,983.0      5,983      5,983  set_choice(Vector, int)
+
+
+
+CUDA Memory Operation Statistics (by time):
+
+ Time(%)  Total Time (ns)  Operations  Average  Minimum  Maximum      Operation
+ -------  ---------------  ----------  -------  -------  -------  ------------------
+    77.5          237,531          82  2,896.7    2,655   13,119  [CUDA memcpy DtoD]
+    20.8           63,840          53  1,204.5    1,152    1,600  [CUDA memcpy HtoD]
+     1.7            5,152           3  1,717.3    1,632    1,856  [CUDA memset]
+
+
+
+CUDA Memory Operation Statistics (by size in KiB):
+
+ Total   Operations  Average  Minimum  Maximum      Operation
+ ------  ----------  -------  -------  -------  ------------------
+  8.953          53    0.169    0.016    0.172  [CUDA memcpy HtoD]
+ 73.969          82    0.902    0.016    2.000  [CUDA memcpy DtoD]
+ 12.000           3    4.000    4.000    4.000  [CUDA memset]
+
+
+
+Operating System Runtime API Statistics:
+
+ Time(%)  Total Time (ns)  Num Calls     Average       Minimum      Maximum            Name
+ -------  ---------------  ---------  -------------  -----------  -----------  ---------------------
+    30.2      413,824,285          1  413,824,285.0  413,824,285  413,824,285  pthread_join
+    29.3      402,229,582         21   19,153,789.6       11,739  100,169,867  poll
+    26.6      365,654,285         37    9,882,548.2        1,002  303,392,722  pthread_mutex_lock
+    11.1      152,715,033        970      157,438.2        1,189   49,013,157  ioctl
+     0.6        7,710,078         36      214,168.8        1,310    4,370,979  pthread_rwlock_wrlock
+     0.6        7,663,160         85       90,154.8        4,081    3,977,668  mmap64
+     0.4        5,475,591         70       78,222.7        1,409      374,148  fread
+     0.3        4,688,631         58       80,838.5        2,887      292,803  fopen
+     0.3        4,656,295         95       49,013.6        1,053      273,517  fcntl
+     0.1        1,924,492         15      128,299.5       46,069      264,634  sem_timedwait
+     0.1        1,254,721          6      209,120.2       53,932      741,236  pthread_create
+     0.1        1,181,187        313        3,773.8        1,327       16,770  write
+     0.1        1,014,257        106        9,568.5        1,496       30,725  open64
+     0.1          907,015         53       17,113.5        3,883      440,118  fclose
+     0.0          316,415         24       13,184.0        2,180      101,895  mmap
+     0.0          265,548          1      265,548.0      265,548      265,548  fopen64
+     0.0          169,039          1      169,039.0      169,039      169,039  sem_wait
+     0.0          167,145          6       27,857.5        3,111      106,912  mprotect
+     0.0           99,604          8       12,450.5        1,726       64,246  munmap
+     0.0           71,071          1       71,071.0       71,071       71,071  fgets
+     0.0           68,462         19        3,603.3        2,217        5,086  read
+     0.0           49,207          5        9,841.4        1,641       18,855  fgetc
+     0.0           40,779          5        8,155.8        4,385       12,153  open
+     0.0           35,416          1       35,416.0       35,416       35,416  pthread_mutex_trylock
+     0.0           10,243          1       10,243.0       10,243       10,243  connect
+     0.0            8,999          1        8,999.0        8,999        8,999  pipe2
+     0.0            8,395          2        4,197.5        3,332        5,063  socket
+     0.0            7,393          1        7,393.0        7,393        7,393  fflush
+     0.0            1,915          1        1,915.0        1,915        1,915  bind

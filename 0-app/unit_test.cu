@@ -22,6 +22,8 @@ void test_cuda() {
   else
     cudaSetDevice(dev);
   printf("test_cuda passed!\n");
+  assert(deviceCount > 0);
+  assert(dev < deviceCount);
 }
 
 void test_aes() {

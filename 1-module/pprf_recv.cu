@@ -19,6 +19,7 @@ void set_choice(Vector choiceVec, int index) {
 
 __host__
 TreeNode* worker_recver(Vector choiceVector, KeyPair keys, uint64_t *choices, int numTrees, int depth) {
+  EventLog::start(BufferInit);
   int numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
   std::vector<TreeNode*> input_d(numTrees);
@@ -35,6 +36,8 @@ TreeNode* worker_recver(Vector choiceVector, KeyPair keys, uint64_t *choices, in
     cudaMalloc(&output_d.at(t), sizeof(*output_d.at(t)) * numLeaves);
     baseOT.push_back(new SimplestOT(Recver, t));
   }
+
+  EventLog::end(BufferInit);
 
   for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     // copy previous layer for expansion

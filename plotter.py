@@ -34,7 +34,7 @@ def plot_pipeline(filename):
   sortedTids = sorted(list(tidFound))
   legends = []
 
-  plt.figure(figsize=(10, 5))
+  plt.figure(figsize=(12, 6))
 
   for eventID, eventVal in eventData.items():
     if len(eventVal) == 0 or eventList[eventID] in hideEvents:
@@ -55,8 +55,8 @@ def plot_pipeline(filename):
   plt.title('Pipeline Graph of Thread Operations over Time')
   plt.xlabel('Time (ms)')
   plt.ylabel('Thread ID')
-  plt.legend(legends)
-  plt.savefig(filename.split('.')[0])
+  plt.legend(legends, loc='upper left', bbox_to_anchor=(1, 1))
+  plt.savefig(filename.split('.')[0], bbox_inches='tight')
 
 if __name__ == '__main__':
   plot_pipeline('log.txt')

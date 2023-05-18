@@ -1,7 +1,7 @@
 #include "gpu_block.h"
 #include "basic_op.h"
 
-GPUBlock::GPUBlock() : GPUBlock(0) {}
+GPUBlock::GPUBlock() : GPUBlock(1024) {}
 
 GPUBlock::GPUBlock(size_t n) : nBytes(n) {
   cudaError_t err = cudaMalloc(&data_d, nBytes);

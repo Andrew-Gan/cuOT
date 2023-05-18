@@ -10,6 +10,7 @@ using KeyPair = std::pair<uint32_t*, uint32_t*>;
 
 __host__
 TreeNode* worker_sender(TreeNode root, KeyPair keys, int numTrees, int depth) {
+  EventLog::start(BufferInit);
   int numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
   std::vector<TreeNode*> input_d(numTrees);
@@ -29,6 +30,8 @@ TreeNode* worker_sender(TreeNode root, KeyPair keys, int numTrees, int depth) {
     baseOT.push_back(new SimplestOT(Sender, t));
     cudaMemcpy(output_d.at(t), &root, sizeof(root), cudaMemcpyHostToDevice);
   }
+
+  EventLog::end(BufferInit);
 
   for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     // copy previous layer for expansion
