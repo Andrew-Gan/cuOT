@@ -38,6 +38,7 @@ uint8_t* SimplestOT::hash(uint64_t m) {
 
 void SimplestOT::send(GPUBlock &m0, GPUBlock &m1) {
   EventLog::start(BaseOTSend);
+  while(eReceived);
   uint8_t a = rand() % 32;
   A = other->A = pow(g, a);
   while(B == 0);
@@ -54,7 +55,6 @@ void SimplestOT::send(GPUBlock &m0, GPUBlock &m1) {
   eReceived = other->eReceived = true;
   delete[] k0;
   delete[] k1;
-  while(eReceived);
   EventLog::end(BaseOTSend);
 }
 

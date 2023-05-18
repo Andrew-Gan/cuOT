@@ -24,17 +24,11 @@ Tile    | 2^9  x 2^10       |  64 KB
 
 __global__
 void mat_vec_hash(Vector out, uint8_t *subTotal, Matrix matrix, Vector vec, int numRows, int globalStartCol) {
-  // treat the unirand mat as transposed
-  // uniform rand mat ~ transposed
-  // accessing by row in transposed = accessing by col in original
-  // threads in same warp access same row for coalescing
   int startRow = blockIdx.y * numRows;
   int col_byte = blockIdx.x * blockDim.x + threadIdx.x;
 
   for (int row = startRow; row < startRow + numRows; row++) {
-    if (row >= 2048) {
-      printf("row: %d %d %d\n", row, startRow, numRows);
-    }
+    if (row >= 32768) printf("exceeded: %d %d %d\n", startRow, numRows, row);
     if (vec.data[row / 8] & (1 << (row % 8)) != 0) {
       subTotal[blockIdx.y * (matrix.cols / 8) + col_byte]
        ^= matrix.data[row * (matrix.cols / 8) + col_byte];
