@@ -43,8 +43,8 @@ int main(int argc, char** argv) {
     test_base_ot();
     return 0;
   }
-  if (argc < 4) {
-    fprintf(stderr, "Usage: ./ot protocol depth trees\n");
+  if (argc < 5) {
+    fprintf(stderr, "Usage: ./ot protocol logOT trees logfile\n");
     return EXIT_FAILURE;
   }
 
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
   int numTrees = atoi(argv[3]);
   printf("log OTs: %lu, Trees: %d\n", logOT, numTrees);
 
-  EventLog::open("log.txt");
+  EventLog::open(argv[4]);
   std::future sender = std::async(sender_worker, protocol, logOT, numTrees);
   std::future recver = std::async(recver_worker, protocol, logOT, numTrees);
   sender.get();

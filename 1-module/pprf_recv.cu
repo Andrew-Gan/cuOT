@@ -60,12 +60,19 @@ TreeNode* worker_recver(Vector choiceVector, KeyPair keys, uint64_t *choices, in
     cudaDeviceSynchronize();
     EventLog::end(PprfRecverExpand);
 
+    std::vector<std::future<GPUBlock>> baseOTWorkers;
     for (int t = 0; t < numTrees; t++) {
       int choice = (choices[t] & (1 << d-1)) >> d-1;
-      int recvNode = puncture.at(t) * 2 + choice;
-      GPUBlock mb = baseOT.at(t)->recv(choice);
+      baseOTWorkers.push_back(std::async([t, &baseOT, choice]() {
+        return baseOT.at(t)->recv(choice);
+      }));
+    }
+    for (int t = 0; t < numTrees; t++) {
       // cuda-memcheck returns error due to copying from another context
-      cudaMemcpy(&output_d[recvNode], &mb.data_d[puncture.at(t)*TREENODE_SIZE], TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+      GPUBlock mb = baseOTWorkers.at(t).get();
+      int choice = (choices[t] & (1 << d-1)) >> d-1;
+      int recvNode = puncture.at(t) * 2 + choice;
+      cudaMemcpy(&output_d.at(t)[recvNode], &mb.data_d[puncture.at(t)*TREENODE_SIZE], TREENODE_SIZE, cudaMemcpyDeviceToDevice);
       puncture.at(t) = puncture.at(t) * 2 + (1 - choice);
     }
   }

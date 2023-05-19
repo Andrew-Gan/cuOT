@@ -59,4 +59,4 @@ def plot_pipeline(filename):
   plt.savefig(filename.split('.')[0], bbox_inches='tight')
 
 if __name__ == '__main__':
-  plot_pipeline('log.txt')
+  plot_pipeline(sys.argv[1])

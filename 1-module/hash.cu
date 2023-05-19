@@ -28,7 +28,6 @@ void mat_vec_hash(Vector out, uint8_t *subTotal, Matrix matrix, Vector vec, int 
   int col_byte = blockIdx.x * blockDim.x + threadIdx.x;
 
   for (int row = startRow; row < startRow + numRows; row++) {
-    if (row >= 32768) printf("exceeded: %d %d %d\n", startRow, numRows, row);
     if (vec.data[row / 8] & (1 << (row % 8)) != 0) {
       subTotal[blockIdx.y * (matrix.cols / 8) + col_byte]
        ^= matrix.data[row * (matrix.cols / 8) + col_byte];
@@ -57,6 +56,9 @@ void hash_sender(Matrix randMatrix, Vector fullVec, int chunkC) {
     fullVec, numRowsPerTile, chunkC * randMatrix.cols);
   cudaDeviceSynchronize();
   EventLog::end(HashSender);
+
+  cudaFree(subTotal_d);
+  cudaFree(randomVec_d.data);
 }
 
 __host__
@@ -80,4 +82,9 @@ void hash_recver(Matrix randMatrix, Vector choiceVec, Vector puncVec, int chunkC
     randMatrix, puncVec, numRowsPerTile, chunkC * randMatrix.cols);
   cudaDeviceSynchronize();
   EventLog::end(HashRecver);
+
+  cudaFree(subTotalChoice_d);
+  cudaFree(subTotalPunctured_d);
+  cudaFree(choiceVecRand_d.data);
+  cudaFree(puncVecRand_d.data);
 }

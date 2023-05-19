@@ -7,7 +7,7 @@ struct timespec EventLog::initTime;
 
 const char *eventString[] = {
   "AesInit", "AesEncrypt", "AesDecrypt", "AesKeyExpansion",
-  "BufferInit", "MatrixInit",
+  "BufferInit", "MatrixInit", "MatrixRand",
   "BaseOTInit", "BaseOTSend", "BaseOTRecv",
   "HashSender", "HashRecver",
   "PprfSenderExpand", "PprfRecverExpand",

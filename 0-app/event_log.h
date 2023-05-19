@@ -6,7 +6,7 @@
 
 enum Event {
   AesInit, AesEncrypt, AesDecrypt, AesKeyExpansion,
-  BufferInit, MatrixInit,
+  BufferInit, MatrixInit, MatrixRand,
   BaseOTInit, BaseOTSend, BaseOTRecv,
   HashSender, HashRecver,
   PprfSenderExpand, PprfRecverExpand,

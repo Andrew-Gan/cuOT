@@ -3,6 +3,7 @@
 #include "aes.h"
 #include "aes_encrypt.h"
 #include "aes_decrypt.h"
+#include "aes_expand.h"
 #include "utilsBox.h"
 
 #define Nb 4
@@ -47,10 +48,6 @@ Aes::~Aes() {
 }
 
 void Aes::decrypt(GPUBlock &msg) {
-  if (decExpKey_d == nullptr) {
-    printf("Decryption key not initialised\n");
-    return;
-  }
   if (msg.nBytes < 16 * 256 / 4) {
     printf("Message to decrypt must be at least 1024 bytes\n");
     return;
@@ -60,7 +57,8 @@ void Aes::decrypt(GPUBlock &msg) {
   cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
   if (err != cudaSuccess)
     fprintf(stderr, "decrypt(GPUBlock): %s\n", cudaGetErrorString(err));
-  aesDecrypt128<<<msg.nBytes/4/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
+  dim3 grid(msg.nBytes / 4 / AES_BSIZE);
+  aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
   cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
@@ -68,10 +66,6 @@ void Aes::decrypt(GPUBlock &msg) {
 }
 
 void Aes::encrypt(GPUBlock &msg) {
-  if (encExpKey_d == nullptr) {
-    printf("Encryption key not initialised\n");
-    return;
-  }
   if (msg.nBytes < 16 * 256 / 4) {
     printf("Message to encrypt must be at least 1024 bytes\n");
     return;
@@ -81,11 +75,21 @@ void Aes::encrypt(GPUBlock &msg) {
   cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
   if (err != cudaSuccess)
     fprintf(stderr, "encrypt(GPUBlock): %s\n", cudaGetErrorString(err));
-  aesEncrypt128<<<msg.nBytes/4/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
+  dim3 grid(msg.nBytes / 4 / AES_BSIZE);
+  aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
   cudaDeviceSynchronize();
-  EventLog::end(AesEncrypt);
   cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
+  EventLog::end(AesEncrypt);
+}
+
+void Aes::hash_async(TreeNode *output_d, GPUBlock &m, TreeNode *input_d, size_t width, int dir) {
+  static int thread_per_aesblock = 4;
+  size_t paddedLen = (width / 2) * sizeof(*output_d);
+  paddedLen += 16 - (paddedLen % 16);
+  paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
+  dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
+  aesExpand128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, output_d, (uint32_t*) m.data_d, (uint32_t*) input_d, dir, width);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {
