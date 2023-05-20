@@ -1,7 +1,6 @@
 #include "simplest_ot.h"
 
 SimplestOT::SimplestOT(Role role, int id) : OT(role, id) {
-  EventLog::start(BaseOTInit);
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_DEFAULT);
   curandSetPseudoRandomGeneratorSeed(prng, 1234ULL);
   if (role == Sender) {
@@ -14,7 +13,6 @@ SimplestOT::SimplestOT(Role role, int id) : OT(role, id) {
     OT *send = senders[id];
     other = dynamic_cast<SimplestOT*>(send);
   }
-  EventLog::start(BaseOTInit);
 }
 
 SimplestOT::~SimplestOT() {

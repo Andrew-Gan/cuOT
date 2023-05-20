@@ -77,38 +77,18 @@ void test_base_ot() {
   printf("test_base_ot passed!\n");
 }
 
-// test A ^ C =  B & delta
-//  delta should be 0b00000000 or 0b11111111
 void test_cot(Vector fullVec_d, Vector puncVec_d, Vector choiceVec_d, uint8_t delta) {
-  int nBytes = fullVec_d.n / 8;
+  GPUBlock fullVector(fullVec_d.nBits / 8);
+  GPUBlock puncVector(puncVec_d.nBits / 8);
+  GPUBlock choiceVector(choiceVec_d.nBits / 8);
 
-  Vector lhs = { .n = fullVec_d.n };
-  cudaMalloc(&lhs.data, lhs.n / 8);
-  xor_gpu<<<nBytes/ 1024, 1024>>>(lhs.data, fullVec_d.data, puncVec_d.data, lhs.n);
+  fullVector.set(fullVec_d.data, fullVec_d.nBits / 8);
+  puncVector.set(puncVec_d.data, puncVec_d.nBits / 8);
+  choiceVector.set(choiceVec_d.data, choiceVec_d.nBits / 8);
 
-  Vector rhs = { .n = fullVec_d.n };
-  cudaMalloc(&rhs.data, rhs.n / 8);
-  and_gpu<<<nBytes / 1024, 1024>>>(rhs, choiceVec_d, delta);
+  GPUBlock lhs = fullVector ^ puncVector;
+  GPUBlock rhs = choiceVector * delta;
 
-  cudaDeviceSynchronize();
-
-  bool *cmp_d, *cmp;
-  cudaMalloc(&cmp_d, nBytes * sizeof(*cmp_d));
-
-  cmp = new bool[nBytes];
-  cudaMemcpy(cmp, cmp_d,  nBytes * sizeof(*cmp_d), cudaMemcpyDeviceToHost);
-
-  cudaFree(lhs.data);
-  cudaFree(rhs.data);
-  cudaFree(cmp_d);
-
-  int i = 0, allEqual = true;
-  while(i < nBytes) {
-    if (cmp[i++] == false) {
-      allEqual = false;
-    }
-  }
-  delete[] cmp;
-  assert(allEqual);
+  assert(lhs == rhs);
   printf("test_cot passed!\n");
 }

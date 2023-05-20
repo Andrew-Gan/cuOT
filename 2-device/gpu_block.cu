@@ -20,6 +20,14 @@ GPUBlock::~GPUBlock() {
   cudaFree(data_d);
 }
 
+GPUBlock GPUBlock::operator*(uint8_t scalar) {
+  GPUBlock res(nBytes);
+  size_t numBlock = (nBytes - 1) / 1024 + 1;
+  and_gpu<<<numBlock, 1024>>>(res.data_d, data_d, scalar, nBytes);
+  cudaDeviceSynchronize();
+  return res;
+}
+
 GPUBlock GPUBlock::operator^(const GPUBlock &rhs) {
   GPUBlock res(nBytes);
   size_t numBlock = (nBytes - 1) / 1024 + 1;

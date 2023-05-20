@@ -1,7 +1,8 @@
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
-hideEvents = ['PprfSender', 'PprfRecver', 'AesEncrypt', 'AesDecrypt',
+hideEvents = ['AesEncrypt', 'AesDecrypt',
   'AesInit', 'BaseOTInit']
 
 def plot_pipeline(filename):
@@ -35,8 +36,9 @@ def plot_pipeline(filename):
   legends = []
 
   plt.figure(figsize=(12, 6))
+  colors=list(mcolors.TABLEAU_COLORS.keys()) # maximum 10 events
 
-  for eventID, eventVal in eventData.items():
+  for colorCode, [eventID, eventVal] in zip(colors, eventData.items()):
     if len(eventVal) == 0 or eventList[eventID] in hideEvents:
       continue
     legends.append(eventList[eventID])
@@ -49,7 +51,7 @@ def plot_pipeline(filename):
         yTids.append(sortedTids.index(t))
         starts.append(e[0])
         widths.append(e[1])
-    plt.barh(y=yTids, width=widths, height=0.5, left=starts)
+    plt.barh(y=yTids, width=widths, height=0.5, left=starts, color=colorCode)
 
   plt.yticks(range(len(tidFound)))
   plt.title('Pipeline Graph of Thread Operations over Time')

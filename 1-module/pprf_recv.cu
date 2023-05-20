@@ -10,23 +10,27 @@
 using KeyPair = std::pair<unsigned*, unsigned*>;
 
 __global__
-void set_choice(Vector choiceVec, int index) {
-  if (index >= choiceVec.n) {
-    return;
-  }
-  choiceVec.data[index / 8] |= 1 << (index % 8);
+void set_choice(SparseVector choiceVec, int index, int t) {
+  choiceVec.nonZeros[t] = index;
 }
 
 __host__
-TreeNode* worker_recver(Vector choiceVector, KeyPair keys, uint64_t *choices, int numTrees, int depth) {
+std::pair<TreeNode*, SparseVector> worker_recver(KeyPair keys, uint64_t *choices, int numTrees, int depth) {
   EventLog::start(BufferInit);
-  int numLeaves = pow(2, depth);
+  size_t numLeaves = pow(2, depth);
   int tBlock = (numLeaves - 1) / 1024 + 1;
   std::vector<TreeNode*> input_d(numTrees);
   std::vector<TreeNode*> output_d(numTrees);
   std::vector<SimplestOT*> baseOT;
   std::vector<int> puncture(numTrees, 0);
   TreeNode *puncVector;
+
+  SparseVector choiceVector = {
+    .nBits = numLeaves * 8 * TREENODE_SIZE,
+  };
+  cudaError_t err = cudaMalloc(&choiceVector.nonZeros, numTrees * sizeof(size_t));
+  if (err != cudaSuccess)
+    fprintf(stderr, "recv choice: %s\n", cudaGetErrorString(err));
 
   cudaMalloc(&puncVector, sizeof(*puncVector) * numLeaves);
   cudaMemset(puncVector, 0, sizeof(*puncVector) * numLeaves);
@@ -79,15 +83,16 @@ TreeNode* worker_recver(Vector choiceVector, KeyPair keys, uint64_t *choices, in
 
   for (int t = 0; t < numTrees; t++) {
     xor_prf<<<tBlock, 1024>>>(puncVector, output_d.at(t), numLeaves);
-    set_choice<<<1, 1>>>(choiceVector, puncture.at(t));
+    set_choice<<<1, 1>>>(choiceVector, puncture.at(t), t);
     cudaDeviceSynchronize();
+    choiceVector.weight++;
     cudaFree(input_d.at(t));
     cudaFree(output_d.at(t));
   }
-  return puncVector;
+  return std::make_pair(puncVector, choiceVector);
 }
 
-std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees) {
+std::pair<Vector, SparseVector> pprf_recver(uint64_t *choices, int depth, int numTrees) {
   size_t numLeaves = pow(2, depth);
 
   // keys to use for tree expansion
@@ -107,22 +112,14 @@ std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees
   cudaMalloc(&rightKey_d, sizeof(rightAesKey));
   cudaMemcpy(rightKey_d, &rightAesKey, sizeof(rightAesKey), cudaMemcpyHostToDevice);
 
-  Vector choiceVector = { .n = numLeaves * 8 * TREENODE_SIZE };
-  cudaError_t err = cudaMalloc(&choiceVector.data, numLeaves * TREENODE_SIZE);
-  if (err != cudaSuccess)
-    fprintf(stderr, "recv choice: %s\n", cudaGetErrorString(err));
-
-  cudaMemset(choiceVector.data, 0, numLeaves * TREENODE_SIZE);
-
-
   KeyPair keys = std::make_pair(leftKey_d, rightKey_d);
-  TreeNode *puncVector = worker_recver(choiceVector, keys, choices, numTrees, depth);
+  auto [puncVector, choiceVector] = worker_recver(keys, choices, numTrees, depth);
 
   cudaFree(leftKey_d);
   cudaFree(rightKey_d);
 
   Vector puncVec =
-    { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) puncVector };
+    { .nBits = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) puncVector };
 
   return {puncVec, choiceVector};
 }

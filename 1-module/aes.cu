@@ -14,7 +14,6 @@
 typedef uint8_t state_t[4][4];
 
 void Aes::init() {
-  EventLog::start(AesInit);
   AES_ctx encExpKey;
   AES_ctx decExpKey;
   Aes::expand_encKey(encExpKey.roundKey, key);
@@ -27,7 +26,6 @@ void Aes::init() {
   if (err != cudaSuccess)
     fprintf(stderr, "Aes() dec: %s\n", cudaGetErrorString(err));
   cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
-  EventLog::end(AesInit);
 }
 
 Aes::Aes() {
@@ -52,7 +50,6 @@ void Aes::decrypt(GPUBlock &msg) {
     printf("Message to decrypt must be at least 1024 bytes\n");
     return;
   }
-  EventLog::start(AesDecrypt);
   uint8_t *buffer_d;
   cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
   if (err != cudaSuccess)
@@ -62,7 +59,6 @@ void Aes::decrypt(GPUBlock &msg) {
   cudaDeviceSynchronize();
   cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
-  EventLog::end(AesDecrypt);
 }
 
 void Aes::encrypt(GPUBlock &msg) {
@@ -70,7 +66,6 @@ void Aes::encrypt(GPUBlock &msg) {
     printf("Message to encrypt must be at least 1024 bytes\n");
     return;
   }
-  EventLog::start(AesEncrypt);
   uint8_t *buffer_d;
   cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
   if (err != cudaSuccess)
@@ -80,7 +75,6 @@ void Aes::encrypt(GPUBlock &msg) {
   cudaDeviceSynchronize();
   cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   cudaFree(buffer_d);
-  EventLog::end(AesEncrypt);
 }
 
 void Aes::hash_async(TreeNode *output_d, GPUBlock &m, TreeNode *input_d, size_t width, int dir) {

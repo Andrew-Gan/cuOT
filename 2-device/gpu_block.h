@@ -11,6 +11,7 @@ public:
   virtual ~GPUBlock();
   uint8_t *data_d = nullptr;
   size_t nBytes = 0;
+  GPUBlock operator*(uint8_t scalar);
   GPUBlock operator^(const GPUBlock &rhs);
   GPUBlock& operator=(const GPUBlock &rhs);
   bool operator==(const GPUBlock &rhs);

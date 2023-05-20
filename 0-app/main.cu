@@ -49,6 +49,7 @@ int main(int argc, char** argv) {
   }
 
   test_cuda();
+  cudaFree(0);
 
   int protocol = atoi(argv[1]);
   int logOT = atoi(argv[2]);

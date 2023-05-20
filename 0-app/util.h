@@ -29,9 +29,15 @@ typedef struct {
 } TreeNode;
 
 typedef struct {
-  size_t n; // num bits
-  uint8_t *data;
+  size_t nBits = 0;
+  uint8_t *data = nullptr;
 } Vector;
+
+typedef struct {
+  size_t nBits = 0;
+  size_t *nonZeros;
+  size_t weight = 0;
+} SparseVector;
 
 typedef struct {
   size_t rows, cols;

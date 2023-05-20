@@ -15,9 +15,10 @@ void xor_circular(uint8_t *c, uint8_t *a, uint8_t *b, size_t len_b, size_t n) {
 }
 
 __global__
-void and_gpu(Vector c, Vector a, uint8_t b) {
+void and_gpu(uint8_t *c, uint8_t *a, uint8_t b, size_t n) {
   size_t x = blockIdx.x * blockDim.x + threadIdx.x;
-  c.data[x] = a.data[x] & b;
+  if (x < n)
+    c[x] = a[x] & b;
 }
 
 __device__

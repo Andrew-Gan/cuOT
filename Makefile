@@ -2,7 +2,6 @@ CC := nvcc -g -G -std=c++17 -lcurand --compiler-options='-g'
 LIB :=
 INC := -I0-app -I1-module -I2-device
 EXE := ot
-NUM_TREES=16
 
 ############################################################
 
@@ -17,7 +16,7 @@ DEV_OBJ := $(patsubst 2-device/%.cu, $(OBJ)/device/%.o, $(DEV_SRC))
 
 ############################################################
 
-QUEUE=standby
+QUEUE=zghodsi-b
 NUM_CPU=8
 NUM_GPU=1
 
