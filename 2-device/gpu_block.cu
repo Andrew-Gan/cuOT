@@ -3,28 +3,44 @@
 
 GPUBlock::GPUBlock() : GPUBlock(1024) {}
 
-GPUBlock::GPUBlock(size_t n) : nBytes(n) {
+GPUBlock::GPUBlock(size_t n) {
+  nBytes = n;
   cudaError_t err = cudaMalloc(&data_d, nBytes);
   if (err != cudaSuccess)
     fprintf(stderr, "GPUBlock(%u): %s\n", nBytes, cudaGetErrorString(err));
 }
 
-GPUBlock::GPUBlock(const GPUBlock &blk) : nBytes(blk.nBytes) {
-  cudaError_t err = cudaMalloc(&data_d, blk.nBytes);
-  if (err != cudaSuccess)
-    fprintf(stderr, "GPUBlock(GPUBlock): %s\n", cudaGetErrorString(err));
+GPUBlock::GPUBlock(const GPUBlock &blk) : GPUBlock(blk.nBytes) {
   cudaMemcpy(data_d, blk.data_d, nBytes, cudaMemcpyDeviceToDevice);
+}
+
+GPUBlock::GPUBlock(const SparseVector &vec, size_t stretch) : GPUBlock(vec.nBits * stretch) {
+  const uint8_t allOnes = ~0x0;
+  size_t *nonZeros = new size_t[vec.weight];
+  cudaMemcpy(nonZeros, vec.nonZeros, sizeof(*nonZeros) * vec.weight, cudaMemcpyDeviceToHost);
+  for (size_t i = 0; i < vec.weight; i++) {
+    size_t nonZero = nonZeros[i];
+    for (size_t s = 0; s < stretch; s++) {
+      cudaMemcpy(&data_d[stretch * nonZero + s], &allOnes, sizeof(allOnes), cudaMemcpyHostToDevice);
+    }
+  }
+  delete[] nonZeros;
 }
 
 GPUBlock::~GPUBlock() {
   cudaFree(data_d);
 }
 
-GPUBlock GPUBlock::operator*(uint8_t scalar) {
+GPUBlock GPUBlock::operator*(const GPUBlock &rhs) {
   GPUBlock res(nBytes);
-  size_t numBlock = (nBytes - 1) / 1024 + 1;
-  and_gpu<<<numBlock, 1024>>>(res.data_d, data_d, scalar, nBytes);
-  cudaDeviceSynchronize();
+  // scalar multiplication
+  if (nBytes > rhs.nBytes) {
+    size_t numBlock = (rhs.nBytes - 1) / 1024 + 1;
+    for (int i = 0; i < nBytes / rhs.nBytes; i++) {
+      and_gpu<<<numBlock, 1024>>>(&res.data_d[i * rhs.nBytes], &data_d[i * rhs.nBytes], rhs.data_d, rhs.nBytes);
+    }
+    cudaDeviceSynchronize();
+  }
   return res;
 }
 
@@ -37,6 +53,16 @@ GPUBlock GPUBlock::operator^(const GPUBlock &rhs) {
     xor_circular<<<numBlock, 1024>>>(res.data_d, data_d, rhs.data_d, rhs.nBytes, nBytes);
   cudaDeviceSynchronize();
   return res;
+}
+
+GPUBlock& GPUBlock::operator^=(const GPUBlock &rhs) {
+  size_t numBlock = (nBytes - 1) / 1024 + 1;
+  if (nBytes == rhs.nBytes)
+    xor_gpu<<<numBlock, 1024>>>(data_d, data_d, rhs.data_d, nBytes);
+  else
+    xor_circular<<<numBlock, 1024>>>(data_d, data_d, rhs.data_d, rhs.nBytes, nBytes);
+  cudaDeviceSynchronize();
+  return *this;
 }
 
 GPUBlock& GPUBlock::operator=(const GPUBlock &rhs) {

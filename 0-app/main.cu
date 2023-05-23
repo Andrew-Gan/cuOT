@@ -14,27 +14,28 @@ uint64_t* gen_choices(int numTrees) {
   return choices;
 }
 
-static void sender_worker(int protocol, int logOT, int numTrees) {
+static std::pair<GPUBlock, GPUBlock> sender_worker(int protocol, int logOT, int numTrees) {
   SilentOT *ot;
   switch(protocol) {
     case 1: ot = new SilentOT(Sender, 0, logOT, numTrees);
       break;
   }
-  GPUBlock m0, m1;
-  ot->send(m0, m1);
+  std::pair<GPUBlock, GPUBlock> pair = ot->send();
   delete ot;
+  return pair;
 }
 
-static void recver_worker(int protocol, int logOT, int numTrees) {
+static std::pair<GPUBlock, SparseVector> recver_worker(int protocol, int logOT, int numTrees) {
   SilentOT *ot;
   switch(protocol) {
     case 1: ot = new SilentOT(Recver, 0, logOT, numTrees);
       break;
   }
   uint64_t *choices = gen_choices(numTrees);
-  GPUBlock mb = ot->recv(choices);
+  std::pair<GPUBlock, SparseVector> pair = ot->recv(choices);
   delete[] choices;
   delete ot;
+  return pair;
 }
 
 int main(int argc, char** argv) {
@@ -59,8 +60,9 @@ int main(int argc, char** argv) {
   EventLog::open(argv[4]);
   std::future sender = std::async(sender_worker, protocol, logOT, numTrees);
   std::future recver = std::async(recver_worker, protocol, logOT, numTrees);
-  sender.get();
-  recver.get();
+  auto [fullVector, delta] = sender.get();
+  auto [puncVector, choiceVector] = recver.get();
+  test_cot(fullVector, puncVector, choiceVector, delta);
   EventLog::close();
   return EXIT_SUCCESS;
 }

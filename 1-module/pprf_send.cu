@@ -7,19 +7,21 @@
 
 using KeyPair = std::pair<uint8_t*, uint8_t*>;
 
-GPUBlock expander(TreeNode root, KeyPair keys, int numTrees, int depth) {
-  int numLeaves = pow(2, depth);
+static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int numTrees, int depth) {
   EventLog::start(BufferInit);
-  std::vector<GPUBlock> inputs(numTrees, GPUBlock(TREENODE_SIZE * numLeaves));
-  std::vector<GPUBlock> outputs(numTrees, GPUBlock(TREENODE_SIZE * numLeaves));
-  size_t blockSize = numLeaves < 1024 ? 1024 : numLeaves;
+  GPUBlock delta(TREENODE_SIZE);
+  int numLeaves = pow(2, depth);
+  size_t blockSize = 2 * numLeaves * TREENODE_SIZE;
+  if (blockSize < 1024)
+    blockSize = 1024;
+  std::vector<GPUBlock> inputs(numTrees, GPUBlock(blockSize));
+  std::vector<GPUBlock> outputs(numTrees, GPUBlock(blockSize));
   std::vector<GPUBlock> m0(numTrees, GPUBlock(blockSize));
   std::vector<GPUBlock> m1(numTrees, GPUBlock(blockSize));
   std::vector<SimplestOT*> baseOT;
   Aes aesLeft(keys.first);
   Aes aesRight(keys.second);
   GPUBlock fullVector(TREENODE_SIZE * numLeaves);
-
   fullVector.set(0);
 
   for (int t = 0; t < numTrees; t++) {
@@ -35,8 +37,17 @@ GPUBlock expander(TreeNode root, KeyPair keys, int numTrees, int depth) {
 
     EventLog::start(PprfSenderExpand);
     for (int t = 0; t < numTrees; t++) {
-      aesLeft.hash_async((TreeNode*) outputs.at(t).data_d, m0.at(t), (TreeNode*) inputs.at(t).data_d, width, 0);
-      aesRight.hash_async((TreeNode*) outputs.at(t).data_d, m1.at(t), (TreeNode*) inputs.at(t).data_d, width, 1);
+      aesLeft.hash_async((TreeNode*) outputs.at(t).data_d, &m0.at(t), (TreeNode*) inputs.at(t).data_d, width, 0);
+      aesRight.hash_async((TreeNode*) outputs.at(t).data_d, &m1.at(t), (TreeNode*) inputs.at(t).data_d, width, 1);
+
+      if (d == depth) {
+        GPUBlock m0XorDelta = m0.at(t) ^ delta;
+        GPUBlock m1XorDelta = m1.at(t) ^ delta;
+        TreeNode *m0Casted = (TreeNode*) m0.at(t).data_d;
+        TreeNode *m1Casted = (TreeNode*) m1.at(t).data_d;
+        cudaMemcpy(&m0Casted[numLeaves], m1XorDelta.data_d, m1XorDelta.nBytes / 2, cudaMemcpyDeviceToDevice);
+        cudaMemcpy(&m1Casted[numLeaves], m0XorDelta.data_d, m0XorDelta.nBytes / 2, cudaMemcpyDeviceToDevice);
+      }
     }
     cudaDeviceSynchronize();
     EventLog::end(PprfSenderExpand);
@@ -55,12 +66,11 @@ GPUBlock expander(TreeNode root, KeyPair keys, int numTrees, int depth) {
   for (int t = 0; t < numTrees; t++) {
     fullVector ^= outputs.at(t);
   }
-  return fullVector;
+  return std::make_pair(fullVector, delta);
 }
 
-std::pair<GPUBlock, uint64_t> pprf_sender(TreeNode root, int depth, int numTrees) {
+std::pair<GPUBlock, GPUBlock> pprf_sender(TreeNode root, int depth, int numTrees) {
   size_t numLeaves = pow(2, depth);
-  uint64_t delta = 0;
   uint64_t k0 = 3242342, k1 = 8993849;
   uint8_t k0_blk[16] = {0};
   uint8_t k1_blk[16] = {0};
@@ -69,7 +79,7 @@ std::pair<GPUBlock, uint64_t> pprf_sender(TreeNode root, int depth, int numTrees
   memcpy(&k1_blk[8], &k1, sizeof(k1));
 
   KeyPair keys = std::make_pair(k0_blk, k1_blk);
-  GPUBlock fullVector = expander(root, keys, numTrees, depth);
+  auto [fullVector, delta] = expander(root, keys, numTrees, depth);
 
   return {fullVector, delta};
 }

@@ -11,6 +11,6 @@ public:
   SilentOT(Role myrole, int myid, int logOT, int numTrees);
   void send(GPUBlock &m1, GPUBlock &m2) {}
   GPUBlock recv(uint8_t choice) { return GPUBlock(); }
-  std::pair<GPUBlock, TreeNode> send();
-  std::pair<GPUBlock, SparseVector> recv(uint8_t *choices);
+  std::pair<GPUBlock, GPUBlock> send();
+  std::pair<GPUBlock, SparseVector> recv(uint64_t *choices);
 };

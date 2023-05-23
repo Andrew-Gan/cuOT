@@ -77,16 +77,9 @@ void test_base_ot() {
   printf("test_base_ot passed!\n");
 }
 
-void test_cot(Vector fullVec_d, Vector puncVec_d, Vector choiceVec_d, uint8_t delta) {
-  GPUBlock fullVector(fullVec_d.nBits / 8);
-  GPUBlock puncVector(puncVec_d.nBits / 8);
-  GPUBlock choiceVector(choiceVec_d.nBits / 8);
-
-  fullVector.set(fullVec_d.data, fullVec_d.nBits / 8);
-  puncVector.set(puncVec_d.data, puncVec_d.nBits / 8);
-  choiceVector.set(choiceVec_d.data, choiceVec_d.nBits / 8);
-
-  GPUBlock lhs = fullVector ^ puncVector;
+void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, SparseVector &choice, GPUBlock &delta) {
+  GPUBlock choiceVector = GPUBlock(choice, delta.nBytes);
+  GPUBlock lhs = fullVector ^ choiceVector;
   GPUBlock rhs = choiceVector * delta;
 
   assert(lhs == rhs);

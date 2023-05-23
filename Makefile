@@ -1,5 +1,5 @@
-CC := nvcc -g -G -std=c++17 -lcurand --compiler-options='-g'
-LIB :=
+CC := nvcc -g -G -std=c++17 --compiler-options='-g'
+LIB := -lcurand
 INC := -I0-app -I1-module -I2-device
 EXE := ot
 
@@ -27,16 +27,16 @@ NUM_GPU=1
 all: $(EXE)
 
 $(EXE): $(APP_OBJ) $(MOD_OBJ) $(DEV_OBJ)
-	$(CC) $^ -o $(EXE)
+	$(CC) $(LIB) $^ -o $(EXE)
 
 $(OBJ)/app/%.o: 0-app/%.cu | $(OBJ)
-	$(CC) $(INC) -c -o $@ $<
+	$(CC) $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ)/module/%.o: 1-module/%.cu | $(OBJ)
-	$(CC) $(INC) -c -o $@ $<
+	$(CC) $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ)/device/%.o: 2-device/%.cu | $(OBJ)
-	$(CC) $(INC) -c -o $@ $<
+	$(CC) $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ):
 	mkdir $@ $@/app $@/module $@/device
