@@ -6,7 +6,7 @@ Matrix init_rand(curandGenerator_t &prng, size_t height, size_t width) {
   randMatrix.rows = height;
   randMatrix.cols = width;
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
-  curandSetPseudoRandomGeneratorSeed(prng, clock());
+  curandSetPseudoRandomGeneratorSeed(prng, 0);
   cudaMalloc(&randMatrix.data, height * width / 8);
   EventLog::end(MatrixInit);
   return randMatrix;

@@ -1,5 +1,8 @@
 #include "gpu_block.h"
 #include "basic_op.h"
+#include <iomanip>
+#include <vector>
+#include <mutex>
 
 GPUBlock::GPUBlock() : GPUBlock(1024) {}
 
@@ -7,24 +10,11 @@ GPUBlock::GPUBlock(size_t n) {
   nBytes = n;
   cudaError_t err = cudaMalloc(&data_d, nBytes);
   if (err != cudaSuccess)
-    fprintf(stderr, "GPUBlock(%u): %s\n", nBytes, cudaGetErrorString(err));
+    fprintf(stderr, "GPUBlock(%lu): %s\n", nBytes, cudaGetErrorString(err));
 }
 
 GPUBlock::GPUBlock(const GPUBlock &blk) : GPUBlock(blk.nBytes) {
   cudaMemcpy(data_d, blk.data_d, nBytes, cudaMemcpyDeviceToDevice);
-}
-
-GPUBlock::GPUBlock(const SparseVector &vec, size_t stretch) : GPUBlock(vec.nBits * stretch) {
-  const uint8_t allOnes = ~0x0;
-  size_t *nonZeros = new size_t[vec.weight];
-  cudaMemcpy(nonZeros, vec.nonZeros, sizeof(*nonZeros) * vec.weight, cudaMemcpyDeviceToHost);
-  for (size_t i = 0; i < vec.weight; i++) {
-    size_t nonZero = nonZeros[i];
-    for (size_t s = 0; s < stretch; s++) {
-      cudaMemcpy(&data_d[stretch * nonZero + s], &allOnes, sizeof(allOnes), cudaMemcpyHostToDevice);
-    }
-  }
-  delete[] nonZeros;
 }
 
 GPUBlock::~GPUBlock() {
@@ -98,6 +88,25 @@ uint8_t& GPUBlock::operator[](int index) {
   return data_d[index];
 }
 
+std::ostream& operator<<(std::ostream &os, const GPUBlock &obj) {
+  static std::mutex mtx;
+
+  mtx.lock();
+  TreeNode *nodes = new TreeNode[obj.nBytes];
+  size_t numNode = obj.nBytes / sizeof(TreeNode);
+  cudaMemcpy(nodes, obj.data_d, obj.nBytes, cudaMemcpyDeviceToHost);
+  for (int i = 0; i < numNode; i += 16) {
+    for (int j = i; j < numNode && j < (i + 16); j++) {
+      os << std::setfill('0') << std::setw(2) << std::hex << +nodes[j].data[0] << " ";
+    }
+    os << std::endl;
+  }
+  delete[] nodes;
+  mtx.unlock();
+
+  return os;
+}
+
 void GPUBlock::set(uint32_t val) {
   cudaMemset(data_d, 0, nBytes);
   cudaMemcpy(data_d, &val, sizeof(val), cudaMemcpyHostToDevice);
@@ -109,14 +118,14 @@ void GPUBlock::set(const uint8_t *val, size_t n) {
   cudaMemcpy(data_d, val, min, cudaMemcpyHostToDevice);
 }
 
-std::ostream& operator<<(std::ostream &os, const GPUBlock &obj) {
-  uint8_t *data = new uint8_t[obj.nBytes];
-  cudaMemcpy(data, obj.data_d, obj.nBytes, cudaMemcpyDeviceToHost);
-  for (int i = 0; i < obj.nBytes; i += 64) {
-    for (int j = i; j < i + 64; j++) {
-      os << std::hex << +data[j] << " ";
-    }
-    os << std::endl;
+GPUBlock GPUBlock::sum(size_t first, size_t range, size_t elemSize, size_t stride) {
+  GPUBlock res(8 * elemSize);
+  res.set(0);
+  sum_gpu<<<8, elemSize>>>(res.data_d, data_d, elemSize, first, range, stride);
+  cudaDeviceSynchronize();
+  for (int i = 1; i < 8; i++) {
+    xor_gpu<<<1, 1>>>(res.data_d, res.data_d, &res.data_d[i * elemSize], elemSize);
+    cudaDeviceSynchronize();
   }
-  return os;
+  return res;
 }

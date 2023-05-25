@@ -7,7 +7,7 @@ An example:
 
 Tier    | Dimension (bits)  | Size
 Matrix  | 2^20 x 2^21       | 256 GB
-Chunk   | 2^17 x 2^17       |   2 GB
+Chunk   | 2^18 x 2^18       |   8 GB
 Tile    | 2^9  x 2^10       |  64 KB
 *no shared mem needed for tile
 *chunk size defined in util.h
@@ -53,7 +53,9 @@ void mat_sparse_vec_hash(uint8_t *out, Matrix matrix, SparseVector vec, int glob
 }
 
 __host__
-void hash_sender(GPUBlock &fullVectorHashed, Matrix &randMatrix, GPUBlock &fullVector, int chunkC) {
+void hash_sender(GPUBlock &fullVectorHashed, Matrix &randMatrix,
+  GPUBlock &fullVector, int chunkC) {
+
   EventLog::start(HashSender);
   size_t numRowsPerTile = std::min(randMatrix.rows, TILE_H);
   size_t numColsPerTile = std::min(randMatrix.cols, TILE_W);
@@ -67,7 +69,10 @@ void hash_sender(GPUBlock &fullVectorHashed, Matrix &randMatrix, GPUBlock &fullV
 }
 
 __host__
-void hash_recver(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed, Matrix &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector, int chunkR, int chunkC) {
+void hash_recver(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
+  Matrix &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector,
+  int chunkR, int chunkC) {
+
   EventLog::start(HashRecver);
   size_t numRowsPerTile = std::min(randMatrix.rows, TILE_H);
   int numColsPerTile = std::min(randMatrix.cols, TILE_W);

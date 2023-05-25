@@ -46,3 +46,17 @@ void chinese_rem_theorem_gpu(uint32_t *c, uint32_t d, uint32_t p,
   uint64_t h = ((uint64_t) q_inv * (m1 - m2)) % p;
   *c = (m2 + h * q) % (p * q);
 }
+
+__global__
+void sum_gpu(uint8_t *c, uint8_t *a, size_t elemSize, size_t start, size_t range, size_t stride) {
+  int offs = threadIdx.x;
+  int subs = blockIdx.x;
+  size_t workload = (range-1) / 8 + 1;
+  size_t mystart = start + subs * workload;
+  size_t myend = mystart + workload;
+  if (myend > range)
+    myend = range;
+  for (int n = mystart; n < myend; n += stride) {
+    c[subs * elemSize + offs] ^= a[n * elemSize + offs];
+  }
+}

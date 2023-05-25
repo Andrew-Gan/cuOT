@@ -46,38 +46,30 @@ Aes::~Aes() {
 }
 
 void Aes::decrypt(GPUBlock &msg) {
-  if (msg.nBytes < 16 * 256 / 4) {
-    printf("Message to decrypt must be at least 1024 bytes\n");
-    return;
+  GPUBlock input(std::max(msg.nBytes, (size_t)1024));
+  input.set(0);
+  cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
+  if (msg.nBytes < 1024) {
+    msg = GPUBlock(1024);
   }
-  uint8_t *buffer_d;
-  cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
-  if (err != cudaSuccess)
-    fprintf(stderr, "decrypt(GPUBlock): %s\n", cudaGetErrorString(err));
   dim3 grid(msg.nBytes / 4 / AES_BSIZE);
-  aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
+  aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) msg.data_d, (uint32_t*) input.data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
-  cudaFree(buffer_d);
 }
 
 void Aes::encrypt(GPUBlock &msg) {
-  if (msg.nBytes < 16 * 256 / 4) {
-    printf("Message to encrypt must be at least 1024 bytes\n");
-    return;
+  GPUBlock input(std::max(msg.nBytes, (size_t)1024));
+  input.set(0);
+  cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
+  if (msg.nBytes < 1024) {
+    msg = GPUBlock(1024);
   }
-  uint8_t *buffer_d;
-  cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
-  if (err != cudaSuccess)
-    fprintf(stderr, "encrypt(GPUBlock): %s\n", cudaGetErrorString(err));
   dim3 grid(msg.nBytes / 4 / AES_BSIZE);
-  aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
+  aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) msg.data_d, (uint32_t*) input.data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
-  cudaFree(buffer_d);
 }
 
-void Aes::hash_async(TreeNode *output_d, GPUBlock *m, TreeNode *input_d, size_t width, int dir) {
+void Aes::expand_async(TreeNode *output_d, GPUBlock *m, TreeNode *input_d, size_t width, int dir) {
   static int thread_per_aesblock = 4;
   size_t paddedBytes = (width / 2) * sizeof(*output_d);
   if (paddedBytes % 1024 != 0)

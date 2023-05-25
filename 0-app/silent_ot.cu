@@ -5,7 +5,7 @@
 
 SilentOT::SilentOT(Role myrole, int myid, int logOT, int numTrees) : OT(myrole, myid) {
   nTree = numTrees;
-  depth = logOT - 7 + 1;
+  depth = logOT + 1;
   numOT = pow(2, logOT);
   if (role == Sender) {
     while(recvers[id] == nullptr);
@@ -24,7 +24,7 @@ std::pair<GPUBlock, GPUBlock> SilentOT::send() {
   root.data[0] = 123456;
   root.data[1] = 7890123;
   auto [fullVector, delta] = pprf_sender(root, depth, nTree);
-  GPUBlock fullVectorHashed(numOT / 8);
+  GPUBlock fullVectorHashed(numOT * TREENODE_SIZE);
 
   if (numOT < CHUNK_SIDE) {
     randMatrix = init_rand(prng, 2 * numOT, numOT);
@@ -41,13 +41,13 @@ std::pair<GPUBlock, GPUBlock> SilentOT::send() {
     }
   }
   del_rand(prng, randMatrix);
-  return std::make_pair(fullVector, delta);
+  return std::make_pair(fullVectorHashed, delta);
 }
 
-std::pair<GPUBlock, SparseVector> SilentOT::recv(uint64_t *choices) {
+std::pair<GPUBlock, GPUBlock> SilentOT::recv(uint64_t *choices) {
   auto [puncVector, choiceVector] = pprf_recver(choices, depth, nTree);
-  GPUBlock puncVectorHashed(numOT / 8);
-  GPUBlock choiceVectorHashed(numOT / 8);
+  GPUBlock puncVectorHashed(numOT * TREENODE_SIZE);
+  GPUBlock choiceVectorHashed(numOT * TREENODE_SIZE);
 
   if (numOT < CHUNK_SIDE) {
     randMatrix = init_rand(prng, 2 * numOT, numOT);
@@ -64,5 +64,5 @@ std::pair<GPUBlock, SparseVector> SilentOT::recv(uint64_t *choices) {
     }
   }
   del_rand(prng, randMatrix);
-  return std::make_pair(puncVector, choiceVector);
+  return std::make_pair(puncVectorHashed, choiceVectorHashed);
 }

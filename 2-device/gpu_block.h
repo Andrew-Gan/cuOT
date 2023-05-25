@@ -21,6 +21,7 @@ public:
   uint8_t& operator[](int index);
   void set(uint32_t val);
   void set(const uint8_t *val, size_t n);
+  GPUBlock sum(size_t first, size_t range, size_t elemSize, size_t stride);
 };
 
 std::ostream& operator<<(std::ostream &os, const GPUBlock &obj);

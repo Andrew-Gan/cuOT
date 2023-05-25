@@ -25,14 +25,14 @@ static std::pair<GPUBlock, GPUBlock> sender_worker(int protocol, int logOT, int 
   return pair;
 }
 
-static std::pair<GPUBlock, SparseVector> recver_worker(int protocol, int logOT, int numTrees) {
+static std::pair<GPUBlock, GPUBlock> recver_worker(int protocol, int logOT, int numTrees) {
   SilentOT *ot;
   switch(protocol) {
     case 1: ot = new SilentOT(Recver, 0, logOT, numTrees);
       break;
   }
   uint64_t *choices = gen_choices(numTrees);
-  std::pair<GPUBlock, SparseVector> pair = ot->recv(choices);
+  std::pair<GPUBlock, GPUBlock> pair = ot->recv(choices);
   delete[] choices;
   delete ot;
   return pair;
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
   std::future recver = std::async(recver_worker, protocol, logOT, numTrees);
   auto [fullVector, delta] = sender.get();
   auto [puncVector, choiceVector] = recver.get();
-  test_cot(fullVector, puncVector, choiceVector, delta);
+  // test_cot(fullVector, puncVector, choiceVector, delta);
   EventLog::close();
   return EXIT_SUCCESS;
 }

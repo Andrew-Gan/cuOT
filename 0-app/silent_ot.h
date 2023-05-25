@@ -12,5 +12,5 @@ public:
   void send(GPUBlock &m1, GPUBlock &m2) {}
   GPUBlock recv(uint8_t choice) { return GPUBlock(); }
   std::pair<GPUBlock, GPUBlock> send();
-  std::pair<GPUBlock, SparseVector> recv(uint64_t *choices);
+  std::pair<GPUBlock, GPUBlock> recv(uint64_t *choices);
 };
