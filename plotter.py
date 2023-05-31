@@ -2,8 +2,7 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
-hideEvents = ['AesEncrypt', 'AesDecrypt',
-  'AesInit', 'BaseOTInit']
+hideEvents = ['MatrixInit']
 
 def plot_pipeline(filename):
   eventList = {}
@@ -16,12 +15,16 @@ def plot_pipeline(filename):
         parseSection += 1
       elif parseSection == 0:
         eventID, eventString = newline.split()
-        eventList[int(eventID)] = eventString
-        eventData[int(eventID)] = {}
+        eventID = int(eventID)
+        eventList[eventID] = eventString
+        if eventList[eventID] not in hideEvents:
+          eventData[eventID] = {}
       elif parseSection == 2:
         startStop, tid, eventID, time = newline.split()
         tid = int(tid)
         eventID = int(eventID)
+        if eventList[eventID] in hideEvents:
+          continue
         time = float(time)
         tidFound.add(tid)
         if tid not in eventData[eventID]:
@@ -39,8 +42,6 @@ def plot_pipeline(filename):
   colors=list(mcolors.TABLEAU_COLORS.keys()) # maximum 10 events
 
   for colorCode, [eventID, eventVal] in zip(colors, eventData.items()):
-    if len(eventVal) == 0 or eventList[eventID] in hideEvents:
-      continue
     legends.append(eventList[eventID])
     eventTids = eventVal.keys()
     yTids = []

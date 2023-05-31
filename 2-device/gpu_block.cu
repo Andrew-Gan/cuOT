@@ -118,14 +118,33 @@ void GPUBlock::set(const uint8_t *val, size_t n) {
   cudaMemcpy(data_d, val, min, cudaMemcpyHostToDevice);
 }
 
-GPUBlock GPUBlock::sum(size_t first, size_t range, size_t elemSize, size_t stride) {
-  GPUBlock res(8 * elemSize);
-  res.set(0);
-  sum_gpu<<<8, elemSize>>>(res.data_d, data_d, elemSize, first, range, stride);
+GPUBlock GPUBlock::sum(size_t elemSize) {
+  EventLog::start(SumNodes);
+  GPUBlock res(*this);
+  size_t numElem = nBytes / elemSize;
+  sum_gpu<<<numElem / 2, elemSize>>>(res.data_d);
   cudaDeviceSynchronize();
-  for (int i = 1; i < 8; i++) {
-    xor_gpu<<<1, 1>>>(res.data_d, res.data_d, &res.data_d[i * elemSize], elemSize);
-    cudaDeviceSynchronize();
-  }
+  res.resize(elemSize);
+  EventLog::end(SumNodes);
   return res;
 }
+
+void GPUBlock::resize(size_t size) {
+  uint8_t *newData;
+  cudaMalloc(&newData, size);
+  cudaMemcpy(newData, data_d, std::min(size, nBytes), cudaMemcpyDeviceToDevice);
+  cudaFree(data_d);
+  data_d = newData;
+  nBytes = size;
+}
+
+void GPUBlock::append(GPUBlock &rhs) {
+  uint8_t *appendedData;
+  cudaMalloc(&appendedData, nBytes + rhs.nBytes);
+  cudaMemcpy(appendedData, data_d, nBytes, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(appendedData + nBytes, rhs.data_d, rhs.nBytes, cudaMemcpyDeviceToDevice);
+  cudaFree(data_d);
+  data_d = appendedData;
+  nBytes += rhs.nBytes;
+}
+

@@ -10,6 +10,7 @@ enum Event {
   BaseOTSend, BaseOTRecv,
   HashSender, HashRecver,
   PprfSenderExpand, PprfRecverExpand,
+  SumNodes,
 };
 
 class EventLog {

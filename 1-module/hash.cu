@@ -3,24 +3,20 @@
 
 /************************************************************
 Algorithm generate chunks of full matrix and pass into kernel
-An example:
+For 1 million requested OTs:
 
 Tier    | Dimension (bits)  | Size
 Matrix  | 2^20 x 2^21       | 256 GB
 Chunk   | 2^18 x 2^18       |   8 GB
-Tile    | 2^9  x 2^10       |  64 KB
-*no shared mem needed for tile
-*chunk size defined in util.h
+Tile    | 2^12  x 2^10      | 512 KB
 
-1 full matrix   = 32x64 chunks
-1 chunk         = 32x64 tblocks
-1 tile / block  = 16 warps
-16 warps        = 512 threads
+1 full matrix   = 4x8 chunks
+1 chunk         = 256x256 tiles / blocks
+1 tile / block  = 32 warps
 ************************************************************/
 
-#define TILE_H (size_t) 512
-#define TILE_W (size_t) 1024
-#define T_PER_BLK (size_t) 512
+#define TILE_H (size_t) 4096
+#define TILE_W (size_t) 1024 // at most 1024
 
 __global__
 void mat_vec_hash(uint8_t *out, uint8_t *subTotal, Matrix matrix, uint8_t *in, int numRows, int globalCol) {
@@ -60,8 +56,8 @@ void hash_sender(GPUBlock &fullVectorHashed, Matrix &randMatrix,
   size_t numRowsPerTile = std::min(randMatrix.rows, TILE_H);
   size_t numColsPerTile = std::min(randMatrix.cols, TILE_W);
   dim3 grid(randMatrix.cols / numColsPerTile, randMatrix.rows / numRowsPerTile);
-  dim3 block(numColsPerTile / 8);
-  GPUBlock subTotal(grid.y * randMatrix.cols / 8);
+  dim3 block(numColsPerTile);
+  GPUBlock subTotal(grid.y * randMatrix.cols);
 
   mat_vec_hash<<<grid, block>>>(fullVectorHashed.data_d, subTotal.data_d, randMatrix, fullVector.data_d, numRowsPerTile, chunkC * randMatrix.cols);
   cudaDeviceSynchronize();

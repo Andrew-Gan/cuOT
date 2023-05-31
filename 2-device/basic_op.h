@@ -20,6 +20,6 @@ void chinese_rem_theorem_gpu(uint32_t *c, uint32_t d, uint32_t p,
   uint32_t q, uint32_t d_p, uint32_t d_q, uint32_t q_inv);
 
 __global__
-void sum_gpu(uint8_t *c, uint8_t *a, size_t elemSize, size_t start, size_t range, size_t stride);
+void sum_gpu(uint8_t *c);
 
 #endif

@@ -69,14 +69,13 @@ void Aes::encrypt(GPUBlock &msg) {
   cudaDeviceSynchronize();
 }
 
-void Aes::expand_async(TreeNode *output_d, GPUBlock *m, TreeNode *input_d, size_t width, int dir) {
+void Aes::expand_async(TreeNode *output_d, GPUBlock &m, TreeNode *input_d, size_t width, int dir) {
   static int thread_per_aesblock = 4;
   size_t paddedBytes = (width / 2) * sizeof(*output_d);
   if (paddedBytes % 1024 != 0)
     paddedBytes += 1024 - (paddedBytes % 1024);
   dim3 grid(paddedBytes * thread_per_aesblock / 16 / AES_BSIZE, 1);
-  uint32_t *mData = (m == nullptr) ? nullptr : (uint32_t*) m->data_d;
-  aesExpand128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, output_d, mData, (uint32_t*) input_d, dir, width);
+  aesExpand128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, output_d, (uint32_t*) m.data_d, (uint32_t*) input_d, dir, width);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {

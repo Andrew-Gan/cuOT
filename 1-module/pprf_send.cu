@@ -16,9 +16,11 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
   size_t bufferSize = std::max(numLeaves * TREENODE_SIZE, (size_t)1024);
   std::vector<GPUBlock> inputs(numTrees, GPUBlock(bufferSize));
   std::vector<GPUBlock> outputs(numTrees, GPUBlock(bufferSize));
-  size_t sumSize = std::max(2 * TREENODE_SIZE, 1024);
-  std::vector<GPUBlock> leftSum(numTrees, GPUBlock(sumSize));
-  std::vector<GPUBlock> rightSum(numTrees, GPUBlock(sumSize));
+  std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(bufferSize / 2));
+  std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(bufferSize / 2));
+  size_t sum = std::max(2 * TREENODE_SIZE, 1024);
+  std::vector<GPUBlock> leftSum(numTrees, GPUBlock(sum));
+  std::vector<GPUBlock> rightSum(numTrees, GPUBlock(sum));
   std::vector<SimplestOT*> baseOT;
   Aes aesLeft(keys.first);
   Aes aesRight(keys.second);
@@ -31,24 +33,21 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
   }
   EventLog::end(BufferInit);
 
+  EventLog::start(PprfSenderExpand);
   for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     for (int t = 0; t < numTrees; t++) {
       inputs.at(t) = outputs.at(t);
     }
 
-    EventLog::start(PprfSenderExpand);
     for (int t = 0; t < numTrees; t++) {
-      aesLeft.expand_async((TreeNode*) outputs.at(t).data_d, nullptr, (TreeNode*) inputs.at(t).data_d, width, 0);
-      aesRight.expand_async((TreeNode*) outputs.at(t).data_d, nullptr, (TreeNode*) inputs.at(t).data_d, width, 1);
+      aesLeft.expand_async((TreeNode*) outputs.at(t).data_d, leftNodes.at(t), (TreeNode*) inputs.at(t).data_d, width, 0);
+      aesRight.expand_async((TreeNode*) outputs.at(t).data_d, rightNodes.at(t), (TreeNode*) inputs.at(t).data_d, width, 1);
     }
     cudaDeviceSynchronize();
-    EventLog::end(PprfSenderExpand);
 
     for (int t = 0; t < numTrees; t++) {
-      leftSum.at(t).set(0);
-      rightSum.at(t).set(0);
-      leftSum.at(t) = outputs.at(t).sum(0, width, TREENODE_SIZE, 2);
-      rightSum.at(t) = outputs.at(t).sum(1, width, TREENODE_SIZE, 2);
+      leftSum.at(t) = leftNodes.at(t).sum(TREENODE_SIZE);
+      rightSum.at(t) = rightNodes.at(t).sum(TREENODE_SIZE);
     }
     cudaDeviceSynchronize();
 
@@ -74,8 +73,9 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
   }
 
   for (int t = 0; t < numTrees; t++) {
-    fullVector ^= outputs.at(t);
+    fullVector.append(outputs.at(t));
   }
+  EventLog::end(PprfSenderExpand);
 
   return std::make_pair(fullVector, delta);
 }

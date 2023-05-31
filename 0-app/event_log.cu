@@ -11,6 +11,7 @@ const char *eventString[] = {
   "BaseOTSend", "BaseOTRecv",
   "HashSender", "HashRecver",
   "PprfSenderExpand", "PprfRecverExpand",
+  "SumNodes",
 };
 
 void EventLog::open(const char *filename) {

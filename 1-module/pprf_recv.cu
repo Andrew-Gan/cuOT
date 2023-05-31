@@ -21,6 +21,8 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
   size_t bufferSize = std::max(numLeaves * TREENODE_SIZE, (size_t)1024);
   std::vector<GPUBlock> inputs(numTrees, GPUBlock(bufferSize));
   std::vector<GPUBlock> outputs(numTrees, GPUBlock(bufferSize));
+  std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(bufferSize / 2));
+  std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(bufferSize / 2));
   std::vector<GPUBlock> recvNode(numTrees, GPUBlock(TREENODE_SIZE));
   std::vector<GPUBlock> deltaNode(numTrees, GPUBlock(TREENODE_SIZE));
   std::vector<GPUBlock> sum(numTrees, GPUBlock(2 * TREENODE_SIZE));
@@ -42,18 +44,17 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
   }
   EventLog::end(BufferInit);
 
+  EventLog::start(PprfRecverExpand);
   for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     for (int t = 0; t < numTrees; t++) {
       inputs.at(t) = outputs.at(t);
     }
 
-    EventLog::start(PprfRecverExpand);
     for (int t = 0; t < numTrees; t++) {
-      aesLeft.expand_async((TreeNode*) outputs.at(t).data_d, nullptr, (TreeNode*) inputs.at(t).data_d, width, 0);
-      aesRight.expand_async((TreeNode*) outputs.at(t).data_d, nullptr, (TreeNode*) inputs.at(t).data_d, width, 1);
+      aesLeft.expand_async((TreeNode*) outputs.at(t).data_d, leftNodes.at(t), (TreeNode*) inputs.at(t).data_d, width, 0);
+      aesRight.expand_async((TreeNode*) outputs.at(t).data_d, rightNodes.at(t), (TreeNode*) inputs.at(t).data_d, width, 1);
     }
     cudaDeviceSynchronize();
-    EventLog::end(PprfRecverExpand);
 
     std::vector<std::future<GPUBlock>> baseOTWorkers;
     for (int t = 0; t < numTrees; t++) {
@@ -67,14 +68,31 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
       sum.at(t) = baseOTWorkers.at(t).get();
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       int recvNodeId = puncture.at(t) * 2 + choice;
-      TreeNode *oCasted = (TreeNode*) outputs.at(t).data_d;
-      cudaMemcpy(&oCasted[recvNodeId], sum.at(t).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
-      recvNode.at(t) = outputs.at(t).sum(choice, width, TREENODE_SIZE, 2);
+      TreeNode *oCasted = nullptr;
+
+      if (choice == 0) {
+        oCasted = (TreeNode*) leftNodes.at(t).data_d;
+        cudaMemcpy(&oCasted[recvNodeId / 2], sum.at(t).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+        recvNode.at(t) = leftNodes.at(t).sum(TREENODE_SIZE);
+      }
+      else {
+        oCasted = (TreeNode*) rightNodes.at(t).data_d;
+        cudaMemcpy(&oCasted[recvNodeId / 2], sum.at(t).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+        recvNode.at(t) = rightNodes.at(t).sum(TREENODE_SIZE);
+      }
 
       if (d == depth) {
         size_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
-        cudaMemcpy(&oCasted[deltaNodeId], sum.at(t).data_d + TREENODE_SIZE, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
-        deltaNode.at(t) = outputs.at(t).sum(1-choice, width, TREENODE_SIZE, 2);
+        if (choice == 0) {
+          oCasted = (TreeNode*) rightNodes.at(t).data_d;
+          cudaMemcpy(&oCasted[deltaNodeId / 2], sum.at(t).data_d + TREENODE_SIZE, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+          deltaNode.at(t) = rightNodes.at(t).sum(TREENODE_SIZE);
+        }
+        else {
+          oCasted = (TreeNode*) leftNodes.at(t).data_d;
+          cudaMemcpy(&oCasted[deltaNodeId / 2], sum.at(t).data_d + TREENODE_SIZE, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+          deltaNode.at(t) = leftNodes.at(t).sum(TREENODE_SIZE);
+        }
       }
     }
 
@@ -84,20 +102,20 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
       size_t recvNodeId = puncture.at(t) * 2 + choice;
       cudaMemcpy(&oCasted[recvNodeId], recvNode.at(t).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
 
-      puncture.at(t) = puncture.at(t) * 2 + (1 - choice);
-
       if (d == depth) {
-        cudaMemcpy(&oCasted[puncture.at(t)], deltaNode.at(t).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+        size_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
+        cudaMemcpy(&oCasted[deltaNodeId], deltaNode.at(t).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
       }
     }
   }
 
   for (int t = 0; t < numTrees; t++) {
-    puncVector ^= outputs.at(t);
-    set_choice<<<1, 1>>>(choiceVector, puncture.at(t), t);
+    puncVector.append(outputs.at(t));
+    set_choice<<<1, 1>>>(choiceVector, t*numLeaves + puncture.at(t), t);
     cudaDeviceSynchronize();
     choiceVector.weight++;
   }
+  EventLog::end(PprfRecverExpand);
 
   return std::make_pair(puncVector, choiceVector);
 }

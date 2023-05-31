@@ -47,16 +47,16 @@ void chinese_rem_theorem_gpu(uint32_t *c, uint32_t d, uint32_t p,
   *c = (m2 + h * q) % (p * q);
 }
 
+// sum_gpu<<<numElem / 2, elemSize>>>(c);
 __global__
-void sum_gpu(uint8_t *c, uint8_t *a, size_t elemSize, size_t start, size_t range, size_t stride) {
-  int offs = threadIdx.x;
-  int subs = blockIdx.x;
-  size_t workload = (range-1) / 8 + 1;
-  size_t mystart = start + subs * workload;
-  size_t myend = mystart + workload;
-  if (myend > range)
-    myend = range;
-  for (int n = mystart; n < myend; n += stride) {
-    c[subs * elemSize + offs] ^= a[n * elemSize + offs];
+void sum_gpu(uint8_t *c) {
+  size_t elemByte = threadIdx.x;
+  size_t elemSize = blockDim.x;
+  size_t leftId = blockIdx.x;
+  for (size_t numElemRem = 2 * gridDim.x; numElemRem > 1; numElemRem /= 2) {
+    size_t rightId = blockIdx.x + numElemRem / 2;
+    if (rightId >= numElemRem) break;
+    c[leftId * elemSize + elemByte] ^= c[rightId * elemSize + elemByte];
+    __syncthreads();
   }
 }

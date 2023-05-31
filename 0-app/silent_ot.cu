@@ -5,7 +5,7 @@
 
 SilentOT::SilentOT(Role myrole, int myid, int logOT, int numTrees) : OT(myrole, myid) {
   nTree = numTrees;
-  depth = logOT + 1;
+  depth = logOT - log2(numTrees) + 1;
   numOT = pow(2, logOT);
   if (role == Sender) {
     while(recvers[id] == nullptr);
