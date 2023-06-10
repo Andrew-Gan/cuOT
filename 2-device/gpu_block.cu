@@ -34,17 +34,6 @@ GPUBlock GPUBlock::operator*(const GPUBlock &rhs) {
   return res;
 }
 
-GPUBlock GPUBlock::operator^(const GPUBlock &rhs) {
-  GPUBlock res(nBytes);
-  size_t numBlock = (nBytes - 1) / 1024 + 1;
-  if (nBytes == rhs.nBytes)
-    xor_gpu<<<numBlock, 1024>>>(res.data_d, data_d, rhs.data_d, nBytes);
-  else
-    xor_circular<<<numBlock, 1024>>>(res.data_d, data_d, rhs.data_d, rhs.nBytes, nBytes);
-  cudaDeviceSynchronize();
-  return res;
-}
-
 GPUBlock& GPUBlock::operator^=(const GPUBlock &rhs) {
   size_t numBlock = (nBytes - 1) / 1024 + 1;
   if (nBytes == rhs.nBytes)
@@ -118,15 +107,19 @@ void GPUBlock::set(const uint8_t *val, size_t n) {
   cudaMemcpy(data_d, val, min, cudaMemcpyHostToDevice);
 }
 
-GPUBlock GPUBlock::sum(size_t elemSize) {
+void GPUBlock::sum(size_t elemSize) {
   EventLog::start(SumNodes);
-  GPUBlock res(*this);
-  size_t numElem = nBytes / elemSize;
-  sum_gpu<<<numElem / 2, elemSize>>>(res.data_d);
-  cudaDeviceSynchronize();
-  res.resize(elemSize);
+  size_t elemNumLL = elemSize / sizeof(long long);
+  size_t fullNumLL = nBytes / sizeof(long long);
+  for (size_t remNumLL = fullNumLL; remNumLL > elemNumLL; remNumLL /= 2) {
+    size_t numThread = remNumLL / 2;
+    if (numThread < 512)
+      sum_reduce<<<1, numThread>>>((long long*) data_d);
+    else
+      sum_reduce<<<numThread / 512, 512>>>((long long*) data_d);
+    cudaDeviceSynchronize();
+  }
   EventLog::end(SumNodes);
-  return res;
 }
 
 void GPUBlock::resize(size_t size) {
@@ -148,3 +141,7 @@ void GPUBlock::append(GPUBlock &rhs) {
   nBytes += rhs.nBytes;
 }
 
+void GPUBlock::minCopy(GPUBlock &rhs) {
+  size_t copySize = std::min(nBytes, rhs.nBytes);
+  cudaMemcpy(data_d, rhs.data_d, copySize, cudaMemcpyDeviceToDevice);
+}

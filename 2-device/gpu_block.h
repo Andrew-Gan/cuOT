@@ -13,7 +13,6 @@ public:
   uint8_t *data_d = nullptr;
   size_t nBytes = 0;
   GPUBlock operator*(const GPUBlock &rhs);
-  GPUBlock operator^(const GPUBlock &rhs);
   GPUBlock& operator=(const GPUBlock &rhs);
   GPUBlock& operator^=(const GPUBlock &rhs);
   bool operator==(const GPUBlock &rhs);
@@ -21,9 +20,10 @@ public:
   uint8_t& operator[](int index);
   void set(uint32_t val);
   void set(const uint8_t *val, size_t n);
-  GPUBlock sum(size_t elemSize);
+  void sum(size_t elemSize);
   void resize(size_t size);
   void append(GPUBlock &rhs);
+  void minCopy(GPUBlock &rhs);
 };
 
 std::ostream& operator<<(std::ostream &os, const GPUBlock &obj);

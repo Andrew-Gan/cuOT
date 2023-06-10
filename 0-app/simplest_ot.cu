@@ -34,7 +34,7 @@ uint8_t* SimplestOT::hash(uint64_t m) {
   return key;
 }
 
-void SimplestOT::send(GPUBlock &m0, GPUBlock &m1) {
+void SimplestOT::send(std::vector<GPUBlock> &m0, std::vector<GPUBlock> &m1) {
   EventLog::start(BaseOTSend);
   while(eReceived);
   uint8_t a = rand() % 32;
@@ -44,19 +44,21 @@ void SimplestOT::send(GPUBlock &m0, GPUBlock &m1) {
   uint8_t *k1 = hash(pow(B.load() / A.load(), a));
   aes0 = new Aes(k0);
   aes1 = new Aes(k1);
-  GPUBlock mp0 = m0;
-  GPUBlock mp1 = m1;
-  aes0->encrypt(mp0);
-  aes1->encrypt(mp1);
-  other->e[0] = mp0;
-  other->e[1] = mp1;
+  for (int i = 0; i < m0.size(); i++) {
+    GPUBlock mp0 = m0.at(i);
+    GPUBlock mp1 = m1.at(i);
+    aes0->encrypt(mp0);
+    aes1->encrypt(mp1);
+    other->e[0].push_back(mp0);
+    other->e[1].push_back(mp1);
+  }
   eReceived = other->eReceived = true;
   delete[] k0;
   delete[] k1;
   EventLog::end(BaseOTSend);
 }
 
-GPUBlock SimplestOT::recv(uint8_t c) {
+std::vector<GPUBlock> SimplestOT::recv(uint64_t choices) {
   EventLog::start(BaseOTRecv);
   uint8_t b = rand() % 32;
   while (A == 0);
@@ -69,8 +71,13 @@ GPUBlock SimplestOT::recv(uint8_t c) {
   aes0 = new Aes(kb);
   delete[] kb;
   while(!eReceived);
-  aes0->decrypt(e[c]);
+  std::vector<GPUBlock> res;
+  for (int i = 0; i < e[0].size(); i++) {
+    uint8_t choice = choices & (1 << i) >> i;
+    aes0->decrypt(e[choice].at(i));
+    res.push_back(e[choice].at(i));
+  }
   eReceived = other->eReceived = false;
   EventLog::end(BaseOTRecv);
-  return e[c];
+  return res;
 }
