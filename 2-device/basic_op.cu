@@ -15,10 +15,10 @@ void xor_circular(uint8_t *c, uint8_t *a, uint8_t *b, size_t len_b, size_t n) {
 }
 
 __global__
-void and_gpu(uint8_t *c, uint8_t *a, uint8_t *b, size_t n) {
+void and_gpu(uint8_t *c, uint8_t *a, size_t n) {
   size_t x = blockIdx.x * blockDim.x + threadIdx.x;
   if (x < n)
-    c[x] = a[x] & b[x];
+    c[x] &= a[x];
 }
 
 __device__
@@ -48,9 +48,27 @@ void chinese_rem_theorem_gpu(uint32_t *c, uint32_t d, uint32_t p,
 }
 
 __global__
-void sum_reduce(long long *c) {
+void sum_reduce(uint64_t *c) {
   size_t numThreads = gridDim.x * blockDim.x;
   size_t destId = blockIdx.x * blockDim.x + threadIdx.x;
   size_t srcId = destId + numThreads;
   c[destId] ^= c[srcId];
+}
+
+// https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
+__global__
+void sum_gpu(uint64_t *c, size_t n) {
+  extern __shared__ uint64_t sdata[];
+  size_t tid = threadIdx.x;
+  size_t i = blockIdx.x * blockDim.x * 2 + threadIdx.x;
+  size_t gridSize = blockDim.x * 2 * gridDim.x;
+  sdata[tid] = 0;
+
+  for(; i < n; i += gridSize) {
+    sdata[tid] ^= c[i] ^ c[i+blockDim.x];
+  }
+  __syncthreads();
+
+  if (tid == 0)
+    c[blockIdx.x] = sdata[0];
 }

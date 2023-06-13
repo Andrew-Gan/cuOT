@@ -11,6 +11,7 @@ using KeyPair = std::pair<uint8_t*, uint8_t*>;
 static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int numTrees, int depth) {
   EventLog::start(BufferInit);
   GPUBlock delta(TREENODE_SIZE);
+  delta.clear();
   delta.set(123456);
   size_t numLeaves = pow(2, depth);
   size_t bufferSize = numTrees * numLeaves * TREENODE_SIZE;
@@ -25,8 +26,8 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
   Aes aesRight(keys.second);
 
   for (int t = 0; t < numTrees; t++) {
-    baseOT.push_back(new SimplestOT(Sender, t));
-    outputs.at(t).set((uint8_t*) root.data, TREENODE_SIZE);
+    baseOT.push_back(new SimplestOT(OT::Sender, t));
+    output.set((uint8_t*) root.data, TREENODE_SIZE, t * numLeaves * TREENODE_SIZE);
   }
   EventLog::end(BufferInit);
 
@@ -35,8 +36,8 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
 
     EventLog::start(PprfSenderExpand);
     for (int t = 0; t < numTrees; t++) {
-      TreeNode *inPtr = (TreeNode*) input.data_d + t * width;
-      TreeNode *outPtr = (TreeNode*) output.data_d + t * width;
+      TreeNode *inPtr = (TreeNode*) input.data_d + t * numLeaves;
+      TreeNode *outPtr = (TreeNode*) output.data_d + t * numLeaves;
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1);
     }
@@ -44,24 +45,29 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
     EventLog::end(PprfSenderExpand);
 
     for (int t = 0; t < numTrees; t++) {
-      leftSum.at(t).at(d).minCopy(leftNodes.at(t).sum(TREENODE_SIZE));
-      rightSum.at(t).at(d).minCopy(rightNodes.at(t).sum(TREENODE_SIZE));
+      leftNodes.at(t).sum_async(TREENODE_SIZE);
+      rightNodes.at(t).sum_async(TREENODE_SIZE);
+    }
+    cudaDeviceSynchronize();
+    for (int t = 0; t < numTrees; t++) {
+      leftSum.at(t).at(d).minCopy(leftNodes.at(t));
+      rightSum.at(t).at(d).minCopy(rightNodes.at(t));
     }
     cudaDeviceSynchronize();
 
     if (d == depth) {
       for (int t = 0; t < numTrees; t++) {
         leftSum.at(t).at(d) = leftSum.at(t).at(d-1);
-        m0XorDelta ^= delta;
+        leftSum.at(t).at(d) ^= delta;
         rightSum.at(t).at(d) = rightSum.at(t).at(d-1);
-        m1XorDelta ^= delta;
+        rightSum.at(t).at(d) ^= delta;
       }
     }
   }
 
   std::vector<std::future<void>> baseOTWorkers;
   for (int t = 0; t < numTrees; t++) {
-    baseOTWorkers.push_back(std::async([t, d, &baseOT, &leftSum, &rightSum]() {
+    baseOTWorkers.push_back(std::async([t, &baseOT, &leftSum, &rightSum]() {
       baseOT.at(t)->send(leftSum.at(t), rightSum.at(t));
     }));
   }

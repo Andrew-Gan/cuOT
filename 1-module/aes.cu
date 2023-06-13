@@ -16,8 +16,10 @@ typedef uint8_t state_t[4][4];
 void Aes::init() {
   AES_ctx encExpKey;
   AES_ctx decExpKey;
+  EventLog::start(AesKeyExpansion);
   Aes::expand_encKey(encExpKey.roundKey, key);
   Aes::expand_decKey(decExpKey.roundKey, key);
+  EventLog::end(AesKeyExpansion);
   cudaError_t err = cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
   if (err != cudaSuccess)
     fprintf(stderr, "Aes() enc: %s\n", cudaGetErrorString(err));
@@ -36,6 +38,7 @@ Aes::Aes() {
 }
 
 Aes::Aes(uint8_t *newkey) {
+  static int i = 0;
   memcpy(key, newkey, AES_KEYLEN);
   init();
 }
@@ -47,7 +50,7 @@ Aes::~Aes() {
 
 void Aes::decrypt(GPUBlock &msg) {
   GPUBlock input(std::max(msg.nBytes, (size_t)1024));
-  input.set(0);
+  input.clear();
   cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   if (msg.nBytes < 1024) {
     msg = GPUBlock(1024);
@@ -59,7 +62,7 @@ void Aes::decrypt(GPUBlock &msg) {
 
 void Aes::encrypt(GPUBlock &msg) {
   GPUBlock input(std::max(msg.nBytes, (size_t)1024));
-  input.set(0);
+  input.clear();
   cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   if (msg.nBytes < 1024) {
     msg = GPUBlock(1024);
@@ -141,7 +144,6 @@ static void _inv_exp_func(std::vector<unsigned> &expKey, std::vector<unsigned> &
 }
 
 void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
-  EventLog::start(AesKeyExpansion);
   std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
 	std::vector<uint32_t> expKeyArray(176);
   _exp_func(keyArray, expKeyArray);
@@ -150,11 +152,9 @@ void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
     uint8_t *pc = reinterpret_cast<uint8_t*>(&val);
     encExpKey[cnt] = *pc;
   }
-  EventLog::end(AesKeyExpansion);
 }
 
 void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
-  EventLog::start(AesKeyExpansion);
   std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
   std::vector<uint32_t> expKeyArray(176);
 	std::vector<uint32_t> invExpKeyArray(176);
@@ -165,5 +165,4 @@ void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
     uint8_t *pc = reinterpret_cast<uint8_t*>(&val);
     decExpKey[cnt] = *pc;
   }
-  EventLog::end(AesKeyExpansion);
 }

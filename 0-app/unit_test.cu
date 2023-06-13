@@ -32,6 +32,7 @@ void test_aes() {
   const char *sample = "this is a test";
 
   GPUBlock buffer(1024);
+  buffer.clear();
   buffer.set((const uint8_t*) sample, 16);
 
   aes0.encrypt(buffer);
@@ -47,40 +48,49 @@ void test_aes() {
   printf("test_aes passed!\n");
 }
 
-void senderFunc(GPUBlock &m0, GPUBlock &m1) {
-  SimplestOT sender(Sender, 0);
+void senderFunc(std::vector<GPUBlock> &m0, std::vector<GPUBlock> &m1) {
+  SimplestOT sender(OT::Sender, 0);
   sender.send(m0, m1);
 }
 
-GPUBlock recverFunc(uint8_t b) {
-  SimplestOT recver(Recver, 0);
-  GPUBlock mb = recver.recv(b);
-  return mb;
+std::vector<GPUBlock> recverFunc(uint64_t b) {
+  SimplestOT recver(OT::Recver, 0);
+  return recver.recv(b);
 }
 
 void test_base_ot() {
-  GPUBlock m0(1024), m1(1024), mb(1024);
-  m0.set(0x20);
-  m1.set(0x40);
+  std::vector<GPUBlock> m0(4, GPUBlock(1024));
+  std::vector<GPUBlock> m1(4, GPUBlock(1024));
+  std::vector<GPUBlock> mb_expected(4, GPUBlock(1024));
+  for (int i = 0; i < m0.size(); i++) {
+    m0.at(i).clear();
+    m0.at(i).set(0x20);
+    m1.at(i).clear();
+    m1.at(i).set(0x40);
+  }
   std::future sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
-  std::future recver = std::async(recverFunc, 0);
-  sender.get();
-  mb = recver.get();
-  assert(mb == m0);
+  std::future recver = std::async(recverFunc, 0b1001);
 
-  sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
-  recver = std::async(recverFunc, 1);
+  for (GPUBlock &m : mb_expected) {
+    m.clear();
+  }
+  mb_expected.at(0).set(40);
+  mb_expected.at(1).set(20);
+  mb_expected.at(2).set(20);
+  mb_expected.at(3).set(40);
   sender.get();
-  mb = recver.get();
-  assert(mb == m1);
+  std::vector<GPUBlock> mb_actual = recver.get();
+  for (int i = 0; i < mb_actual.size(); i++) {
+    assert(mb_actual.at(i) == mb_expected.at(i));
+  }
 
   printf("test_base_ot passed!\n");
 }
 
 void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, GPUBlock &choiceVector, GPUBlock &delta) {
-  GPUBlock lhs = fullVector ^ choiceVector;
-  GPUBlock rhs = choiceVector * delta;
+  fullVector ^= puncVector;
+  choiceVector *= delta;
 
-  // assert(lhs == rhs);
+  // assert(fullVector == choiceVector);
   printf("test_cot passed!\n");
 }

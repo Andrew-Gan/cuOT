@@ -21,17 +21,16 @@ GPUBlock::~GPUBlock() {
   cudaFree(data_d);
 }
 
-GPUBlock GPUBlock::operator*(const GPUBlock &rhs) {
-  GPUBlock res(nBytes);
+GPUBlock& GPUBlock::operator*=(const GPUBlock &rhs) {
   // scalar multiplication
   if (nBytes > rhs.nBytes) {
     size_t numBlock = (rhs.nBytes - 1) / 1024 + 1;
     for (int i = 0; i < nBytes / rhs.nBytes; i++) {
-      and_gpu<<<numBlock, 1024>>>(&res.data_d[i * rhs.nBytes], &data_d[i * rhs.nBytes], rhs.data_d, rhs.nBytes);
+      and_gpu<<<numBlock, 1024>>>(&data_d[i * rhs.nBytes], rhs.data_d, rhs.nBytes);
     }
     cudaDeviceSynchronize();
   }
-  return res;
+  return *this;
 }
 
 GPUBlock& GPUBlock::operator^=(const GPUBlock &rhs) {
@@ -96,29 +95,29 @@ std::ostream& operator<<(std::ostream &os, const GPUBlock &obj) {
   return os;
 }
 
-void GPUBlock::set(uint32_t val) {
+void GPUBlock::clear() {
   cudaMemset(data_d, 0, nBytes);
+}
+
+void GPUBlock::set(uint64_t val) {
   cudaMemcpy(data_d, &val, sizeof(val), cudaMemcpyHostToDevice);
 }
 
 void GPUBlock::set(const uint8_t *val, size_t n) {
-  cudaMemset(data_d, 0, nBytes);
   size_t min = nBytes < n ? nBytes : n;
   cudaMemcpy(data_d, val, min, cudaMemcpyHostToDevice);
 }
 
-void GPUBlock::sum(size_t elemSize) {
+void GPUBlock::set(const uint8_t *val, size_t n, size_t offset) {
+  size_t min = nBytes < n ? nBytes : n;
+  cudaMemcpy(data_d + offset, val, min, cudaMemcpyHostToDevice);
+}
+
+void GPUBlock::sum_async(size_t elemSize) {
   EventLog::start(SumNodes);
-  size_t elemNumLL = elemSize / sizeof(long long);
-  size_t fullNumLL = nBytes / sizeof(long long);
-  for (size_t remNumLL = fullNumLL; remNumLL > elemNumLL; remNumLL /= 2) {
-    size_t numThread = remNumLL / 2;
-    if (numThread < 512)
-      sum_reduce<<<1, numThread>>>((long long*) data_d);
-    else
-      sum_reduce<<<numThread / 512, 512>>>((long long*) data_d);
-    cudaDeviceSynchronize();
-  }
+  size_t numLL = nBytes / sizeof(uint64_t);
+  size_t sharedMemsize = 1024 * sizeof(uint64_t);
+  sum_gpu<<<numLL / 2048, 1024, sharedMemsize>>>((uint64_t*) data_d, numLL);
   EventLog::end(SumNodes);
 }
 

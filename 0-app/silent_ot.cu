@@ -25,6 +25,7 @@ std::pair<GPUBlock, GPUBlock> SilentOT::send() {
   root.data[1] = 7890123;
   auto [fullVector, delta] = pprf_sender(root, depth, nTree);
   GPUBlock fullVectorHashed(numOT * TREENODE_SIZE);
+  return std::make_pair(fullVectorHashed, delta); //debug
 
   if (numOT < CHUNK_SIDE) {
     randMatrix = init_rand(prng, 2 * numOT, numOT);
@@ -48,6 +49,7 @@ std::pair<GPUBlock, GPUBlock> SilentOT::recv(uint64_t *choices) {
   auto [puncVector, choiceVector] = pprf_recver(choices, depth, nTree);
   GPUBlock puncVectorHashed(numOT * TREENODE_SIZE);
   GPUBlock choiceVectorHashed(numOT * TREENODE_SIZE);
+  return std::make_pair(puncVectorHashed, choiceVectorHashed); //debug
 
   if (numOT < CHUNK_SIDE) {
     randMatrix = init_rand(prng, 2 * numOT, numOT);
