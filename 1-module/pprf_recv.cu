@@ -18,11 +18,10 @@ void set_choice(SparseVector choiceVector, int index, int t) {
 static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choices, int numTrees, int depth) {
   EventLog::start(BufferInit);
   size_t numLeaves = pow(2, depth);
-  size_t bufferSize = std::max(numLeaves * TREENODE_SIZE, (size_t)1024);
-  GPUBlock input(bufferSize);
-  GPUBlock output(bufferSize);
-  std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(bufferSize / 2));
-  std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(bufferSize / 2));
+  GPUBlock input(numTrees * numLeaves * TREENODE_SIZE);
+  GPUBlock output(numTrees * numLeaves * TREENODE_SIZE);
+  std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
+  std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
   std::vector<std::vector<GPUBlock>> sum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
   std::vector<SimplestOT*> baseOT;
   Aes aesLeft(keys.first);
@@ -35,8 +34,9 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
   cudaError_t err = cudaMalloc(&choiceVector.nonZeros, numTrees * sizeof(size_t));
   if (err != cudaSuccess)
     fprintf(stderr, "choice vec: %s\n", cudaGetErrorString(err));
+
   for (int t = 0; t < numTrees; t++) {
-    baseOT.push_back(new SimplestOT(OT::Recver, t));
+    baseOT.push_back(new SimplestOT(OT::Recver, t+1));
   }
   EventLog::end(BufferInit);
 
@@ -51,10 +51,10 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
     sum.at(t) = baseOTWorkers.at(t).get();
   }
 
-  EventLog::start(PprfRecverExpand);
   for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     input = output;
 
+    EventLog::start(PprfRecverExpand);
     // expand layer
     for (int t = 0; t < numTrees; t++) {
       TreeNode *inPtr = (TreeNode*) input.data_d + t * width;
@@ -63,6 +63,7 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1);
     }
     cudaDeviceSynchronize();
+    EventLog::end(PprfRecverExpand);
 
     // insert obtained sum into layer
     for (int t = 0; t < numTrees; t++) {
@@ -70,17 +71,18 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
       GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
       TreeNode *sideCasted = (TreeNode*) side->data_d;
       int recvNodeId = puncture.at(t) * 2 + choice;
-      cudaMemcpy(&sideCasted[recvNodeId / 2], sum.at(t).at(d).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+      cudaMemcpy(&sideCasted[recvNodeId / 2], sum.at(t).at(d-1).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
 
       if (d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
         sideCasted = (TreeNode*) xorSide->data_d;
         size_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
-        cudaMemcpy(&sideCasted[deltaNodeId / 2], sum.at(t).at(d+1).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+        cudaMemcpy(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
        }
     }
 
     // conduct sum/xor in parallel
+    EventLog::start(SumNodes);
     for (int t = 0; t < numTrees; t++) {
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
@@ -107,6 +109,7 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
         cudaMemcpy(&oCasted[deltaNodeId], xorSide->data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
       }
     }
+    EventLog::end(SumNodes);
   }
 
   for (int t = 0; t < numTrees; t++) {
@@ -114,7 +117,6 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
     cudaDeviceSynchronize();
     choiceVector.weight++;
   }
-  EventLog::end(PprfRecverExpand);
 
   return std::make_pair(output, choiceVector);
 }

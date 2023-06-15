@@ -59,6 +59,19 @@ def plot_pipeline(filename):
   plt.xlabel('Time (ms)')
   plt.ylabel('Thread ID')
   plt.legend(legends, loc='upper left', bbox_to_anchor=(1, 1))
+
+  eventDuration = {}
+  for eventID in eventList:
+    eventDuration[eventID] = 0
+    if eventID in eventData:
+      for tid in eventData[eventID].values():
+        for event in tid:
+          eventDuration[eventID] += event[1]
+
+  plt.table([[eventList[i], f"{eventDuration[i]:.3f}"] for i in eventList],
+    colWidths=[0.2, 0.15], colLabels=['Operation', 'Duration (ms)'],
+    cellLoc='left', loc='upper left')
+
   plt.savefig(filename.split('.')[0], bbox_inches='tight')
 
 if __name__ == '__main__':

@@ -5,9 +5,9 @@ EXE := ot
 
 ############################################################
 
-APP_SRC := $(wildcard 0-app/*.cu)
-MOD_SRC := $(wildcard 1-module/*.cu)
-DEV_SRC := $(wildcard 2-device/*.cu)
+APP_SRC := $(shell find 0-app -name '*.cu')
+MOD_SRC := $(shell find 1-module -name '*.cu')
+DEV_SRC := $(shell find 2-device -name '*.cu')
 
 OBJ 	:= obj
 APP_OBJ := $(patsubst 0-app/%.cu, $(OBJ)/app/%.o, $(APP_SRC))
@@ -48,4 +48,5 @@ plot:
 	python plotter.py
 
 clean:
-	rm -f $(EXE) obj/*/*
+	rm -f $(EXE)
+	find . -name '*.o' -type f -delete

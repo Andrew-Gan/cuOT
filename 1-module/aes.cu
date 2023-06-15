@@ -38,7 +38,6 @@ Aes::Aes() {
 }
 
 Aes::Aes(uint8_t *newkey) {
-  static int i = 0;
   memcpy(key, newkey, AES_KEYLEN);
   init();
 }

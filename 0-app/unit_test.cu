@@ -74,10 +74,10 @@ void test_base_ot() {
   for (GPUBlock &m : mb_expected) {
     m.clear();
   }
-  mb_expected.at(0).set(40);
-  mb_expected.at(1).set(20);
-  mb_expected.at(2).set(20);
-  mb_expected.at(3).set(40);
+  mb_expected.at(0).set(0x40);
+  mb_expected.at(1).set(0x20);
+  mb_expected.at(2).set(0x20);
+  mb_expected.at(3).set(0x40);
   sender.get();
   std::vector<GPUBlock> mb_actual = recver.get();
   for (int i = 0; i < mb_actual.size(); i++) {

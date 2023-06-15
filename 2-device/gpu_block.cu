@@ -114,11 +114,9 @@ void GPUBlock::set(const uint8_t *val, size_t n, size_t offset) {
 }
 
 void GPUBlock::sum_async(size_t elemSize) {
-  EventLog::start(SumNodes);
   size_t numLL = nBytes / sizeof(uint64_t);
   size_t sharedMemsize = 1024 * sizeof(uint64_t);
   sum_gpu<<<numLL / 2048, 1024, sharedMemsize>>>((uint64_t*) data_d, numLL);
-  EventLog::end(SumNodes);
 }
 
 void GPUBlock::resize(size_t size) {

@@ -9,7 +9,8 @@ rm -f nsys* out out-nsys
 
 make -j
 
-./ot 1 14 16 data/log-14-new.txt
+./ot 1 20 2 data/log-20-2.txt
+python plotter.py data/log-20-2.txt
 # nsys profile --stats=true --output=nsys-stats ./ot 1 14 4 data/log-14-nsys.txt
 
 make clean

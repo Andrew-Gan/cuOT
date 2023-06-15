@@ -14,11 +14,10 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
   delta.clear();
   delta.set(123456);
   size_t numLeaves = pow(2, depth);
-  size_t bufferSize = numTrees * numLeaves * TREENODE_SIZE;
-  GPUBlock input(bufferSize);
-  GPUBlock output(bufferSize);
-  std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(bufferSize / 2));
-  std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(bufferSize / 2));
+  GPUBlock input(numTrees * numLeaves * TREENODE_SIZE);
+  GPUBlock output(numTrees * numLeaves * TREENODE_SIZE);
+  std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
+  std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
   std::vector<std::vector<GPUBlock>> leftSum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
   std::vector<std::vector<GPUBlock>> rightSum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
   std::vector<SimplestOT*> baseOT;
@@ -26,7 +25,7 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
   Aes aesRight(keys.second);
 
   for (int t = 0; t < numTrees; t++) {
-    baseOT.push_back(new SimplestOT(OT::Sender, t));
+    baseOT.push_back(new SimplestOT(OT::Sender, t+1));
     output.set((uint8_t*) root.data, TREENODE_SIZE, t * numLeaves * TREENODE_SIZE);
   }
   EventLog::end(BufferInit);
@@ -44,14 +43,17 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
     cudaDeviceSynchronize();
     EventLog::end(PprfSenderExpand);
 
+    EventLog::start(SumNodes);
     for (int t = 0; t < numTrees; t++) {
       leftNodes.at(t).sum_async(TREENODE_SIZE);
       rightNodes.at(t).sum_async(TREENODE_SIZE);
     }
     cudaDeviceSynchronize();
+    EventLog::end(SumNodes);
+
     for (int t = 0; t < numTrees; t++) {
-      leftSum.at(t).at(d).minCopy(leftNodes.at(t));
-      rightSum.at(t).at(d).minCopy(rightNodes.at(t));
+      leftSum.at(t).at(d-1).minCopy(leftNodes.at(t));
+      rightSum.at(t).at(d-1).minCopy(rightNodes.at(t));
     }
     cudaDeviceSynchronize();
 

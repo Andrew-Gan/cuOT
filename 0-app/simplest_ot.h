@@ -8,16 +8,17 @@
 
 class SimplestOT : public OT {
 private:
-  curandGenerator_t prng;
-  uint8_t g = 2;
-  std::atomic<uint64_t> A = 0;
+  uint64_t g = 2;
+  uint64_t A = 0;
   std::vector<uint64_t> B;
-  std::atomic<bool> eReceived = false;
-  std::array<std::vector<GPUBlock>, 2> e;
   SimplestOT *other = nullptr;
-  Aes aes0, aes1;
-  std::atomic<size_t> count;
-  uint8_t* hash(uint64_t v);
+  size_t n = 0;
+
+  uint8_t buffer[2][320];
+  std::array<std::atomic<bool>, 2> hasContent;
+
+  void fromOwnBuffer(uint8_t *d, int id, size_t nBytes);
+  void toOtherBuffer(uint8_t *s, int id, size_t nBytes);
 
 public:
   SimplestOT(Role role, int id);
