@@ -3,101 +3,94 @@
 
 #include "aes.h"
 #include "pprf.h"
-#include "aes_expand.h"
 #include "simplest_ot.h"
+#include "basic_op.h"
 
-using KeyPair = std::pair<uint32_t*, uint32_t*>;
+using KeyPair = std::pair<uint8_t*, uint8_t*>;
 
-__host__
-TreeNode* worker_sender(TreeNode root, KeyPair keys, int numTrees, int depth) {
+static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int numTrees, int depth) {
   EventLog::start(BufferInit);
-  int numLeaves = pow(2, depth);
-  int tBlock = (numLeaves - 1) / 1024 + 1;
-  std::vector<TreeNode*> input_d(numTrees);
-  std::vector<TreeNode*> output_d(numTrees);
-  size_t blockSize = numLeaves < 1024 ? 1024 : numLeaves;
-  std::vector<GPUBlock> m0(numTrees, GPUBlock(blockSize));
-  std::vector<GPUBlock> m1(numTrees, GPUBlock(blockSize));
+  GPUBlock delta(TREENODE_SIZE);
+  delta.clear();
+  delta.set(123456);
+  size_t numLeaves = pow(2, depth);
+  GPUBlock input(numTrees * numLeaves * TREENODE_SIZE);
+  GPUBlock output(numTrees * numLeaves * TREENODE_SIZE);
+  std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
+  std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
+  std::vector<std::vector<GPUBlock>> leftSum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
+  std::vector<std::vector<GPUBlock>> rightSum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
   std::vector<SimplestOT*> baseOT;
-  TreeNode *fullVector;
-
-  cudaMalloc(&fullVector, sizeof(*fullVector) * numLeaves);
-  cudaMemset(fullVector, 0, sizeof(*fullVector) * numLeaves);
+  Aes aesLeft(keys.first);
+  Aes aesRight(keys.second);
 
   for (int t = 0; t < numTrees; t++) {
-    cudaMalloc(&input_d.at(t), sizeof(*input_d.at(t)) * numLeaves / 2 + PADDED_LEN);
-    cudaMalloc(&output_d.at(t), sizeof(*output_d.at(t)) * numLeaves);
-    baseOT.push_back(new SimplestOT(Sender, t));
-    cudaMemcpy(output_d.at(t), &root, sizeof(root), cudaMemcpyHostToDevice);
+    baseOT.push_back(new SimplestOT(OT::Sender, t+1));
+    output.set((uint8_t*) root.data, TREENODE_SIZE, t * numLeaves * TREENODE_SIZE);
   }
-
   EventLog::end(BufferInit);
 
   for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    // copy previous layer for expansion
-    for (int t = 0; t < numTrees; t++) {
-      cudaMemcpy(input_d.at(t), output_d.at(t), sizeof(*output_d.at(t)) * width / 2, cudaMemcpyDeviceToDevice);
-    }
-
-    size_t paddedLen = (width / 2) * sizeof(*output_d.at(0));
-    paddedLen += 16 - (paddedLen % 16);
-    paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
-    static int thread_per_aesblock = 4;
-    dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
-    dim3 thread(AES_BSIZE, 1);
+    input = output;
 
     EventLog::start(PprfSenderExpand);
     for (int t = 0; t < numTrees; t++) {
-      aesExpand128<<<grid, thread>>>(keys.first, output_d.at(t), (uint32_t*) m0.at(t).data_d, (uint32_t*) input_d.at(t), 0, width);
-      aesExpand128<<<grid, thread>>>(keys.second, output_d.at(t), (uint32_t*) m1.at(t).data_d, (uint32_t*) input_d.at(t), 1, width);
+      TreeNode *inPtr = (TreeNode*) input.data_d + t * numLeaves;
+      TreeNode *outPtr = (TreeNode*) output.data_d + t * numLeaves;
+      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0);
+      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1);
     }
     cudaDeviceSynchronize();
     EventLog::end(PprfSenderExpand);
 
+    EventLog::start(SumNodes);
     for (int t = 0; t < numTrees; t++) {
-      baseOT.at(t)->send(m0.at(t), m1.at(t));
+      leftNodes.at(t).sum_async(TREENODE_SIZE);
+      rightNodes.at(t).sum_async(TREENODE_SIZE);
+    }
+    cudaDeviceSynchronize();
+    EventLog::end(SumNodes);
+
+    for (int t = 0; t < numTrees; t++) {
+      leftSum.at(t).at(d-1).minCopy(leftNodes.at(t));
+      rightSum.at(t).at(d-1).minCopy(rightNodes.at(t));
+    }
+    cudaDeviceSynchronize();
+
+    if (d == depth) {
+      for (int t = 0; t < numTrees; t++) {
+        leftSum.at(t).at(d) = leftSum.at(t).at(d-1);
+        leftSum.at(t).at(d) ^= delta;
+        rightSum.at(t).at(d) = rightSum.at(t).at(d-1);
+        rightSum.at(t).at(d) ^= delta;
+      }
     }
   }
 
+  std::vector<std::future<void>> baseOTWorkers;
   for (int t = 0; t < numTrees; t++) {
-    xor_prf<<<tBlock, 1024>>>(fullVector, output_d.at(t), numLeaves);
-    cudaDeviceSynchronize();
-    cudaFree(input_d.at(t));
-    cudaFree(output_d.at(t));
+    baseOTWorkers.push_back(std::async([t, &baseOT, &leftSum, &rightSum]() {
+      baseOT.at(t)->send(leftSum.at(t), rightSum.at(t));
+    }));
   }
-  return fullVector;
+  for (std::future<void> &worker : baseOTWorkers) {
+    worker.get();
+  }
+
+  return std::make_pair(output, delta);
 }
 
-std::pair<Vector, uint64_t> pprf_sender(TreeNode root, int depth, int numTrees) {
+std::pair<GPUBlock, GPUBlock> pprf_sender(TreeNode root, int depth, int numTrees) {
   size_t numLeaves = pow(2, depth);
-
-  // keys to use for tree expansion
-  AES_ctx leftAesKey, rightAesKey;
   uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k_blk[16] = {0};
-  unsigned *leftKey_d, *rightKey_d;
+  uint8_t k0_blk[16] = {0};
+  uint8_t k1_blk[16] = {0};
 
-  memcpy(&k_blk[8], &k0, sizeof(k0));
-  Aes::expand_encKey(leftAesKey.roundKey, k_blk);
-  cudaMalloc(&leftKey_d, sizeof(leftAesKey));
-  cudaMemcpy(leftKey_d, &leftAesKey, sizeof(leftAesKey), cudaMemcpyHostToDevice);
-  memset(&k_blk, 0, sizeof(k_blk));
+  memcpy(&k0_blk[8], &k0, sizeof(k0));
+  memcpy(&k1_blk[8], &k1, sizeof(k1));
 
-  memcpy(&k_blk[8], &k1, sizeof(k1));
-  Aes::expand_encKey(rightAesKey.roundKey, k_blk);
-  cudaMalloc(&rightKey_d, sizeof(rightAesKey));
-  cudaMemcpy(rightKey_d, &rightAesKey, sizeof(rightAesKey), cudaMemcpyHostToDevice);
+  KeyPair keys = std::make_pair(k0_blk, k1_blk);
+  auto [fullVector, delta] = expander(root, keys, numTrees, depth);
 
-  uint64_t delta = 0;
-
-  KeyPair keys = std::make_pair(leftKey_d, rightKey_d);
-  TreeNode *fullVector = worker_sender(root, keys, numTrees, depth);
-
-  cudaFree(leftKey_d);
-  cudaFree(rightKey_d);
-
-  Vector fullVec =
-    { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) fullVector };
-
-  return {fullVec, delta};
+  return {fullVector, delta};
 }

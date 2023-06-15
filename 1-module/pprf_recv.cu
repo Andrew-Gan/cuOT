@@ -6,116 +6,133 @@
 #include "pprf.h"
 #include "aes_expand.h"
 #include "simplest_ot.h"
+#include "basic_op.h"
 
-using KeyPair = std::pair<unsigned*, unsigned*>;
+using KeyPair = std::pair<uint8_t*, uint8_t*>;
 
 __global__
-void set_choice(Vector choiceVec, int index) {
-  if (index >= choiceVec.n) {
-    return;
-  }
-  choiceVec.data[index / 8] |= 1 << (index % 8);
+void set_choice(SparseVector choiceVector, int index, int t) {
+  choiceVector.nonZeros[t] = index;
 }
 
-__host__
-TreeNode* worker_recver(Vector choiceVector, KeyPair keys, uint64_t *choices, int numTrees, int depth) {
+static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choices, int numTrees, int depth) {
   EventLog::start(BufferInit);
-  int numLeaves = pow(2, depth);
-  int tBlock = (numLeaves - 1) / 1024 + 1;
-  std::vector<TreeNode*> input_d(numTrees);
-  std::vector<TreeNode*> output_d(numTrees);
+  size_t numLeaves = pow(2, depth);
+  GPUBlock input(numTrees * numLeaves * TREENODE_SIZE);
+  GPUBlock output(numTrees * numLeaves * TREENODE_SIZE);
+  std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
+  std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
+  std::vector<std::vector<GPUBlock>> sum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
   std::vector<SimplestOT*> baseOT;
-  std::vector<int> puncture(numTrees, 0);
-  TreeNode *puncVector;
+  Aes aesLeft(keys.first);
+  Aes aesRight(keys.second);
+  std::vector<size_t> puncture(numTrees, 0);
 
-  cudaMalloc(&puncVector, sizeof(*puncVector) * numLeaves);
-  cudaMemset(puncVector, 0, sizeof(*puncVector) * numLeaves);
+  SparseVector choiceVector = {
+    .nBits = numLeaves,
+  };
+  cudaError_t err = cudaMalloc(&choiceVector.nonZeros, numTrees * sizeof(size_t));
+  if (err != cudaSuccess)
+    fprintf(stderr, "choice vec: %s\n", cudaGetErrorString(err));
 
   for (int t = 0; t < numTrees; t++) {
-    cudaMalloc(&input_d.at(t), sizeof(*input_d.at(t)) * numLeaves / 2 + PADDED_LEN);
-    cudaMalloc(&output_d.at(t), sizeof(*output_d.at(t)) * numLeaves);
-    baseOT.push_back(new SimplestOT(Recver, t));
+    baseOT.push_back(new SimplestOT(OT::Recver, t+1));
   }
-
   EventLog::end(BufferInit);
 
-  for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    // copy previous layer for expansion
-    for (int t = 0; t < numTrees; t++) {
-      cudaMemcpy(input_d.at(t), output_d.at(t), sizeof(*output_d.at(t)) * width / 2, cudaMemcpyDeviceToDevice);
-    }
+  // obtain sums of every layer of every tree
+  std::vector<std::future<std::vector<GPUBlock>>> baseOTWorkers;
+  for (int t = 0; t < numTrees; t++) {
+    baseOTWorkers.push_back(std::async([t, &baseOT, choices]() {
+      return baseOT.at(t)->recv(choices[t]);
+    }));
+  }
+  for (int t = 0; t < numTrees; t++) {
+    sum.at(t) = baseOTWorkers.at(t).get();
+  }
 
-    size_t paddedLen = (width / 2) * sizeof(*output_d.at(0));
-    paddedLen += 16 - (paddedLen % 16);
-    paddedLen += PADDED_LEN - (paddedLen % PADDED_LEN);
-    static int thread_per_aesblock = 4;
-    dim3 grid(paddedLen * thread_per_aesblock / 16 / AES_BSIZE, 1);
-    dim3 thread(AES_BSIZE, 1);
+  for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
+    input = output;
 
     EventLog::start(PprfRecverExpand);
+    // expand layer
     for (int t = 0; t < numTrees; t++) {
-      aesExpand128<<<grid, thread>>>(keys.first, output_d.at(t), nullptr, (uint32_t*) input_d.at(t), 0, width);
-      aesExpand128<<<grid, thread>>>(keys.second, output_d.at(t), nullptr, (uint32_t*) input_d.at(t), 1, width);
+      TreeNode *inPtr = (TreeNode*) input.data_d + t * width;
+      TreeNode *outPtr = (TreeNode*) output.data_d + t * width;
+      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0);
+      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1);
     }
     cudaDeviceSynchronize();
     EventLog::end(PprfRecverExpand);
 
+    // insert obtained sum into layer
     for (int t = 0; t < numTrees; t++) {
       int choice = (choices[t] & (1 << d-1)) >> d-1;
-      int recvNode = puncture.at(t) * 2 + choice;
-      GPUBlock mb = baseOT.at(t)->recv(choice);
-      // cuda-memcheck returns error due to copying from another context
-      cudaMemcpy(&output_d[recvNode], &mb.data_d[puncture.at(t)*TREENODE_SIZE], TREENODE_SIZE, cudaMemcpyDeviceToDevice);
-      puncture.at(t) = puncture.at(t) * 2 + (1 - choice);
+      GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
+      TreeNode *sideCasted = (TreeNode*) side->data_d;
+      int recvNodeId = puncture.at(t) * 2 + choice;
+      cudaMemcpy(&sideCasted[recvNodeId / 2], sum.at(t).at(d-1).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+
+      if (d == depth) {
+        GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
+        sideCasted = (TreeNode*) xorSide->data_d;
+        size_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
+        cudaMemcpy(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+       }
     }
+
+    // conduct sum/xor in parallel
+    EventLog::start(SumNodes);
+    for (int t = 0; t < numTrees; t++) {
+      int choice = (choices[t] & (1 << d-1)) >> d-1;
+      GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
+      side->sum_async(TREENODE_SIZE);
+
+      if (d == depth) {
+        GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
+        xorSide->sum_async(TREENODE_SIZE);
+      }
+    }
+    cudaDeviceSynchronize();
+
+    // insert active node obtained from sum into output
+    for (int t = 0; t < numTrees; t++) {
+      int choice = (choices[t] & (1 << d-1)) >> d-1;
+      GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
+      TreeNode *oCasted = (TreeNode*) output.data_d + t * numLeaves;
+      int recvNodeId = puncture.at(t) * 2 + choice;
+      cudaMemcpy(&oCasted[recvNodeId], side->data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+
+      if(d == depth) {
+        GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
+        size_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
+        cudaMemcpy(&oCasted[deltaNodeId], xorSide->data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
+      }
+    }
+    EventLog::end(SumNodes);
   }
 
   for (int t = 0; t < numTrees; t++) {
-    xor_prf<<<tBlock, 1024>>>(puncVector, output_d.at(t), numLeaves);
-    set_choice<<<1, 1>>>(choiceVector, puncture.at(t));
+    set_choice<<<1, 1>>>(choiceVector, t*numLeaves + puncture.at(t), t);
     cudaDeviceSynchronize();
-    cudaFree(input_d.at(t));
-    cudaFree(output_d.at(t));
+    choiceVector.weight++;
   }
-  return puncVector;
+
+  return std::make_pair(output, choiceVector);
 }
 
-std::pair<Vector, Vector> pprf_recver(uint64_t *choices, int depth, int numTrees) {
+std::pair<GPUBlock, SparseVector> pprf_recver(uint64_t *choices, int depth, int numTrees) {
   size_t numLeaves = pow(2, depth);
 
-  // keys to use for tree expansion
-  AES_ctx leftAesKey, rightAesKey;
   uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k_blk[16] = {0};
-  unsigned *leftKey_d, *rightKey_d;
+  uint8_t k0_blk[16] = {0};
+  uint8_t k1_blk[16] = {0};
 
-  memcpy(&k_blk[8], &k0, sizeof(k0));
-  Aes::expand_encKey(leftAesKey.roundKey, k_blk);
-  cudaMalloc(&leftKey_d, sizeof(leftAesKey));
-  cudaMemcpy(leftKey_d, &leftAesKey, sizeof(leftAesKey), cudaMemcpyHostToDevice);
-  memset(&k_blk, 0, sizeof(k_blk));
+  memcpy(&k0_blk[8], &k0, sizeof(k0));
+  memcpy(&k1_blk[8], &k1, sizeof(k1));
 
-  memcpy(&k_blk[8], &k1, sizeof(k1));
-  Aes::expand_encKey(rightAesKey.roundKey, k_blk);
-  cudaMalloc(&rightKey_d, sizeof(rightAesKey));
-  cudaMemcpy(rightKey_d, &rightAesKey, sizeof(rightAesKey), cudaMemcpyHostToDevice);
+  KeyPair keys = std::make_pair(k0_blk, k1_blk);
+  auto [puncVector, choiceVector] = expander(keys, choices, numTrees, depth);
 
-  Vector choiceVector = { .n = numLeaves * 8 * TREENODE_SIZE };
-  cudaError_t err = cudaMalloc(&choiceVector.data, numLeaves * TREENODE_SIZE);
-  if (err != cudaSuccess)
-    fprintf(stderr, "recv choice: %s\n", cudaGetErrorString(err));
-
-  cudaMemset(choiceVector.data, 0, numLeaves * TREENODE_SIZE);
-
-
-  KeyPair keys = std::make_pair(leftKey_d, rightKey_d);
-  TreeNode *puncVector = worker_recver(choiceVector, keys, choices, numTrees, depth);
-
-  cudaFree(leftKey_d);
-  cudaFree(rightKey_d);
-
-  Vector puncVec =
-    { .n = numLeaves * TREENODE_SIZE * 8, .data = (uint8_t*) puncVector };
-
-  return {puncVec, choiceVector};
+  return {puncVector, choiceVector};
 }

@@ -14,27 +14,28 @@ uint64_t* gen_choices(int numTrees) {
   return choices;
 }
 
-static void sender_worker(int protocol, int logOT, int numTrees) {
+static std::pair<GPUBlock, GPUBlock> sender_worker(int protocol, int logOT, int numTrees) {
   SilentOT *ot;
   switch(protocol) {
-    case 1: ot = new SilentOT(Sender, 0, logOT, numTrees);
+    case 1: ot = new SilentOT(OT::Sender, 0, logOT, numTrees);
       break;
   }
-  GPUBlock m0, m1;
-  ot->send(m0, m1);
+  std::pair<GPUBlock, GPUBlock> pair = ot->send();
   delete ot;
+  return pair;
 }
 
-static void recver_worker(int protocol, int logOT, int numTrees) {
+static std::pair<GPUBlock, GPUBlock> recver_worker(int protocol, int logOT, int numTrees) {
   SilentOT *ot;
   switch(protocol) {
-    case 1: ot = new SilentOT(Recver, 0, logOT, numTrees);
+    case 1: ot = new SilentOT(OT::Recver, 0, logOT, numTrees);
       break;
   }
   uint64_t *choices = gen_choices(numTrees);
-  GPUBlock mb = ot->recv(choices);
+  std::pair<GPUBlock, GPUBlock> pair = ot->recv(choices);
   delete[] choices;
   delete ot;
+  return pair;
 }
 
 int main(int argc, char** argv) {
@@ -43,23 +44,25 @@ int main(int argc, char** argv) {
     test_base_ot();
     return 0;
   }
-  if (argc < 4) {
-    fprintf(stderr, "Usage: ./ot protocol depth trees\n");
+  if (argc < 5) {
+    fprintf(stderr, "Usage: ./ot protocol logOT trees logfile\n");
     return EXIT_FAILURE;
   }
 
   test_cuda();
+  cudaFree(0);
 
   int protocol = atoi(argv[1]);
   int logOT = atoi(argv[2]);
   int numTrees = atoi(argv[3]);
   printf("log OTs: %lu, Trees: %d\n", logOT, numTrees);
 
-  EventLog::open("log.txt");
+  EventLog::open(argv[4]);
   std::future sender = std::async(sender_worker, protocol, logOT, numTrees);
   std::future recver = std::async(recver_worker, protocol, logOT, numTrees);
-  sender.get();
-  recver.get();
+  auto [fullVector, delta] = sender.get();
+  auto [puncVector, choiceVector] = recver.get();
+  // test_cot(fullVector, puncVector, choiceVector, delta);
   EventLog::close();
   return EXIT_SUCCESS;
 }

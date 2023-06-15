@@ -1,5 +1,6 @@
 #include <curand.h>
 #include <atomic>
+#include <vector>
 #include "gpu_block.h"
 #include "ot.h"
 #include "util.h"
@@ -7,18 +8,21 @@
 
 class SimplestOT : public OT {
 private:
-  curandGenerator_t prng;
-  uint8_t g = 2;
-  std::atomic<uint64_t> A = 0, B = 0;
-  std::atomic<bool> eReceived = false;
-  std::array<GPUBlock, 2> e = { GPUBlock(16), GPUBlock(16) };
+  uint64_t g = 2;
+  uint64_t A = 0;
+  std::vector<uint64_t> B;
   SimplestOT *other = nullptr;
-  Aes *aes0, *aes1;
-  uint8_t* hash(uint64_t v);
+  size_t n = 0;
+
+  uint8_t buffer[2][320];
+  std::array<std::atomic<bool>, 2> hasContent;
+
+  void fromOwnBuffer(uint8_t *d, int id, size_t nBytes);
+  void toOtherBuffer(uint8_t *s, int id, size_t nBytes);
 
 public:
   SimplestOT(Role role, int id);
   virtual ~SimplestOT();
-  void send(GPUBlock &m0, GPUBlock &m1);
-  GPUBlock recv(uint8_t c);
+  void send(std::vector<GPUBlock> &m0, std::vector<GPUBlock> &m1);
+  std::vector<GPUBlock> recv(uint64_t c);
 };

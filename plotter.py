@@ -1,8 +1,8 @@
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
-hideEvents = ['PprfSender', 'PprfRecver', 'AesEncrypt', 'AesDecrypt',
-  'AesInit', 'BaseOTInit']
+hideEvents = ['MatrixInit']
 
 def plot_pipeline(filename):
   eventList = {}
@@ -15,12 +15,16 @@ def plot_pipeline(filename):
         parseSection += 1
       elif parseSection == 0:
         eventID, eventString = newline.split()
-        eventList[int(eventID)] = eventString
-        eventData[int(eventID)] = {}
+        eventID = int(eventID)
+        eventList[eventID] = eventString
+        if eventList[eventID] not in hideEvents:
+          eventData[eventID] = {}
       elif parseSection == 2:
         startStop, tid, eventID, time = newline.split()
         tid = int(tid)
         eventID = int(eventID)
+        if eventList[eventID] in hideEvents:
+          continue
         time = float(time)
         tidFound.add(tid)
         if tid not in eventData[eventID]:
@@ -35,10 +39,9 @@ def plot_pipeline(filename):
   legends = []
 
   plt.figure(figsize=(12, 6))
+  colors=list(mcolors.TABLEAU_COLORS.keys()) # maximum 10 events
 
-  for eventID, eventVal in eventData.items():
-    if len(eventVal) == 0 or eventList[eventID] in hideEvents:
-      continue
+  for colorCode, [eventID, eventVal] in zip(colors, eventData.items()):
     legends.append(eventList[eventID])
     eventTids = eventVal.keys()
     yTids = []
@@ -49,14 +52,27 @@ def plot_pipeline(filename):
         yTids.append(sortedTids.index(t))
         starts.append(e[0])
         widths.append(e[1])
-    plt.barh(y=yTids, width=widths, height=0.5, left=starts)
+    plt.barh(y=yTids, width=widths, height=0.5, left=starts, color=colorCode)
 
   plt.yticks(range(len(tidFound)))
   plt.title('Pipeline Graph of Thread Operations over Time')
   plt.xlabel('Time (ms)')
   plt.ylabel('Thread ID')
   plt.legend(legends, loc='upper left', bbox_to_anchor=(1, 1))
+
+  eventDuration = {}
+  for eventID in eventList:
+    eventDuration[eventID] = 0
+    if eventID in eventData:
+      for tid in eventData[eventID].values():
+        for event in tid:
+          eventDuration[eventID] += event[1]
+
+  plt.table([[eventList[i], f"{eventDuration[i]:.3f}"] for i in eventList],
+    colWidths=[0.2, 0.15], colLabels=['Operation', 'Duration (ms)'],
+    cellLoc='left', loc='upper left')
+
   plt.savefig(filename.split('.')[0], bbox_inches='tight')
 
 if __name__ == '__main__':
-  plot_pipeline('log.txt')
+  plot_pipeline(sys.argv[1])

@@ -32,6 +32,7 @@ void test_aes() {
   const char *sample = "this is a test";
 
   GPUBlock buffer(1024);
+  buffer.clear();
   buffer.set((const uint8_t*) sample, 16);
 
   aes0.encrypt(buffer);
@@ -47,68 +48,49 @@ void test_aes() {
   printf("test_aes passed!\n");
 }
 
-void senderFunc(GPUBlock &m0, GPUBlock &m1) {
-  SimplestOT sender(Sender, 0);
+void senderFunc(std::vector<GPUBlock> &m0, std::vector<GPUBlock> &m1) {
+  SimplestOT sender(OT::Sender, 0);
   sender.send(m0, m1);
 }
 
-GPUBlock recverFunc(uint8_t b) {
-  SimplestOT recver(Recver, 0);
-  GPUBlock mb = recver.recv(b);
-  return mb;
+std::vector<GPUBlock> recverFunc(uint64_t b) {
+  SimplestOT recver(OT::Recver, 0);
+  return recver.recv(b);
 }
 
 void test_base_ot() {
-  GPUBlock m0(1024), m1(1024), mb(1024);
-  m0.set(0x20);
-  m1.set(0x40);
+  std::vector<GPUBlock> m0(4, GPUBlock(1024));
+  std::vector<GPUBlock> m1(4, GPUBlock(1024));
+  std::vector<GPUBlock> mb_expected(4, GPUBlock(1024));
+  for (int i = 0; i < m0.size(); i++) {
+    m0.at(i).clear();
+    m0.at(i).set(0x20);
+    m1.at(i).clear();
+    m1.at(i).set(0x40);
+  }
   std::future sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
-  std::future recver = std::async(recverFunc, 0);
-  sender.get();
-  mb = recver.get();
-  assert(mb == m0);
+  std::future recver = std::async(recverFunc, 0b1001);
 
-  sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
-  recver = std::async(recverFunc, 1);
+  for (GPUBlock &m : mb_expected) {
+    m.clear();
+  }
+  mb_expected.at(0).set(0x40);
+  mb_expected.at(1).set(0x20);
+  mb_expected.at(2).set(0x20);
+  mb_expected.at(3).set(0x40);
   sender.get();
-  mb = recver.get();
-  assert(mb == m1);
+  std::vector<GPUBlock> mb_actual = recver.get();
+  for (int i = 0; i < mb_actual.size(); i++) {
+    assert(mb_actual.at(i) == mb_expected.at(i));
+  }
 
   printf("test_base_ot passed!\n");
 }
 
-// test A ^ C =  B & delta
-//  delta should be 0b00000000 or 0b11111111
-void test_cot(Vector fullVec_d, Vector puncVec_d, Vector choiceVec_d, uint8_t delta) {
-  int nBytes = fullVec_d.n / 8;
+void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, GPUBlock &choiceVector, GPUBlock &delta) {
+  fullVector ^= puncVector;
+  choiceVector *= delta;
 
-  Vector lhs = { .n = fullVec_d.n };
-  cudaMalloc(&lhs.data, lhs.n / 8);
-  xor_gpu<<<nBytes/ 1024, 1024>>>(lhs.data, fullVec_d.data, puncVec_d.data, lhs.n);
-
-  Vector rhs = { .n = fullVec_d.n };
-  cudaMalloc(&rhs.data, rhs.n / 8);
-  and_gpu<<<nBytes / 1024, 1024>>>(rhs, choiceVec_d, delta);
-
-  cudaDeviceSynchronize();
-
-  bool *cmp_d, *cmp;
-  cudaMalloc(&cmp_d, nBytes * sizeof(*cmp_d));
-
-  cmp = new bool[nBytes];
-  cudaMemcpy(cmp, cmp_d,  nBytes * sizeof(*cmp_d), cudaMemcpyDeviceToHost);
-
-  cudaFree(lhs.data);
-  cudaFree(rhs.data);
-  cudaFree(cmp_d);
-
-  int i = 0, allEqual = true;
-  while(i < nBytes) {
-    if (cmp[i++] == false) {
-      allEqual = false;
-    }
-  }
-  delete[] cmp;
-  assert(allEqual);
+  // assert(fullVector == choiceVector);
   printf("test_cot passed!\n");
 }

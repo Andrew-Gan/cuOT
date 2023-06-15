@@ -3,6 +3,7 @@
 #include "aes.h"
 #include "aes_encrypt.h"
 #include "aes_decrypt.h"
+#include "aes_expand.h"
 #include "utilsBox.h"
 
 #define Nb 4
@@ -13,11 +14,12 @@
 typedef uint8_t state_t[4][4];
 
 void Aes::init() {
-  EventLog::start(AesInit);
   AES_ctx encExpKey;
   AES_ctx decExpKey;
+  EventLog::start(AesKeyExpansion);
   Aes::expand_encKey(encExpKey.roundKey, key);
   Aes::expand_decKey(decExpKey.roundKey, key);
+  EventLog::end(AesKeyExpansion);
   cudaError_t err = cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
   if (err != cudaSuccess)
     fprintf(stderr, "Aes() enc: %s\n", cudaGetErrorString(err));
@@ -26,7 +28,6 @@ void Aes::init() {
   if (err != cudaSuccess)
     fprintf(stderr, "Aes() dec: %s\n", cudaGetErrorString(err));
   cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
-  EventLog::end(AesInit);
 }
 
 Aes::Aes() {
@@ -47,45 +48,36 @@ Aes::~Aes() {
 }
 
 void Aes::decrypt(GPUBlock &msg) {
-  if (decExpKey_d == nullptr) {
-    printf("Decryption key not initialised\n");
-    return;
+  GPUBlock input(std::max(msg.nBytes, (size_t)1024));
+  input.clear();
+  cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
+  if (msg.nBytes < 1024) {
+    msg = GPUBlock(1024);
   }
-  if (msg.nBytes < 16 * 256 / 4) {
-    printf("Message to decrypt must be at least 1024 bytes\n");
-    return;
-  }
-  EventLog::start(AesDecrypt);
-  uint8_t *buffer_d;
-  cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
-  if (err != cudaSuccess)
-    fprintf(stderr, "decrypt(GPUBlock): %s\n", cudaGetErrorString(err));
-  aesDecrypt128<<<msg.nBytes/4/AES_BSIZE, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
+  dim3 grid(msg.nBytes / 4 / AES_BSIZE);
+  aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) msg.data_d, (uint32_t*) input.data_d);
   cudaDeviceSynchronize();
-  cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
-  cudaFree(buffer_d);
-  EventLog::end(AesDecrypt);
 }
 
 void Aes::encrypt(GPUBlock &msg) {
-  if (encExpKey_d == nullptr) {
-    printf("Encryption key not initialised\n");
-    return;
+  GPUBlock input(std::max(msg.nBytes, (size_t)1024));
+  input.clear();
+  cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
+  if (msg.nBytes < 1024) {
+    msg = GPUBlock(1024);
   }
-  if (msg.nBytes < 16 * 256 / 4) {
-    printf("Message to encrypt must be at least 1024 bytes\n");
-    return;
-  }
-  EventLog::start(AesEncrypt);
-  uint8_t *buffer_d;
-  cudaError_t err = cudaMalloc(&buffer_d, msg.nBytes);
-  if (err != cudaSuccess)
-    fprintf(stderr, "encrypt(GPUBlock): %s\n", cudaGetErrorString(err));
-  aesEncrypt128<<<msg.nBytes/4/AES_BSIZE, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) buffer_d, (uint32_t*) msg.data_d);
+  dim3 grid(msg.nBytes / 4 / AES_BSIZE);
+  aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) msg.data_d, (uint32_t*) input.data_d);
   cudaDeviceSynchronize();
-  EventLog::end(AesEncrypt);
-  cudaMemcpy(msg.data_d, buffer_d, msg.nBytes, cudaMemcpyDeviceToDevice);
-  cudaFree(buffer_d);
+}
+
+void Aes::expand_async(TreeNode *output_d, GPUBlock &m, TreeNode *input_d, size_t width, int dir) {
+  static int thread_per_aesblock = 4;
+  size_t paddedBytes = (width / 2) * sizeof(*output_d);
+  if (paddedBytes % 1024 != 0)
+    paddedBytes += 1024 - (paddedBytes % 1024);
+  dim3 grid(paddedBytes * thread_per_aesblock / 16 / AES_BSIZE, 1);
+  aesExpand128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, output_d, (uint32_t*) m.data_d, (uint32_t*) input_d, dir, width);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {
@@ -151,7 +143,6 @@ static void _inv_exp_func(std::vector<unsigned> &expKey, std::vector<unsigned> &
 }
 
 void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
-  EventLog::start(AesKeyExpansion);
   std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
 	std::vector<uint32_t> expKeyArray(176);
   _exp_func(keyArray, expKeyArray);
@@ -160,11 +151,9 @@ void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
     uint8_t *pc = reinterpret_cast<uint8_t*>(&val);
     encExpKey[cnt] = *pc;
   }
-  EventLog::end(AesKeyExpansion);
 }
 
 void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
-  EventLog::start(AesKeyExpansion);
   std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
   std::vector<uint32_t> expKeyArray(176);
 	std::vector<uint32_t> invExpKeyArray(176);
@@ -175,5 +164,4 @@ void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
     uint8_t *pc = reinterpret_cast<uint8_t*>(&val);
     decExpKey[cnt] = *pc;
   }
-  EventLog::end(AesKeyExpansion);
 }

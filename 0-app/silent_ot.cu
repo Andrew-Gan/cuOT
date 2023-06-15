@@ -5,7 +5,7 @@
 
 SilentOT::SilentOT(Role myrole, int myid, int logOT, int numTrees) : OT(myrole, myid) {
   nTree = numTrees;
-  depth = logOT - 7 + 1;
+  depth = logOT - log2(numTrees) + 1;
   numOT = pow(2, logOT);
   if (role == Sender) {
     while(recvers[id] == nullptr);
@@ -19,61 +19,50 @@ SilentOT::SilentOT(Role myrole, int myid, int logOT, int numTrees) : OT(myrole, 
   }
 }
 
-void SilentOT::send(GPUBlock &m0, GPUBlock &m1) {
+std::pair<GPUBlock, GPUBlock> SilentOT::send() {
   TreeNode root;
   root.data[0] = 123456;
   root.data[1] = 7890123;
-  auto [fullVec_d, delta] = pprf_sender(root, depth, nTree);
+  auto [fullVector, delta] = pprf_sender(root, depth, nTree);
+  GPUBlock fullVectorHashed(numOT * TREENODE_SIZE);
+
   if (numOT < CHUNK_SIDE) {
-    EventLog::start(MatrixInit);
     randMatrix = init_rand(prng, 2 * numOT, numOT);
     gen_rand(prng, randMatrix); // transposed
-    EventLog::end(MatrixInit);
-    hash_sender(randMatrix, fullVec_d, 0);
+    hash_sender(fullVectorHashed, randMatrix, fullVector, 0);
   }
   else {
-    EventLog::start(MatrixInit);
     randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
-    EventLog::end(MatrixInit);
     for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
       for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-        EventLog::start(MatrixInit);
         gen_rand(prng, randMatrix);
-        EventLog::end(MatrixInit);
-        hash_sender(randMatrix, fullVec_d, chunkC);
+        hash_sender(fullVectorHashed, randMatrix, fullVector, chunkC);
       }
     }
   }
   del_rand(prng, randMatrix);
+  return std::make_pair(fullVectorHashed, delta);
 }
 
-GPUBlock SilentOT::recv(uint8_t choice) {
-  return recv((uint64_t*) &choice);
-}
+std::pair<GPUBlock, GPUBlock> SilentOT::recv(uint64_t *choices) {
+  auto [puncVector, choiceVector] = pprf_recver(choices, depth, nTree);
+  GPUBlock puncVectorHashed(numOT * TREENODE_SIZE);
+  GPUBlock choiceVectorHashed(numOT * TREENODE_SIZE);
 
-GPUBlock SilentOT::recv(uint64_t *choices) {
-  GPUBlock mb(1024);
-  auto [puncVec_d, choiceVec_d] = pprf_recver(choices, depth, nTree);
   if (numOT < CHUNK_SIDE) {
-    EventLog::start(MatrixInit);
     randMatrix = init_rand(prng, 2 * numOT, numOT);
     gen_rand(prng, randMatrix); // transposed
-    EventLog::end(MatrixInit);
-    hash_recver(randMatrix, choiceVec_d, puncVec_d, 0);
+    hash_recver(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, 0, 0);
   }
   else {
-    EventLog::start(MatrixInit);
     randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
-    EventLog::end(MatrixInit);
     for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
       for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-        EventLog::start(MatrixInit);
         gen_rand(prng, randMatrix);
-        EventLog::end(MatrixInit);
-        hash_recver(randMatrix, choiceVec_d, puncVec_d, chunkC);
+        hash_recver(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, chunkR, chunkC);
       }
     }
   }
   del_rand(prng, randMatrix);
-  return mb;
+  return std::make_pair(puncVectorHashed, choiceVectorHashed);
 }

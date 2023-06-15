@@ -9,16 +9,12 @@
 #define AES_KEYLEN 16 // Key length in bytes
 #define AES_keyExpSize 176
 #define NUM_ROUNDS 10
-#define PADDED_LEN 1024
 
-#define TREENODE_SIZE AES_BLOCKLEN
+#define TREENODE_SIZE 16
 #define NUM_SAMPLES 8
-#define CHUNK_SIDE (1<<17)
 
 #define EXP_NUM_THREAD 16
 #define AES_BSIZE 256
-
-enum Role { Sender, Recver };
 
 typedef struct {
   uint8_t roundKey[176];
@@ -29,9 +25,10 @@ typedef struct {
 } TreeNode;
 
 typedef struct {
-  size_t n; // num bits
-  uint8_t *data;
-} Vector;
+  size_t nBits = 0;
+  size_t *nonZeros;
+  size_t weight = 0;
+} SparseVector;
 
 typedef struct {
   size_t rows, cols;
