@@ -5,6 +5,9 @@ import matplotlib.colors as mcolors
 hideEvents = ['MatrixInit']
 
 def plot_pipeline(filename):
+  logOT = filename.split('-')[1]
+  numTree = filename.split('-')[2].split('.')[0]
+
   eventList = {}
   eventData = {}
   tidFound = set()
@@ -55,7 +58,7 @@ def plot_pipeline(filename):
     plt.barh(y=yTids, width=widths, height=0.5, left=starts, color=colorCode)
 
   plt.yticks(range(len(tidFound)))
-  plt.title('Pipeline Graph of Thread Operations over Time')
+  plt.title('Pipeline of Thread Operations over Time with n=%s and t=%s' % (logOT, numTree))
   plt.xlabel('Time (ms)')
   plt.ylabel('Thread ID')
   plt.legend(legends, loc='upper left', bbox_to_anchor=(1, 1))

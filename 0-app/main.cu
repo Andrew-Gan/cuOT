@@ -17,22 +17,24 @@ uint64_t* gen_choices(int numTrees) {
 static std::pair<GPUBlock, GPUBlock> sender_worker(int protocol, int logOT, int numTrees) {
   SilentOT *ot;
   switch(protocol) {
-    case 1: ot = new SilentOT(OT::Sender, 0, logOT, numTrees);
+    case 1: ot = new SilentOT(SilentOT::Sender, 0, logOT, numTrees, nullptr);
       break;
   }
+  ot->sendBaseOTs();
   std::pair<GPUBlock, GPUBlock> pair = ot->send();
   delete ot;
   return pair;
 }
 
 static std::pair<GPUBlock, GPUBlock> recver_worker(int protocol, int logOT, int numTrees) {
+  uint64_t *choices = gen_choices(numTrees);
   SilentOT *ot;
   switch(protocol) {
-    case 1: ot = new SilentOT(OT::Recver, 0, logOT, numTrees);
+    case 1: ot = new SilentOT(SilentOT::Recver, 0, logOT, numTrees, choices);
       break;
   }
-  uint64_t *choices = gen_choices(numTrees);
-  std::pair<GPUBlock, GPUBlock> pair = ot->recv(choices);
+  ot->recvBaseOTs();
+  std::pair<GPUBlock, GPUBlock> pair = ot->recv();
   delete[] choices;
   delete ot;
   return pair;

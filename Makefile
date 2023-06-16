@@ -16,9 +16,9 @@ DEV_OBJ := $(patsubst 2-device/%.cu, $(OBJ)/device/%.o, $(DEV_SRC))
 
 ############################################################
 
-QUEUE=zghodsi-b
-NUM_CPU=8
-NUM_GPU=1
+QUEUE=standby #zghodsi-b
+NUM_CPU=16
+NUM_GPU=2
 
 ############################################################
 
@@ -39,7 +39,7 @@ $(OBJ)/device/%.o: 2-device/%.cu | $(OBJ)
 	$(CC) $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ):
-	mkdir $@ $@/app $@/module $@/device
+	mkdir $@ $@/app $@/module $@/device $@/module/blake2 $@/module/blake2/c $@/module/blake2/sse
 
 sbatch:
 	sbatch -n $(NUM_CPU) -N 1 --gpus-per-node=$(NUM_GPU) -A $(QUEUE) job.sh

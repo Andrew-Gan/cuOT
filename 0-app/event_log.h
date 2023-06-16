@@ -5,12 +5,11 @@
 #include <mutex>
 
 enum Event {
-  AesKeyExpansion,
-  BufferInit, MatrixInit, MatrixRand,
+  AesKeyExpansion, BufferInit,
+  PprfSenderExpand, PprfRecverExpand, SumNodes,
   BaseOTSend, BaseOTRecv,
+  MatrixInit, MatrixRand,
   HashSender, HashRecver,
-  PprfSenderExpand, PprfRecverExpand,
-  SumNodes,
 };
 
 class EventLog {

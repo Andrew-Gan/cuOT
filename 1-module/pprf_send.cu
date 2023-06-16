@@ -20,12 +20,10 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
   std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
   std::vector<std::vector<GPUBlock>> leftSum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
   std::vector<std::vector<GPUBlock>> rightSum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
-  std::vector<SimplestOT*> baseOT;
   Aes aesLeft(keys.first);
   Aes aesRight(keys.second);
 
   for (int t = 0; t < numTrees; t++) {
-    baseOT.push_back(new SimplestOT(OT::Sender, t+1));
     output.set((uint8_t*) root.data, TREENODE_SIZE, t * numLeaves * TREENODE_SIZE);
   }
   EventLog::end(BufferInit);
@@ -65,16 +63,6 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
         rightSum.at(t).at(d) ^= delta;
       }
     }
-  }
-
-  std::vector<std::future<void>> baseOTWorkers;
-  for (int t = 0; t < numTrees; t++) {
-    baseOTWorkers.push_back(std::async([t, &baseOT, &leftSum, &rightSum]() {
-      baseOT.at(t)->send(leftSum.at(t), rightSum.at(t));
-    }));
-  }
-  for (std::future<void> &worker : baseOTWorkers) {
-    worker.get();
   }
 
   return std::make_pair(output, delta);

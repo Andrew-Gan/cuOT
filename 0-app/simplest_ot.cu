@@ -3,26 +3,30 @@
 
 using RandomOracle = Blake2;
 
-SimplestOT::SimplestOT(Role role, int id) : OT(role, id) {
+std::array<std::atomic<SimplestOT*>, 100> simplestOTSenders;
+std::array<std::atomic<SimplestOT*>, 100> simplestOTRecvers;
+
+SimplestOT::SimplestOT(Role myrole, int myid) : role(myrole), id(myid) {
   if (role == Sender) {
-    while(recvers[id] == nullptr);
-    OT *recv = recvers[id];
-    other = dynamic_cast<SimplestOT*>(recv);
+    simplestOTSenders[id] = this;
+    while(simplestOTRecvers[id] == nullptr);
+    other = simplestOTRecvers[id];
   }
   else {
-    while(senders[id] == nullptr);
-    OT *send = senders[id];
-    other = dynamic_cast<SimplestOT*>(send);
+    simplestOTRecvers[id] = this;
+    while(simplestOTSenders[id] == nullptr);
+    other = simplestOTSenders[id];
   }
+
   hasContent[0] = false;
   hasContent[1] = false;
 }
 
 SimplestOT::~SimplestOT() {
   if (role == Sender)
-    senders[id] = nullptr;
+    simplestOTSenders[id] = nullptr;
   else
-    recvers[id] = nullptr;
+    simplestOTRecvers[id] = nullptr;
 }
 
 void SimplestOT::fromOwnBuffer(uint8_t *d, int id, size_t nBytes) {
@@ -37,49 +41,52 @@ void SimplestOT::toOtherBuffer(uint8_t *s, int id, size_t nBytes) {
   other->hasContent[id] = true;
 }
 
-void SimplestOT::send(std::vector<GPUBlock> &m0, std::vector<GPUBlock> &m1) {
+std::array<std::vector<GPUBlock>, 2> SimplestOT::send(size_t count) {
   uint64_t a = rand() & ((1 << 5) - 1);
   A = pow(g, a);
-  n = m0.size();
+  n = count;
   EventLog::start(BaseOTSend);
   toOtherBuffer((uint8_t*) &A, 0, sizeof(A));
-  toOtherBuffer((uint8_t*) &n, 1, sizeof(n));
 
   A = A * a;
   B.resize(n);
   fromOwnBuffer((uint8_t*) &B.at(0), 0, sizeof(B.at(0)) * B.size());
 
+  std::array<std::vector<GPUBlock>, 2> m;
+  m[0] = std::vector<GPUBlock>(n, GPUBlock(TREENODE_SIZE));
+  m[1] = std::vector<GPUBlock>(n, GPUBlock(TREENODE_SIZE));
   for (size_t i = 0; i < n; i++) {
     B.at(i) *= a;
     RandomOracle ro(TREENODE_SIZE);
     ro.Update(B.at(i));
     ro.Update(i);
     uint8_t buff[TREENODE_SIZE];
-    cudaMemcpy(buff, m0.at(i).data_d, TREENODE_SIZE, cudaMemcpyDeviceToHost);
     ro.Final(buff);
+    cudaMemcpy(m[0].at(i).data_d, buff, TREENODE_SIZE, cudaMemcpyHostToDevice);
 
     B.at(i) -= A;
     ro.Reset();
     ro.Update(B.at(i));
     ro.Update(i);
-    cudaMemcpy(buff, m1.at(i).data_d, TREENODE_SIZE, cudaMemcpyDeviceToHost);
     ro.Final(buff);
+    cudaMemcpy(m[1].at(i).data_d, buff, TREENODE_SIZE, cudaMemcpyHostToDevice);
   }
   EventLog::end(BaseOTSend);
+  return m;
 }
 
-std::vector<GPUBlock> SimplestOT::recv(uint64_t c) {
+std::vector<GPUBlock> SimplestOT::recv(size_t count, uint64_t choice) {
   fromOwnBuffer((uint8_t*) &A, 0, sizeof(A));
-  fromOwnBuffer((uint8_t*) &n, 1, sizeof(n));
+  n = count;
   EventLog::start(BaseOTRecv);
-  std::vector<GPUBlock> res(n);
+  std::vector<GPUBlock> mb(n);
   std::vector<uint64_t> b(n);
   for (size_t i = 0; i < n; i++) {
     b.at(i) = rand() & ((1 << 5) - 1);
-    uint8_t choice = c & (1 << i) >> i;
+    uint8_t c = choice & (1 << i) >> i;
     uint64_t B0 = pow(g, b.at(i));
     uint64_t B1 = A + B0;
-    B.push_back(choice == 0 ? B0 : B1);
+    B.push_back(c == 0 ? B0 : B1);
   }
   toOtherBuffer((uint8_t*) &B.at(0), 0, sizeof(B.at(0)) * B.size());
   uint8_t buff[TREENODE_SIZE];
@@ -89,8 +96,8 @@ std::vector<GPUBlock> SimplestOT::recv(uint64_t c) {
     ro.Update(mB);
     ro.Update(i);
     ro.Final(buff);
-    cudaMemcpy(res.at(i).data_d, buff, TREENODE_SIZE, cudaMemcpyHostToDevice);
+    cudaMemcpy(mb.at(i).data_d, buff, TREENODE_SIZE, cudaMemcpyHostToDevice);
   }
   EventLog::end(BaseOTRecv);
-  return res;
+  return mb;
 }

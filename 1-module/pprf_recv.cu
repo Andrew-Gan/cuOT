@@ -35,21 +35,7 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
   if (err != cudaSuccess)
     fprintf(stderr, "choice vec: %s\n", cudaGetErrorString(err));
 
-  for (int t = 0; t < numTrees; t++) {
-    baseOT.push_back(new SimplestOT(OT::Recver, t+1));
-  }
   EventLog::end(BufferInit);
-
-  // obtain sums of every layer of every tree
-  std::vector<std::future<std::vector<GPUBlock>>> baseOTWorkers;
-  for (int t = 0; t < numTrees; t++) {
-    baseOTWorkers.push_back(std::async([t, &baseOT, choices]() {
-      return baseOT.at(t)->recv(choices[t]);
-    }));
-  }
-  for (int t = 0; t < numTrees; t++) {
-    sum.at(t) = baseOTWorkers.at(t).get();
-  }
 
   for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     input = output;

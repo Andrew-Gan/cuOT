@@ -48,40 +48,26 @@ void test_aes() {
   printf("test_aes passed!\n");
 }
 
-void senderFunc(std::vector<GPUBlock> &m0, std::vector<GPUBlock> &m1) {
-  SimplestOT sender(OT::Sender, 0);
-  sender.send(m0, m1);
-}
-
-std::vector<GPUBlock> recverFunc(uint64_t b) {
-  SimplestOT recver(OT::Recver, 0);
-  return recver.recv(b);
-}
-
 void test_base_ot() {
-  std::vector<GPUBlock> m0(4, GPUBlock(1024));
-  std::vector<GPUBlock> m1(4, GPUBlock(1024));
-  std::vector<GPUBlock> mb_expected(4, GPUBlock(1024));
-  for (int i = 0; i < m0.size(); i++) {
-    m0.at(i).clear();
-    m0.at(i).set(0x20);
-    m1.at(i).clear();
-    m1.at(i).set(0x40);
-  }
-  std::future sender = std::async(senderFunc, std::ref(m0), std::ref(m1));
-  std::future recver = std::async(recverFunc, 0b1001);
+  const uint64_t choice = 0b1001;
+  std::future sender = std::async([]() {
+    return SimplestOT(SimplestOT::Sender, 0).send(4);
+  });
+  std::future recver = std::async([]() {
+    return SimplestOT(SimplestOT::Recver, 0).recv(4, choice);
+  });
 
-  for (GPUBlock &m : mb_expected) {
-    m.clear();
-  }
-  mb_expected.at(0).set(0x40);
-  mb_expected.at(1).set(0x20);
-  mb_expected.at(2).set(0x20);
-  mb_expected.at(3).set(0x40);
-  sender.get();
-  std::vector<GPUBlock> mb_actual = recver.get();
-  for (int i = 0; i < mb_actual.size(); i++) {
-    assert(mb_actual.at(i) == mb_expected.at(i));
+  auto pair = sender.get();
+  std::vector<GPUBlock> m0 = pair[0];
+  std::vector<GPUBlock> m1 = pair[1];
+  std::vector<GPUBlock> mb = recver.get();
+
+  for (int i = 0; i < mb.size(); i++) {
+    uint8_t c = choice & (1 << i);
+    if (c == 0)
+      assert(mb.at(i) == m0.at(i));
+    else
+      assert(mb.at(i) == m1.at(i));
   }
 
   printf("test_base_ot passed!\n");
