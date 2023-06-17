@@ -1,4 +1,4 @@
-#include <cryptoTools/Crypto/Blake2.h>
+#include <cryptoTools/Crypto/random_oracle.h>
 
 namespace osuCrypto
 {

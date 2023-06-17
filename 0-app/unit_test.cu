@@ -64,6 +64,7 @@ void test_base_ot() {
 
   for (int i = 0; i < mb.size(); i++) {
     uint8_t c = choice & (1 << i);
+    std::cout << "m0: " << m0.at(i) << " m1: " << m1.at(i) << " mb: " << mb.at(i) << std::endl;
     if (c == 0)
       assert(mb.at(i) == m0.at(i));
     else

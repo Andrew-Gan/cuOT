@@ -11,6 +11,19 @@
 
 #include "Hashable.h"
 
+template<typename T, typename Enable = void>
+struct Hashable : std::false_type {};
+
+template<typename T>
+struct Hashable<T, typename std::enable_if<std::is_pod<T>::value>::type> : std::true_type
+{
+    template<typename Hasher>
+    static void hash(const T& t, Hasher& hasher)
+    {
+        hasher.Update((uint8_t*) &t, sizeof(T));
+    }
+};
+
 // An implementation of Blake 2
 class Blake2 {
 public:

@@ -42,34 +42,38 @@ void SimplestOT::toOtherBuffer(uint8_t *s, int id, size_t nBytes) {
 }
 
 std::array<std::vector<GPUBlock>, 2> SimplestOT::send(size_t count) {
-  uint64_t a = rand() & ((1 << 5) - 1);
-  A = pow(g, a);
-  n = count;
   EventLog::start(BaseOTSend);
+  uint64_t a = rand() & ((1 << 5) - 1);
+  A = pointGen(a);
+  n = count;
   toOtherBuffer((uint8_t*) &A, 0, sizeof(A));
 
-  A = A * a;
   B.resize(n);
   fromOwnBuffer((uint8_t*) &B.at(0), 0, sizeof(B.at(0)) * B.size());
 
   std::array<std::vector<GPUBlock>, 2> m;
   m[0] = std::vector<GPUBlock>(n, GPUBlock(TREENODE_SIZE));
   m[1] = std::vector<GPUBlock>(n, GPUBlock(TREENODE_SIZE));
+  A *= a;
+
   for (size_t i = 0; i < n; i++) {
     B.at(i) *= a;
     RandomOracle ro(TREENODE_SIZE);
+    printf("send0: i = %lu, B = %lu\n", i, B.at(i));
     ro.Update(B.at(i));
     ro.Update(i);
-    uint8_t buff[TREENODE_SIZE];
-    ro.Final(buff);
-    cudaMemcpy(m[0].at(i).data_d, buff, TREENODE_SIZE, cudaMemcpyHostToDevice);
+    uint8_t buff0[TREENODE_SIZE];
+    ro.Final(buff0);
+    cudaMemcpy(m[0].at(i).data_d, buff0, TREENODE_SIZE, cudaMemcpyHostToDevice);
 
     B.at(i) -= A;
     ro.Reset();
+    printf("send1: i = %lu, B = %lu\n", i, B.at(i));
     ro.Update(B.at(i));
     ro.Update(i);
-    ro.Final(buff);
-    cudaMemcpy(m[1].at(i).data_d, buff, TREENODE_SIZE, cudaMemcpyHostToDevice);
+    uint8_t buff1[TREENODE_SIZE];
+    ro.Final(buff1);
+    cudaMemcpy(m[1].at(i).data_d, buff1, TREENODE_SIZE, cudaMemcpyHostToDevice);
   }
   EventLog::end(BaseOTSend);
   return m;
@@ -79,13 +83,13 @@ std::vector<GPUBlock> SimplestOT::recv(size_t count, uint64_t choice) {
   fromOwnBuffer((uint8_t*) &A, 0, sizeof(A));
   n = count;
   EventLog::start(BaseOTRecv);
-  std::vector<GPUBlock> mb(n);
+  std::vector<GPUBlock> mb(n, TREENODE_SIZE);
   std::vector<uint64_t> b(n);
   for (size_t i = 0; i < n; i++) {
     b.at(i) = rand() & ((1 << 5) - 1);
-    uint8_t c = choice & (1 << i) >> i;
-    uint64_t B0 = pow(g, b.at(i));
+    uint64_t B0 = pointGen(b.at(i));
     uint64_t B1 = A + B0;
+    uint8_t c = choice & (1 << i) >> i;
     B.push_back(c == 0 ? B0 : B1);
   }
   toOtherBuffer((uint8_t*) &B.at(0), 0, sizeof(B.at(0)) * B.size());
@@ -93,6 +97,7 @@ std::vector<GPUBlock> SimplestOT::recv(size_t count, uint64_t choice) {
   for (size_t i = 0; i < n; i++) {
     uint64_t mB = A * b.at(i);
     RandomOracle ro(TREENODE_SIZE);
+    printf("recv: i = %lu, B = %lu\n", i, mB);
     ro.Update(mB);
     ro.Update(i);
     ro.Final(buff);
