@@ -4,11 +4,22 @@
 #include "aes.h"
 #include "pprf.h"
 #include "simplest_ot.h"
+#include "silent_ot.h"
 #include "basic_op.h"
 
 using KeyPair = std::pair<uint8_t*, uint8_t*>;
 
-static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int numTrees, int depth) {
+std::pair<GPUBlock, GPUBlock> SilentOT::pprf_send(TreeNode root, int depth, int numTrees) {
+  size_t numLeaves = pow(2, depth);
+  uint64_t k0 = 3242342, k1 = 8993849;
+  uint8_t k0_blk[16] = {0};
+  uint8_t k1_blk[16] = {0};
+
+  memcpy(&k0_blk[8], &k0, sizeof(k0));
+  memcpy(&k1_blk[8], &k1, sizeof(k1));
+
+  KeyPair keys = {k0_blk, k1_blk};
+
   EventLog::start(BufferInit);
   GPUBlock delta(TREENODE_SIZE);
   delta.clear();
@@ -18,8 +29,6 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
   GPUBlock output(numTrees * numLeaves * TREENODE_SIZE);
   std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
   std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
-  std::vector<std::vector<GPUBlock>> leftSum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
-  std::vector<std::vector<GPUBlock>> rightSum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
   Aes aesLeft(keys.first);
   Aes aesRight(keys.second);
 
@@ -50,35 +59,20 @@ static std::pair<GPUBlock, GPUBlock> expander(TreeNode root, KeyPair keys, int n
     EventLog::end(SumNodes);
 
     for (int t = 0; t < numTrees; t++) {
-      leftSum.at(t).at(d-1).minCopy(leftNodes.at(t));
-      rightSum.at(t).at(d-1).minCopy(rightNodes.at(t));
+      leftHash.at(t).at(d-1) ^= leftNodes.at(t);
+      rightHash.at(t).at(d-1) ^= rightNodes.at(t);
     }
     cudaDeviceSynchronize();
 
     if (d == depth) {
       for (int t = 0; t < numTrees; t++) {
-        leftSum.at(t).at(d) = leftSum.at(t).at(d-1);
-        leftSum.at(t).at(d) ^= delta;
-        rightSum.at(t).at(d) = rightSum.at(t).at(d-1);
-        rightSum.at(t).at(d) ^= delta;
+        leftHash.at(t).at(d) ^= leftNodes.at(t);
+        leftHash.at(t).at(d) ^= delta;
+        rightHash.at(t).at(d) ^= rightNodes.at(t);
+        rightHash.at(t).at(d) ^= delta;
       }
     }
   }
 
-  return std::make_pair(output, delta);
-}
-
-std::pair<GPUBlock, GPUBlock> pprf_sender(TreeNode root, int depth, int numTrees) {
-  size_t numLeaves = pow(2, depth);
-  uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k0_blk[16] = {0};
-  uint8_t k1_blk[16] = {0};
-
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
-
-  KeyPair keys = std::make_pair(k0_blk, k1_blk);
-  auto [fullVector, delta] = expander(root, keys, numTrees, depth);
-
-  return {fullVector, delta};
+  return {output, delta};
 }

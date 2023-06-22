@@ -6,6 +6,7 @@
 #include "pprf.h"
 #include "aes_expand.h"
 #include "simplest_ot.h"
+#include "silent_ot.h"
 #include "basic_op.h"
 
 using KeyPair = std::pair<uint8_t*, uint8_t*>;
@@ -15,14 +16,24 @@ void set_choice(SparseVector choiceVector, int index, int t) {
   choiceVector.nonZeros[t] = index;
 }
 
-static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choices, int numTrees, int depth) {
+std::pair<GPUBlock, SparseVector> SilentOT::pprf_recv(uint64_t *choices, int depth, int numTrees) {
+  size_t numLeaves = pow(2, depth);
+
+  uint64_t k0 = 3242342, k1 = 8993849;
+  uint8_t k0_blk[16] = {0};
+  uint8_t k1_blk[16] = {0};
+
+  memcpy(&k0_blk[8], &k0, sizeof(k0));
+  memcpy(&k1_blk[8], &k1, sizeof(k1));
+
+  KeyPair keys = {k0_blk, k1_blk};
+
   EventLog::start(BufferInit);
   size_t numLeaves = pow(2, depth);
   GPUBlock input(numTrees * numLeaves * TREENODE_SIZE);
   GPUBlock output(numTrees * numLeaves * TREENODE_SIZE);
   std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
   std::vector<GPUBlock> rightNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
-  std::vector<std::vector<GPUBlock>> sum(numTrees, std::vector<GPUBlock>(depth+1, GPUBlock(TREENODE_SIZE)));
   std::vector<SimplestOT*> baseOT;
   Aes aesLeft(keys.first);
   Aes aesRight(keys.second);
@@ -36,6 +47,21 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
     fprintf(stderr, "choice vec: %s\n", cudaGetErrorString(err));
 
   EventLog::end(BufferInit);
+
+  while(leftHash.size() < numTrees || rightHash.size() < numTrees);
+  std::vector<std::future<void>> hashWorker;
+  for (size_t t = 0; t < numTrees; t++) {
+    hashWorker.push_back(std::async([this, t, depth, choices]() {
+      for (size_t d = 0; d < depth; d++) {
+        int choice = (choices[t] & (1 << d-1)) >> d-1;
+        if (choice == 0)
+          choiceHash.at(t).at(d) ^= leftHash.at(t).at(d);
+        else
+          choiceHash.at(t).at(d) ^= rightHash.at(t).at(d);
+      }
+    }));
+  }
+  auto &sum = choiceHash; // alias
 
   for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     input = output;
@@ -104,21 +130,5 @@ static std::pair<GPUBlock, SparseVector> expander(KeyPair keys, uint64_t *choice
     choiceVector.weight++;
   }
 
-  return std::make_pair(output, choiceVector);
-}
-
-std::pair<GPUBlock, SparseVector> pprf_recver(uint64_t *choices, int depth, int numTrees) {
-  size_t numLeaves = pow(2, depth);
-
-  uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k0_blk[16] = {0};
-  uint8_t k1_blk[16] = {0};
-
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
-
-  KeyPair keys = std::make_pair(k0_blk, k1_blk);
-  auto [puncVector, choiceVector] = expander(keys, choices, numTrees, depth);
-
-  return {puncVector, choiceVector};
+  return {output, choiceVector};
 }

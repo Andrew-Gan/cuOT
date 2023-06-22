@@ -4,7 +4,9 @@
 #include <vector>
 #include <mutex>
 
-GPUBlock::GPUBlock() : GPUBlock(1024) {}
+GPUBlock::GPUBlock() {
+  nBytes = 0;
+}
 
 GPUBlock::GPUBlock(size_t n) {
   nBytes = n;
@@ -35,10 +37,8 @@ GPUBlock& GPUBlock::operator*=(const GPUBlock &rhs) {
 
 GPUBlock& GPUBlock::operator^=(const GPUBlock &rhs) {
   size_t numBlock = (nBytes - 1) / 1024 + 1;
-  if (nBytes == rhs.nBytes)
-    xor_gpu<<<numBlock, 1024>>>(data_d, data_d, rhs.data_d, nBytes);
-  else
-    xor_circular<<<numBlock, 1024>>>(data_d, data_d, rhs.data_d, rhs.nBytes, nBytes);
+  size_t minNBytes = std::min(nBytes, rhs.nBytes);
+  xor_gpu<<<numBlock, 1024>>>(data_d, data_d, rhs.data_d, minNBytes);
   cudaDeviceSynchronize();
   return *this;
 }

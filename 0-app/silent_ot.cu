@@ -25,7 +25,7 @@ SilentOT::SilentOT(Role myrole, int myid, int logOT, int numTrees, uint64_t *myc
   }
 
   nTree = numTrees;
-  depth = logOT - log2(numTrees) + 1;
+  depth = logOT - log2((float) numTrees) + 1;
   numOT = pow(2, logOT);
 }
 
@@ -80,7 +80,7 @@ std::pair<GPUBlock, GPUBlock> SilentOT::send() {
     }
   }
   del_rand(prng, randMatrix);
-  return std::make_pair(fullVectorHashed, delta);
+  return {fullVectorHashed, delta};
 }
 
 std::pair<GPUBlock, GPUBlock> SilentOT::recv() {
@@ -104,5 +104,5 @@ std::pair<GPUBlock, GPUBlock> SilentOT::recv() {
     }
   }
   del_rand(prng, randMatrix);
-  return std::make_pair(puncVectorHashed, choiceVectorHashed);
+  return {puncVectorHashed, choiceVectorHashed};
 }

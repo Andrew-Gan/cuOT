@@ -24,9 +24,12 @@ private:
   // sender only
   std::vector<std::vector<GPUBlock>> leftHash;
   std::vector<std::vector<GPUBlock>> rightHash;
+  std::pair<GPUBlock, GPUBlock> pprf_send(TreeNode root, int depth, int numTrees);
   // recver only
   uint64_t *choices;
   std::vector<std::vector<GPUBlock>> choiceHash;
+  std::pair<GPUBlock, SparseVector> pprf_recv(uint64_t *choices, int depth, int numTrees);
+  // network
 };
 
 extern std::array<std::atomic<SilentOT*>, 100> silentOTSenders;
