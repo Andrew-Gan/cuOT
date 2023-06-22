@@ -12,7 +12,6 @@
 
 #include "libdivide.h"
 
-
 namespace osuCrypto
 {
     struct Mod
@@ -175,7 +174,7 @@ namespace osuCrypto
 
 
     // A cuckoo hashing implementation. The cuckoo hash table takes {value, index}
-    // pairs as input and stores the index. 
+    // pairs as input and stores the index.
     template<CuckooTypes Mode = ThreadSafe>
     class CuckooIndex
     {
@@ -238,13 +237,13 @@ namespace osuCrypto
 
         static CuckooParam selectParams(const u64& n, const u64& statSecParam, const u64& stashSize, const u64& h);
 
-        // insert unhashed items into the table using the provided hashing seed. 
-        // set startIdx to be the first idx of the items being inserted. When 
+        // insert unhashed items into the table using the provided hashing seed.
+        // set startIdx to be the first idx of the items being inserted. When
         // find is called, it will return these indexes.
         void insert(span<block> items, block hashingSeed, u64 startIdx = 0);
 
-        // insert pre hashed items into the table. 
-        // set startIdx to be the first idx of the items being inserted. When 
+        // insert pre hashed items into the table.
+        // set startIdx to be the first idx of the items being inserted. When
         // find is called, it will return these indexes.
         void insert(span<const block> items, u64 startIdx = 0);
 

@@ -4,7 +4,6 @@
 #include "cryptoTools/Common/BitIterator.h"
 #include "cryptoTools/Crypto/PRNG.h"
 // #include "cryptoTools/Network/IoBuffer.h"
-#include <utility>
 
 namespace osuCrypto {
 

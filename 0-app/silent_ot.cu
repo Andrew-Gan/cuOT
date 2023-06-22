@@ -1,4 +1,3 @@
-#include "pprf.h"
 #include "hash.h"
 #include "rand.h"
 #include "simplest_ot.h"
@@ -61,7 +60,7 @@ std::pair<GPUBlock, GPUBlock> SilentOT::send() {
   root.data[0] = 123456;
   root.data[1] = 7890123;
 
-  auto [fullVector, delta] = pprf_sender(root, depth, nTree);
+  auto [fullVector, delta] = pprf_send(root, depth, nTree);
   GPUBlock fullVectorHashed(numOT * TREENODE_SIZE);
   return std::pair<GPUBlock, GPUBlock>(); //debug
 
@@ -84,7 +83,7 @@ std::pair<GPUBlock, GPUBlock> SilentOT::send() {
 }
 
 std::pair<GPUBlock, GPUBlock> SilentOT::recv() {
-  auto [puncVector, choiceVector] = pprf_recver(choices, depth, nTree);
+  auto [puncVector, choiceVector] = pprf_recv(choices, depth, nTree);
   GPUBlock puncVectorHashed(numOT * TREENODE_SIZE);
   GPUBlock choiceVectorHashed(numOT * TREENODE_SIZE);
   return std::pair<GPUBlock, GPUBlock>(); //debug

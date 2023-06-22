@@ -3,11 +3,17 @@
 
 #include <cstdint>
 #include <memory>
-#include "util.h"
-
+#include "cryptoTools/Common/config.h"
 #include "block.h"
 
+#ifdef ENABLE_SPAN_LITE
+#ifndef span_CONFIG_SELECT_SPAN
+    #define span_CONFIG_SELECT_SPAN 1
+#endif
+#include <nonstd/span.hpp>
+#else
 #include <span>
+#endif
 
 #include "Bit.h"
 

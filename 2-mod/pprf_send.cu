@@ -2,10 +2,12 @@
 #include <future>
 
 #include "aes.h"
-#include "pprf.h"
 #include "simplest_ot.h"
 #include "silent_ot.h"
 #include "basic_op.h"
+
+#include "util.h"
+#include "gpu_block.h"
 
 using KeyPair = std::pair<uint8_t*, uint8_t*>;
 
@@ -24,7 +26,7 @@ std::pair<GPUBlock, GPUBlock> SilentOT::pprf_send(TreeNode root, int depth, int 
   GPUBlock delta(TREENODE_SIZE);
   delta.clear();
   delta.set(123456);
-  size_t numLeaves = pow(2, depth);
+
   GPUBlock input(numTrees * numLeaves * TREENODE_SIZE);
   GPUBlock output(numTrees * numLeaves * TREENODE_SIZE);
   std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));

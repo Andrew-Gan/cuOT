@@ -3,11 +3,13 @@
 #include <future>
 
 #include "aes.h"
-#include "pprf.h"
 #include "aes_expand.h"
 #include "simplest_ot.h"
 #include "silent_ot.h"
 #include "basic_op.h"
+
+#include "util.h"
+#include "gpu_block.h"
 
 using KeyPair = std::pair<uint8_t*, uint8_t*>;
 
@@ -29,7 +31,6 @@ std::pair<GPUBlock, SparseVector> SilentOT::pprf_recv(uint64_t *choices, int dep
   KeyPair keys = {k0_blk, k1_blk};
 
   EventLog::start(BufferInit);
-  size_t numLeaves = pow(2, depth);
   GPUBlock input(numTrees * numLeaves * TREENODE_SIZE);
   GPUBlock output(numTrees * numLeaves * TREENODE_SIZE);
   std::vector<GPUBlock> leftNodes(numTrees, GPUBlock(numLeaves * TREENODE_SIZE / 2));
@@ -90,7 +91,7 @@ std::pair<GPUBlock, SparseVector> SilentOT::pprf_recv(uint64_t *choices, int dep
         sideCasted = (TreeNode*) xorSide->data_d;
         size_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
         cudaMemcpy(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, TREENODE_SIZE, cudaMemcpyDeviceToDevice);
-       }
+      }
     }
 
     // conduct sum/xor in parallel
