@@ -1,7 +1,6 @@
 #include "simplest_ot.h"
-#include "Blake2.h"
-
-using RandomOracle = Blake2;
+#include "cryptoTools/Crypto/RandomOracle.h"
+#include "cryptoTools/Crypto/SodiumCurve.h"
 
 std::array<std::atomic<SimplestOT*>, 100> simplestOTSenders;
 std::array<std::atomic<SimplestOT*>, 100> simplestOTRecvers;
@@ -44,7 +43,8 @@ void SimplestOT::toOtherBuffer(uint8_t *s, int id, size_t nBytes) {
 std::array<std::vector<GPUBlock>, 2> SimplestOT::send(size_t count) {
   EventLog::start(BaseOTSend);
   uint64_t a = rand() & ((1 << 5) - 1);
-  A = pointGen(a);
+  A = a;
+  osuCrypto::Sodium::Rist25519::mulGenerator(A);
   n = count;
   toOtherBuffer((uint8_t*) &A, 0, sizeof(A));
 
@@ -58,7 +58,7 @@ std::array<std::vector<GPUBlock>, 2> SimplestOT::send(size_t count) {
 
   for (size_t i = 0; i < n; i++) {
     B.at(i) *= a;
-    RandomOracle ro(TREENODE_SIZE);
+    osuCrypto::RandomOracle ro(TREENODE_SIZE);
     printf("send0: i = %lu, B = %lu\n", i, B.at(i));
     ro.Update(B.at(i));
     ro.Update(i);
@@ -87,7 +87,8 @@ std::vector<GPUBlock> SimplestOT::recv(size_t count, uint64_t choice) {
   std::vector<uint64_t> b(n);
   for (size_t i = 0; i < n; i++) {
     b.at(i) = rand() & ((1 << 5) - 1);
-    uint64_t B0 = pointGen(b.at(i));
+    uint64_t B0 = b.at(i);
+    osuCrypto::Sodium::Rist25519::mulGenerator(B0);
     uint64_t B1 = A + B0;
     uint8_t c = choice & (1 << i) >> i;
     B.push_back(c == 0 ? B0 : B1);
@@ -96,7 +97,7 @@ std::vector<GPUBlock> SimplestOT::recv(size_t count, uint64_t choice) {
   uint8_t buff[TREENODE_SIZE];
   for (size_t i = 0; i < n; i++) {
     uint64_t mB = A * b.at(i);
-    RandomOracle ro(TREENODE_SIZE);
+    osuCrypto::RandomOracle ro(TREENODE_SIZE);
     printf("recv: i = %lu, B = %lu\n", i, mB);
     ro.Update(mB);
     ro.Update(i);

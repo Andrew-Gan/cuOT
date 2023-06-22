@@ -4,6 +4,7 @@
 #include "gpu_block.h"
 #include "util.h"
 #include "aes.h"
+#include <array>
 
 class SimplestOT {
 public:

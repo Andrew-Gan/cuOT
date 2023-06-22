@@ -1,3 +1,6 @@
 {
-    "editor.trimAutoWhitespace": false
+    "editor.trimAutoWhitespace": false,
+    "files.associations": {
+        "array": "cpp"
+    }
 }
