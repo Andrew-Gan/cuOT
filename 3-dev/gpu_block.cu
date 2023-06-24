@@ -39,7 +39,6 @@ GPUBlock& GPUBlock::operator^=(const GPUBlock &rhs) {
   size_t numBlock = (nBytes - 1) / 1024 + 1;
   size_t minNBytes = std::min(nBytes, rhs.nBytes);
   xor_gpu<<<numBlock, 1024>>>(data_d, data_d, rhs.data_d, minNBytes);
-  cudaDeviceSynchronize();
   return *this;
 }
 

@@ -61,7 +61,7 @@ def plot_pipeline(filename):
   plt.title('Pipeline of Thread Operations over Time with n=%s and t=%s' % (logOT, numTree))
   plt.xlabel('Time (ms)')
   plt.ylabel('Thread ID')
-  plt.legend(legends, loc='upper left', bbox_to_anchor=(1, 1))
+  plt.legend(legends, loc='upper right', bbox_to_anchor=(1, 1))
 
   eventDuration = {}
   for eventID in eventList:
@@ -73,9 +73,12 @@ def plot_pipeline(filename):
 
   plt.table([[eventList[i], f"{eventDuration[i]:.3f}"] for i in eventList],
     colWidths=[0.2, 0.15], colLabels=['Operation', 'Duration (ms)'],
-    cellLoc='left', loc='upper left')
+    cellLoc='left', loc='bottom right')
 
   plt.savefig(filename.split('.')[0], bbox_inches='tight')
+
+# def plot_numtree_vs_runtime(filename):
+
 
 if __name__ == '__main__':
   plot_pipeline(sys.argv[1])

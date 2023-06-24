@@ -71,7 +71,7 @@ namespace osuCrypto
 
 		template<typename T,
 			typename Enable = typename std::enable_if<
-			std::is_pod<T>::value &&
+			std::is_trivial<T>::value &&
 			(sizeof(T) <= 16) &&
 			(16 % sizeof(T) == 0)
 		>::type>
@@ -176,7 +176,7 @@ namespace osuCrypto
 		// For integer types, this will be specialized with SSE futher down.
 		template<typename T>
 		OC_FORCEINLINE static typename std::enable_if<
-			std::is_pod<T>::value &&
+			std::is_trivial<T>::value &&
 			(sizeof(T) <= 16) &&
 			(16 % sizeof(T) == 0),
 			block>::type allSame(T val)
@@ -218,7 +218,7 @@ namespace osuCrypto
 
 		OC_FORCEINLINE  block operator~() const
 		{
-			return *this ^ block(-1, -1);
+			return *this ^ block(UINT64_MAX, UINT64_MAX);
 		}
 
 
@@ -1009,7 +1009,7 @@ namespace osuCrypto
 	static_assert(std::is_trivial<block>::value, "expected block trivial");
 	static_assert(std::is_standard_layout<block>::value, "expected block pod");
 	//#define _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS
-		//static_assert(std::is_pod<block>::value, "expected block pod");
+		//static_assert(std::is_trivial<block>::value, "expected block pod");
 
 	OC_FORCEINLINE  block toBlock(std::uint64_t high_u64, std::uint64_t low_u64)
 	{

@@ -10,7 +10,7 @@
 #define AES_keyExpSize 176
 #define NUM_ROUNDS 10
 
-#define TREENODE_SIZE 16
+#define BLK_SIZE 16
 #define NUM_SAMPLES 8
 
 #define EXP_NUM_THREAD 16
@@ -21,7 +21,7 @@ typedef struct {
 } AES_ctx;
 
 typedef struct {
-  uint32_t data[TREENODE_SIZE / 4];
+  uint32_t data[BLK_SIZE / 4];
 } TreeNode;
 
 typedef struct {

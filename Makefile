@@ -38,20 +38,20 @@ all: $(EXE)
 $(EXE): $(APP_OBJ) $(LIB_OBJ) $(MOD_OBJ) $(DEV_OBJ)
 	$(CC) $(LIB) $^ -o $(EXE)
 
-$(OBJ)/app/%.o: $(OBJ)
-	$(CC) $(LIB) $(INC) -c -o $@ $(call FILTER,/$(basename $(notdir $@)).,$(APP_SRC))
+$(OBJ)/app/%.o: 0-app/%.cu | $(OBJ)
+	$(CC) $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ)/lib/%.o: $(OBJ)
 	$(CC) $(LIB) $(INC) -c -o $@ $(call FILTER,/$(basename $(notdir $@)).,$(LIB_SRC))
 
-$(OBJ)/mod/%.o: $(OBJ)
-	$(CC) $(LIB) $(INC) -c -o $@ $(call FILTER,/$(basename $(notdir $@)).,$(MOD_SRC))
+$(OBJ)/mod/%.o: 2-mod/%.cu | $(OBJ)
+	$(CC) $(LIB) $(INC) -c -o $@ $<
 
-$(OBJ)/dev/%.o: $(OBJ)
-	$(CC) $(LIB) $(INC) -c -o $@ $(call FILTER,/$(basename $(notdir $@)).,$(DEV_SRC))
+$(OBJ)/dev/%.o: 3-dev/%.cu | $(OBJ)
+	$(CC) $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ):
-	mkdir $@ $@/app $@/lib $@/mod $@/dev
+	mkdir -p $@/app $@/lib $@/mod $@/dev
 
 sbatch:
 	sbatch -n $(NUM_CPU) -N 1 --gpus-per-node=$(NUM_GPU) -A $(QUEUE) job.sh

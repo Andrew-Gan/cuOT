@@ -2,9 +2,12 @@
 #include <atomic>
 #include <vector>
 #include "gpu_block.h"
-#include "util.h"
-#include "aes.h"
 #include <array>
+#include "cryptoTools/Crypto/SodiumCurve.h"
+#include "cryptoTools/Crypto/PRNG.h"
+
+using Point = osuCrypto::Sodium::Rist25519;
+using Number = osuCrypto::Sodium::Prime25519;
 
 class SimplestOT {
 public:
@@ -18,15 +21,17 @@ private:
   Role role;
   int id;
   uint64_t g = 2;
-  uint64_t A = 0;
-  std::vector<uint64_t> B;
+  Number a;
+  std::vector<Number> b;
+  Point A;
+  std::vector<Point> B;
+  osuCrypto::PRNG prng;
   SimplestOT *other = nullptr;
-  size_t n = 0;
-  uint8_t buffer[2][320];
-  std::array<std::atomic<bool>, 2> hasContent;
+  uint8_t buffer[1024];
+  std::atomic<bool> hasContent;
 
-  void fromOwnBuffer(uint8_t *d, int id, size_t nBytes);
-  void toOtherBuffer(uint8_t *s, int id, size_t nBytes);
+  void fromOwnBuffer(uint8_t *d, size_t nBytes);
+  void toOtherBuffer(uint8_t *s, size_t nBytes);
 };
 
 extern std::array<std::atomic<SimplestOT*>, 100> simplestOTSenders;

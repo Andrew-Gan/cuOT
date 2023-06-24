@@ -291,14 +291,14 @@ void aesExpand128(uint32_t *aesKey, TreeNode *leaves, uint32_t *m,
 
 	//-------------------------------- end of 15th stage --------------------------------
 
-	int elemPerNode = TREENODE_SIZE / 4;
+	int elemPerNode = BLK_SIZE / 4;
 	size_t pairId =  (bx * AES_BSIZE + tx) / elemPerNode;
 	size_t leavesId = 2 * pairId + expandDir;
 	if (leavesId < width) {
 		leaves[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
 	if (m != nullptr) {
-		size_t offset = (pairId*TREENODE_SIZE+4*(tx%elemPerNode)) / sizeof(*m);
+		size_t offset = (pairId*BLK_SIZE+4*(tx%elemPerNode)) / sizeof(*m);
 		m[offset] = stageBlock2[tx].uival;
 	}
 }

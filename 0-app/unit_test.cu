@@ -77,6 +77,7 @@ void test_base_ot() {
 void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, GPUBlock &choiceVector, GPUBlock &delta) {
   fullVector ^= puncVector;
   choiceVector *= delta;
+  cudaDeviceSynchronize();
 
   // assert(fullVector == choiceVector);
   printf("test_cot passed!\n");

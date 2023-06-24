@@ -1,22 +1,16 @@
 #!/bin/bash
 
-module unload intel
-module load gcc/9.3.0
-
 cd $SLURM_SUBMIT_DIR
 
 rm -f nsys* out out-nsys
+make -j -s
+mkdir -p data
 
-make -j
-
-./ot 1 20 2 data/log-20-2.txt
-python plotter.py data/log-20-2.txt
-
-./ot 1 20 4 data/log-20-4.txt
-python plotter.py data/log-20-4.txt
-
-./ot 1 20 8 data/log-20-8.txt
-python plotter.py data/log-20-8.txt
+for NUMTREE in 2 4 8 16 32 64
+do
+    ./ot 1 20 $NUMTREE data/log-20-$NUMTREE.txt
+    python plotter.py data/log-20-$NUMTREE.txt
+done
 
 # nsys profile --stats=true --output=nsys-stats ./ot 1 14 4 data/log-14-nsys.txt
 
