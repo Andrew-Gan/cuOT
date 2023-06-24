@@ -1,3 +1,5 @@
 {
-    "editor.trimAutoWhitespace": false
+    "files.associations": {
+        "type_traits": "cpp"
+    }
 }

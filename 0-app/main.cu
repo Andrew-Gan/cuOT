@@ -20,7 +20,6 @@ static std::pair<GPUBlock, GPUBlock> sender_worker(int protocol, int logOT, int 
     case 1: ot = new SilentOT(SilentOT::Sender, 0, logOT, numTrees, nullptr);
       break;
   }
-  ot->sendBaseOTs();
   std::pair<GPUBlock, GPUBlock> pair = ot->send();
   delete ot;
   return pair;
@@ -33,7 +32,6 @@ static std::pair<GPUBlock, GPUBlock> recver_worker(int protocol, int logOT, int 
     case 1: ot = new SilentOT(SilentOT::Recver, 0, logOT, numTrees, choices);
       break;
   }
-  ot->recvBaseOTs();
   std::pair<GPUBlock, GPUBlock> pair = ot->recv();
   delete[] choices;
   delete ot;
