@@ -31,6 +31,7 @@ SilentOT::SilentOT(Role myrole, int myid, int logOT, int numTrees, uint64_t *myc
 }
 
 void SilentOT::baseOT_send() {
+  EventLog::start(BaseOTSend);
   std::vector<std::future<std::array<std::vector<GPUBlock>, 2>>> workers;
   for (int t = 0; t < nTree; t++) {
     workers.push_back(std::async([t, this]() {
@@ -42,9 +43,11 @@ void SilentOT::baseOT_send() {
     leftHash.push_back(res[0]);
     rightHash.push_back(res[1]);
   }
+  EventLog::end(BaseOTSend);
 }
 
 void SilentOT::baseOT_recv() {
+  EventLog::start(BaseOTRecv);
   std::vector<std::future<std::vector<GPUBlock>>> workers;
   for (int t = 0; t < nTree; t++) {
     workers.push_back(std::async([t, this]() {
@@ -61,6 +64,7 @@ void SilentOT::baseOT_recv() {
     auto res = worker.get();
     choiceHash.push_back(res);
   }
+  EventLog::end(BaseOTRecv);
 }
 
 std::pair<GPUBlock, GPUBlock> SilentOT::send() {

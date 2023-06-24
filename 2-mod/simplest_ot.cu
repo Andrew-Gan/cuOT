@@ -40,7 +40,6 @@ void SimplestOT::toOtherBuffer(uint8_t *s, size_t nBytes) {
 }
 
 std::array<std::vector<GPUBlock>, 2> SimplestOT::send(size_t count) {
-  EventLog::start(BaseOTSend);
   a.randomize(prng);
   A = Point::mulGenerator(a);
   toOtherBuffer((uint8_t*) &A, sizeof(A));
@@ -68,13 +67,11 @@ std::array<std::vector<GPUBlock>, 2> SimplestOT::send(size_t count) {
     ro.Final(buff1);
     cudaMemcpy(m[1].at(i).data_d, buff1, BLK_SIZE, cudaMemcpyHostToDevice);
   }
-  EventLog::end(BaseOTSend);
   return m;
 }
 
 std::vector<GPUBlock> SimplestOT::recv(size_t count, uint64_t choice) {
   fromOwnBuffer((uint8_t*) &A, sizeof(A));
-  EventLog::start(BaseOTRecv);
   std::vector<GPUBlock> mb(count, BLK_SIZE);
   for (size_t i = 0; i < count; i++) {
     b.emplace_back(prng);
@@ -94,6 +91,5 @@ std::vector<GPUBlock> SimplestOT::recv(size_t count, uint64_t choice) {
     ro.Final(buff);
     cudaMemcpy(mb.at(i).data_d, buff, BLK_SIZE, cudaMemcpyHostToDevice);
   }
-  EventLog::end(BaseOTRecv);
   return mb;
 }
