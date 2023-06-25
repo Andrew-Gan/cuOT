@@ -4,11 +4,11 @@ cd $SLURM_SUBMIT_DIR
 
 rm -f nsys* out out-nsys
 make -j -s
-mkdir -p data
+mkdir -p output
 
-for NUMTREE in 2 4 8 16 32 64
+for NUMTREE in 8
 do
-    ./ot 1 20 $NUMTREE data/log-20-$NUMTREE.txt
+    ./ot 1 20 $NUMTREE
 done
 
 python plotter.py

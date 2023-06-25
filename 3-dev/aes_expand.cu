@@ -34,7 +34,7 @@
 #include "aes_expand.h"
 
 __global__
-void aesExpand128(uint32_t *aesKey, TreeNode *leaves, uint32_t *m,
+void aesExpand128(uint32_t *aesKey, TreeNode *interleaved, uint32_t *separated,
 	uint32_t *inData, int expandDir, uint64_t width) {
 	uint32_t bx		= blockIdx.x;
     uint32_t tx		= threadIdx.x;
@@ -295,10 +295,10 @@ void aesExpand128(uint32_t *aesKey, TreeNode *leaves, uint32_t *m,
 	uint64_t pairId =  (bx * AES_BSIZE + tx) / elemPerNode;
 	uint64_t leavesId = 2 * pairId + expandDir;
 	if (leavesId < width) {
-		leaves[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
+		interleaved[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
-	if (m != nullptr) {
-		uint64_t offset = (pairId*BLK_SIZE+4*(tx%elemPerNode)) / sizeof(*m);
-		m[offset] = stageBlock2[tx].uival;
+	if (separated != nullptr) {
+		uint64_t offset = (pairId*BLK_SIZE+4*(tx%elemPerNode)) / sizeof(*separated);
+		separated[offset] = stageBlock2[tx].uival;
 	}
 }

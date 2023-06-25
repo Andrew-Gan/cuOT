@@ -4,7 +4,7 @@
 #include <thread>
 
 #include "unit_test.h"
-#include "silent_ot.h"
+#include "silentOT.h"
 
 uint64_t* gen_choices(int numTrees) {
   uint64_t *choices = new uint64_t[numTrees];
@@ -15,26 +15,16 @@ uint64_t* gen_choices(int numTrees) {
 }
 
 static std::pair<GPUBlock, GPUBlock> sender_worker(int protocol, int logOT, int numTrees) {
-  SilentOT *ot;
-  switch(protocol) {
-    case 1: ot = new SilentOT(SilentOT::Sender, 0, logOT, numTrees, nullptr);
-      break;
-  }
-  std::pair<GPUBlock, GPUBlock> pair = ot->send();
-  delete ot;
+  SilentOTSender ot(0, logOT, numTrees);
+  std::pair<GPUBlock, GPUBlock> pair = ot.run();
   return pair;
 }
 
 static std::pair<GPUBlock, GPUBlock> recver_worker(int protocol, int logOT, int numTrees) {
   uint64_t *choices = gen_choices(numTrees);
-  SilentOT *ot;
-  switch(protocol) {
-    case 1: ot = new SilentOT(SilentOT::Recver, 0, logOT, numTrees, choices);
-      break;
-  }
-  std::pair<GPUBlock, GPUBlock> pair = ot->recv();
+  SilentOTRecver ot(0, logOT, numTrees, choices);
+  std::pair<GPUBlock, GPUBlock> pair = ot.run();
   delete[] choices;
-  delete ot;
   return pair;
 }
 
@@ -44,8 +34,8 @@ int main(int argc, char** argv) {
     test_base_ot();
     return 0;
   }
-  if (argc < 5) {
-    fprintf(stderr, "Usage: ./ot protocol logOT trees logfile\n");
+  if (argc < 4) {
+    fprintf(stderr, "Usage: ./ot protocol logOT numTrees\n");
     return EXIT_FAILURE;
   }
 
@@ -58,10 +48,10 @@ int main(int argc, char** argv) {
   printf("log OTs: %lu, Trees: %d\n", logOT, numTrees);
 
   // temporary measure while RDMA being set up to run two processes
-  char filename[16];
-  char filename2[16];
-  sprintf(filename, "log-%d-%d-send.txt", logOT, numTrees);
-  sprintf(filename2, "log-%d-%d-recv.txt", logOT, numTrees);
+  char filename[32];
+  char filename2[32];
+  sprintf(filename, "output/log-%d-%d-send.txt", logOT, numTrees);
+  sprintf(filename2, "output/log-%d-%d-recv.txt", logOT, numTrees);
   EventLog::open(filename, filename2);
   std::future<std::pair<GPUBlock, GPUBlock>> sender = std::async(sender_worker, protocol, logOT, numTrees);
   std::future<std::pair<GPUBlock, GPUBlock>> recver = std::async(recver_worker, protocol, logOT, numTrees);

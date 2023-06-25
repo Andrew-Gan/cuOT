@@ -24,7 +24,6 @@ public:
   void set(const uint8_t *val, uint64_t n, uint64_t offset);
   void sum_async(uint64_t elemSize);
   void resize(uint64_t size);
-  void append(GPUBlock &rhs);
   void minCopy(GPUBlock &rhs);
 };
 

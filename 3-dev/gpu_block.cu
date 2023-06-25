@@ -20,7 +20,8 @@ GPUBlock::GPUBlock(const GPUBlock &blk) : GPUBlock(blk.nBytes) {
 }
 
 GPUBlock::~GPUBlock() {
-  cudaFree(data_d);
+  if (data_d != nullptr)
+    cudaFree(data_d);
 }
 
 GPUBlock& GPUBlock::operator*=(const GPUBlock &rhs) {
@@ -44,7 +45,8 @@ GPUBlock& GPUBlock::operator^=(const GPUBlock &rhs) {
 
 GPUBlock& GPUBlock::operator=(const GPUBlock &rhs) {
   if (nBytes != rhs.nBytes) {
-    cudaFree(data_d);
+    if (data_d != nullptr)
+      cudaFree(data_d);
     cudaError_t err = cudaMalloc(&data_d, rhs.nBytes);
     if (err != cudaSuccess)
       fprintf(stderr, "operator=(GPUBlock): %s\n", cudaGetErrorString(err));
@@ -120,21 +122,15 @@ void GPUBlock::sum_async(uint64_t elemSize) {
 
 void GPUBlock::resize(uint64_t size) {
   uint8_t *newData;
-  cudaMalloc(&newData, size);
-  cudaMemcpy(newData, data_d, std::min(size, nBytes), cudaMemcpyDeviceToDevice);
-  cudaFree(data_d);
+  cudaError_t err = cudaMalloc(&newData, size);
+  if (err != cudaSuccess)
+    fprintf(stderr, "resize(%lu): %s\n", size, cudaGetErrorString(err));
+  if (data_d != nullptr) {
+    cudaMemcpy(newData, data_d, std::min(size, nBytes), cudaMemcpyDeviceToDevice);
+    cudaFree(data_d);
+  }
   data_d = newData;
   nBytes = size;
-}
-
-void GPUBlock::append(GPUBlock &rhs) {
-  uint8_t *appendedData;
-  cudaMalloc(&appendedData, nBytes + rhs.nBytes);
-  cudaMemcpy(appendedData, data_d, nBytes, cudaMemcpyDeviceToDevice);
-  cudaMemcpy(appendedData + nBytes, rhs.data_d, rhs.nBytes, cudaMemcpyDeviceToDevice);
-  cudaFree(data_d);
-  data_d = appendedData;
-  nBytes += rhs.nBytes;
 }
 
 void GPUBlock::minCopy(GPUBlock &rhs) {

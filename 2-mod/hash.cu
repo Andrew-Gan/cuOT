@@ -1,5 +1,5 @@
 #include <algorithm>
-#include "silent_ot.h"
+#include "silentOT.h"
 
 /************************************************************
 Algorithm generate chunks of full matrix and pass into kernel
@@ -49,7 +49,7 @@ void mat_sparse_vec_hash(uint8_t *out, Matrix matrix, SparseVector vec, int glob
 }
 
 __host__
-void SilentOT::hash_sender(GPUBlock &fullVectorHashed, Matrix &randMatrix,
+void SilentOTSender::hash(GPUBlock &fullVectorHashed, Matrix &randMatrix,
   GPUBlock &fullVector, int chunkC) {
 
   EventLog::start(Sender, Hash);
@@ -65,7 +65,7 @@ void SilentOT::hash_sender(GPUBlock &fullVectorHashed, Matrix &randMatrix,
 }
 
 __host__
-void SilentOT::hash_recver(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
+void SilentOTRecver::hash(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
   Matrix &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector,
   int chunkR, int chunkC) {
 

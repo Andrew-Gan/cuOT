@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 OUTPUT_FOLDER = 'output/'
-hideEvents = []
+hideEvents = ['AesKeyExpansion', 'MatrixInit', 'MatrixRand', 'MatrixMult', 'Hash']
 
 def extract_data(filename):
   eventList = {}
@@ -17,13 +17,13 @@ def extract_data(filename):
       elif parseSection == 0:
         eventID, eventString = newline.split()
         eventID = int(eventID)
-        eventList[eventID] = eventString
-        if eventList[eventID] not in hideEvents:
+        if eventString not in hideEvents:
+          eventList[eventID] = eventString
           eventData[eventID] = []
       elif parseSection == 2:
         startStop, eventID, time = newline.split()
         eventID = int(eventID)
-        if eventList[eventID] in hideEvents:
+        if eventID not in eventList:
           continue
         time = float(time)
         if startStop == 's':
@@ -104,4 +104,4 @@ if __name__ == '__main__':
     eventDurationsR.append(dataRecv[2])
 
   eventList = dataSend[0]
-  plot_tree_graph(runconfig, eventList, eventDurationS, eventDurationsR, 3)
+  plot_tree_graph(runconfig, eventList, eventDurationS, eventDurationsR, 2)
