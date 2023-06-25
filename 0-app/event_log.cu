@@ -2,53 +2,57 @@
 #include "event_log.h"
 
 std::mutex EventLog::mtx;
-std::ofstream EventLog::logFile;
+std::ofstream EventLog::logFile[2];
 struct timespec EventLog::initTime;
 
 const char *eventString[] = {
-  "AesKeyExpansion", "BufferInit",
-  "PprfSenderExpand", "PprfRecverExpand", "SumNodes",
-  "BaseOTSend", "BaseOTRecv",
-  "MatrixInit", "MatrixRand",
-  "HashSender", "HashRecver",
+  "BufferInit", "BaseOT", "PprfExpand", "SumNodes", "Hash",
+  "MatrixInit", "MatrixRand", "MatrixMult",
 };
 
-void EventLog::open(const char *filename) {
-  if (EventLog::logFile.is_open())
-    EventLog::logFile.close();
-  EventLog::logFile.open(filename, std::ofstream::out);
-  for (int i = 0; i < sizeof(eventString) / sizeof(eventString[0]); i++) {
-    EventLog::logFile << i << " " << eventString[i] << std::endl;
+void EventLog::open(const char *filename, const char *filename2) {
+  if (EventLog::logFile[0].is_open())
+    EventLog::logFile[0].close();
+  if (EventLog::logFile[1].is_open())
+    EventLog::logFile[1].close();
+
+  EventLog::logFile[0].open(filename, std::ofstream::out);
+  EventLog::logFile[1].open(filename2, std::ofstream::out);
+
+  for (int f = 0; f < 2; f++) {
+    for (int i = 0; i < sizeof(eventString) / sizeof(eventString[0]); i++) {
+      EventLog::logFile[f] << i << " " << eventString[i] << std::endl;
+    }
+    EventLog::logFile[f] << "--------------------" << std::endl;
+    EventLog::logFile[f] << "<start/end> <event> <ms since init>" << std::endl;
+    EventLog::logFile[f] << "--------------------" << std::endl;
   }
-  EventLog::logFile << "--------------------" << std::endl;
-  EventLog::logFile << "<start/end> <thread id> <event> <ms since init>" << std::endl;
-  EventLog::logFile << "--------------------" << std::endl;
   clock_gettime(CLOCK_MONOTONIC, &EventLog::initTime);
 }
 
 void EventLog::close() {
-  if (EventLog::logFile.is_open())
-    EventLog::logFile.close();
+  if (EventLog::logFile[0].is_open())
+    EventLog::logFile[0].close();
+  if (EventLog::logFile[1].is_open())
+    EventLog::logFile[1].close();
 }
 
-void EventLog::start(Event event) {
-  std::thread::id tid = std::this_thread::get_id();
+void EventLog::start(int role, Event event) {
   struct timespec now;
   clock_gettime(CLOCK_MONOTONIC, &now);
   float timeSinceStart = (now.tv_sec - EventLog::initTime.tv_sec) * 1000;
   timeSinceStart += (now.tv_nsec - EventLog::initTime.tv_nsec) / 1000000.0;
   mtx.lock();
-  EventLog::logFile << "s " << tid << " " << event << " " << timeSinceStart << std::endl;
+  EventLog::logFile[role] << "s " << event << " " << timeSinceStart << std::endl;
   mtx.unlock();
 }
 
-void EventLog::end(Event event) {
-  std::thread::id tid = std::this_thread::get_id();
+void EventLog::end(int role, Event event) {
   struct timespec now;
   clock_gettime(CLOCK_MONOTONIC, &now);
   float timeSinceStart = (now.tv_sec - EventLog::initTime.tv_sec) * 1000;
   timeSinceStart += (now.tv_nsec - EventLog::initTime.tv_nsec) / 1000000.0;
   mtx.lock();
-  EventLog::logFile << "e " << tid << " " << event << " " << timeSinceStart << std::endl;
+  EventLog::logFile[role] << "e " << event << " " << timeSinceStart << std::endl;
   mtx.unlock();
 }

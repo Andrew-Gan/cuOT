@@ -1,4 +1,4 @@
-CC := nvcc -g -G -std=c++20 --compiler-options='-g -std=c++20 -gdwarf-4'
+CC := nvcc -g -G -std=c++20 --compiler-options='-g -std=c++20 -gdwarf-4 -w'
 LIB := -lcurand
 INC := -I0-app -I2-mod -I3-dev $(addprefix -I,$(shell find 1-lib -type d -print))
 EXE := ot

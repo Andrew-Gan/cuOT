@@ -21,7 +21,7 @@ public:
   static void expand_decKey(uint8_t *decExpKey, uint8_t *key);
   void decrypt(GPUBlock &msg);
   void encrypt(GPUBlock &msg);
-  void expand_async(TreeNode *output_d, GPUBlock &m, TreeNode *input_d, size_t width, int dir);
+  void expand_async(TreeNode *output_d, GPUBlock &m, TreeNode *input_d, uint64_t width, int dir);
 };
 
 #endif

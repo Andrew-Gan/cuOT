@@ -1,28 +1,25 @@
-#ifndef __LOGGER_H__
-#define __LOGGER_H__
+#ifndef __EVENT_LOG_H__
+#define __EVENT_LOG_H__
 
 #include <fstream>
 #include <mutex>
 
 enum Event {
-  AesKeyExpansion, BufferInit,
-  PprfSenderExpand, PprfRecverExpand, SumNodes,
-  BaseOTSend, BaseOTRecv,
-  MatrixInit, MatrixRand,
-  HashSender, HashRecver,
+  BufferInit, BaseOT, PprfExpand, SumNodes, Hash,
+  MatrixInit, MatrixRand, MatrixMult,
 };
 
 class EventLog {
 private:
   static std::mutex mtx;
-  static std::ofstream logFile;
+  static std::ofstream logFile[2];
   static struct timespec initTime;
 
 public:
-  static void open(const char *filename);
+  static void open(const char *filename, const char *filename2);
   static void close();
-  static void start(Event event);
-  static void end(Event event);
+  static void start(int role, Event event);
+  static void end(int role, Event event);
 };
 
 #endif

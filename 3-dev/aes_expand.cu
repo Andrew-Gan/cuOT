@@ -35,7 +35,7 @@
 
 __global__
 void aesExpand128(uint32_t *aesKey, TreeNode *leaves, uint32_t *m,
-	uint32_t *inData, int expandDir, size_t width) {
+	uint32_t *inData, int expandDir, uint64_t width) {
 	uint32_t bx		= blockIdx.x;
     uint32_t tx		= threadIdx.x;
     uint32_t mod4tx = tx%4;
@@ -292,13 +292,13 @@ void aesExpand128(uint32_t *aesKey, TreeNode *leaves, uint32_t *m,
 	//-------------------------------- end of 15th stage --------------------------------
 
 	int elemPerNode = BLK_SIZE / 4;
-	size_t pairId =  (bx * AES_BSIZE + tx) / elemPerNode;
-	size_t leavesId = 2 * pairId + expandDir;
+	uint64_t pairId =  (bx * AES_BSIZE + tx) / elemPerNode;
+	uint64_t leavesId = 2 * pairId + expandDir;
 	if (leavesId < width) {
 		leaves[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
 	if (m != nullptr) {
-		size_t offset = (pairId*BLK_SIZE+4*(tx%elemPerNode)) / sizeof(*m);
+		uint64_t offset = (pairId*BLK_SIZE+4*(tx%elemPerNode)) / sizeof(*m);
 		m[offset] = stageBlock2[tx].uival;
 	}
 }

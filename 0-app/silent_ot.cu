@@ -1,4 +1,3 @@
-#include "hash.h"
 #include "rand.h"
 #include "aes.h"
 #include "simplest_ot.h"
@@ -30,8 +29,103 @@ SilentOT::SilentOT(Role myrole, int myid, int logOT, int numTrees, uint64_t *myc
   numOT = pow(2, logOT);
 }
 
+std::pair<GPUBlock, GPUBlock> SilentOT::send() {
+  EventLog::start(Sender, BaseOT);
+  baseOT_send();
+  EventLog::end(Sender, BaseOT);
+
+  EventLog::start(Sender, BufferInit);
+  fullVector.resize(numOT * BLK_SIZE);
+  delta.resize(BLK_SIZE);
+  EventLog::end(Sender, BufferInit);
+
+  EventLog::start(Sender, PprfExpand);
+  pprf_send();
+  EventLog::end(Sender, PprfExpand);
+
+  GPUBlock fullVectorHashed(numOT * BLK_SIZE);
+  return std::pair<GPUBlock, GPUBlock>(); //debug
+
+  if (numOT < CHUNK_SIDE) {
+    EventLog::start(Sender, MatrixInit);
+    randMatrix = init_rand(prng, 2 * numOT, numOT);
+    EventLog::end(Sender, MatrixInit);
+    EventLog::start(Sender, MatrixRand);
+    gen_rand(prng, randMatrix); // transposed
+    EventLog::end(Sender, MatrixRand);
+    EventLog::start(Sender, MatrixMult);
+    hash_sender(fullVectorHashed, randMatrix, fullVector, 0);
+    EventLog::end(Sender, MatrixMult);
+  }
+  else {
+    EventLog::start(Sender, MatrixInit);
+    randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
+    EventLog::end(Sender, MatrixInit);
+    for (uint64_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
+      for (uint64_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
+        EventLog::start(Sender, MatrixRand);
+        gen_rand(prng, randMatrix);
+        EventLog::end(Sender, MatrixRand);
+        EventLog::start(Sender, MatrixMult);
+        hash_sender(fullVectorHashed, randMatrix, fullVector, chunkC);
+        EventLog::end(Sender, MatrixMult);
+      }
+    }
+  }
+  del_rand(prng, randMatrix);
+  return {fullVectorHashed, delta};
+}
+
+std::pair<GPUBlock, GPUBlock> SilentOT::recv() {
+  EventLog::start(Recver, BaseOT);
+  baseOT_recv();
+  EventLog::end(Recver, BaseOT);
+
+  EventLog::start(Recver, BufferInit);
+  puncVector.resize(numOT * BLK_SIZE);
+  EventLog::end(Recver, BufferInit);
+
+  EventLog::start(Recver, PprfExpand);
+  pprf_recv();
+  EventLog::end(Recver, PprfExpand);
+
+  GPUBlock puncVectorHashed(numOT * BLK_SIZE);
+  GPUBlock choiceVectorHashed(numOT * BLK_SIZE);
+  return std::pair<GPUBlock, GPUBlock>(); //debug
+
+  SparseVector choiceVector;
+
+  if (numOT < CHUNK_SIDE) {
+    EventLog::start(Recver, MatrixInit);
+    randMatrix = init_rand(prng, 2 * numOT, numOT);
+    EventLog::end(Recver, MatrixInit);
+    EventLog::start(Recver, MatrixRand);
+    gen_rand(prng, randMatrix); // transposed
+    EventLog::end(Recver, MatrixRand);
+    EventLog::start(Recver, MatrixMult);
+    hash_recver(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, 0, 0);
+    EventLog::end(Recver, MatrixMult);
+  }
+  else {
+    EventLog::start(Recver, MatrixInit);
+    randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
+    EventLog::end(Recver, MatrixInit);
+    for (uint64_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
+      for (uint64_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
+        EventLog::start(Recver, MatrixRand);
+        gen_rand(prng, randMatrix);
+        EventLog::end(Recver, MatrixRand);
+        EventLog::start(Recver, MatrixMult);
+        hash_recver(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, chunkR, chunkC);
+        EventLog::end(Recver, MatrixMult);
+      }
+    }
+  }
+  del_rand(prng, randMatrix);
+  return {puncVectorHashed, choiceVectorHashed};
+}
+
 void SilentOT::baseOT_send() {
-  EventLog::start(BaseOTSend);
   std::vector<std::future<std::array<std::vector<GPUBlock>, 2>>> workers;
   for (int t = 0; t < nTree; t++) {
     workers.push_back(std::async([t, this]() {
@@ -43,11 +137,9 @@ void SilentOT::baseOT_send() {
     leftHash.push_back(res[0]);
     rightHash.push_back(res[1]);
   }
-  EventLog::end(BaseOTSend);
 }
 
 void SilentOT::baseOT_recv() {
-  EventLog::start(BaseOTRecv);
   std::vector<std::future<std::vector<GPUBlock>>> workers;
   for (int t = 0; t < nTree; t++) {
     workers.push_back(std::async([t, this]() {
@@ -64,64 +156,14 @@ void SilentOT::baseOT_recv() {
     auto res = worker.get();
     choiceHash.push_back(res);
   }
-  EventLog::end(BaseOTRecv);
 }
 
-std::pair<GPUBlock, GPUBlock> SilentOT::send() {
+void SilentOT::pprf_send() {
   TreeNode root;
   root.data[0] = 123456;
   root.data[1] = 7890123;
 
-  baseOT_send();
-  auto [fullVector, delta] = pprf_send(root);
-  GPUBlock fullVectorHashed(numOT * BLK_SIZE);
-  return std::pair<GPUBlock, GPUBlock>(); //debug
-
-  if (numOT < CHUNK_SIDE) {
-    randMatrix = init_rand(prng, 2 * numOT, numOT);
-    gen_rand(prng, randMatrix); // transposed
-    hash_sender(fullVectorHashed, randMatrix, fullVector, 0);
-  }
-  else {
-    randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
-    for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
-      for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-        gen_rand(prng, randMatrix);
-        hash_sender(fullVectorHashed, randMatrix, fullVector, chunkC);
-      }
-    }
-  }
-  del_rand(prng, randMatrix);
-  return {fullVectorHashed, delta};
-}
-
-std::pair<GPUBlock, GPUBlock> SilentOT::recv() {
-  baseOT_recv();
-  auto [puncVector, choiceVector] = pprf_recv(choices);
-  GPUBlock puncVectorHashed(numOT * BLK_SIZE);
-  GPUBlock choiceVectorHashed(numOT * BLK_SIZE);
-  return std::pair<GPUBlock, GPUBlock>(); //debug
-
-  if (numOT < CHUNK_SIDE) {
-    randMatrix = init_rand(prng, 2 * numOT, numOT);
-    gen_rand(prng, randMatrix); // transposed
-    hash_recver(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, 0, 0);
-  }
-  else {
-    randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
-    for (size_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
-      for (size_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-        gen_rand(prng, randMatrix);
-        hash_recver(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, chunkR, chunkC);
-      }
-    }
-  }
-  del_rand(prng, randMatrix);
-  return {puncVectorHashed, choiceVectorHashed};
-}
-
-std::pair<GPUBlock, GPUBlock> SilentOT::pprf_send(TreeNode root) {
-  size_t numLeaves = pow(2, depth);
+  uint64_t numLeaves = pow(2, depth);
   uint64_t k0 = 3242342, k1 = 8993849;
   uint8_t k0_blk[16] = {0};
   uint8_t k1_blk[16] = {0};
@@ -129,8 +171,6 @@ std::pair<GPUBlock, GPUBlock> SilentOT::pprf_send(TreeNode root) {
   memcpy(&k0_blk[8], &k0, sizeof(k0));
   memcpy(&k1_blk[8], &k1, sizeof(k1));
 
-  EventLog::start(BufferInit);
-  GPUBlock delta(BLK_SIZE);
   delta.clear();
   delta.set(123456);
 
@@ -142,32 +182,29 @@ std::pair<GPUBlock, GPUBlock> SilentOT::pprf_send(TreeNode root) {
   Aes aesRight(k1_blk);
 
   for (int t = 0; t < nTree; t++) {
-    output.set((uint8_t*) root.data, BLK_SIZE, t * numLeaves * BLK_SIZE);
+    fullVector.set((uint8_t*) root.data, BLK_SIZE, t * numLeaves * BLK_SIZE);
   }
-  EventLog::end(BufferInit);
 
-  for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    input = output;
+  for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
+    input = fullVector;
 
-    EventLog::start(PprfSenderExpand);
     for (int t = 0; t < nTree; t++) {
       TreeNode *inPtr = (TreeNode*) input.data_d + t * numLeaves;
-      TreeNode *outPtr = (TreeNode*) output.data_d + t * numLeaves;
+      TreeNode *outPtr = (TreeNode*) fullVector.data_d + t * numLeaves;
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1);
     }
     cudaDeviceSynchronize();
-    EventLog::end(PprfSenderExpand);
 
-    EventLog::start(SumNodes);
+    EventLog::start(Sender, SumNodes);
     for (int t = 0; t < nTree; t++) {
       leftNodes.at(t).sum_async(BLK_SIZE);
       rightNodes.at(t).sum_async(BLK_SIZE);
     }
     cudaDeviceSynchronize();
-    EventLog::end(SumNodes);
+    EventLog::end(Sender, SumNodes);
 
-    EventLog::start(HashSender);
+    EventLog::start(Sender, Hash);
     for (int t = 0; t < nTree; t++) {
       other->leftHash.at(t).at(d-1) = leftHash.at(t).at(d-1) ^= leftNodes.at(t);
       other->rightHash.at(t).at(d-1) = rightHash.at(t).at(d-1) ^= rightNodes.at(t);
@@ -182,19 +219,12 @@ std::pair<GPUBlock, GPUBlock> SilentOT::pprf_send(TreeNode root) {
     }
     cudaDeviceSynchronize();
     other->msgDelivered++;
-    EventLog::end(HashSender);
+    EventLog::end(Sender, Hash);
   }
-
-  return {output, delta};
 }
 
-__global__
-void set_choice(SparseVector choiceVector, int index, int t) {
-  choiceVector.nonZeros[t] = index;
-}
-
-std::pair<GPUBlock, SparseVector> SilentOT::pprf_recv(uint64_t *choices) {
-  size_t numLeaves = pow(2, depth);
+void SilentOT::pprf_recv() {
+  uint64_t numLeaves = pow(2, depth);
   uint64_t k0 = 3242342, k1 = 8993849;
   uint8_t k0_blk[16] = {0};
   uint8_t k1_blk[16] = {0};
@@ -202,41 +232,36 @@ std::pair<GPUBlock, SparseVector> SilentOT::pprf_recv(uint64_t *choices) {
   memcpy(&k0_blk[8], &k0, sizeof(k0));
   memcpy(&k1_blk[8], &k1, sizeof(k1));
 
-  EventLog::start(BufferInit);
   GPUBlock input(nTree * numLeaves * BLK_SIZE);
-  GPUBlock output(nTree * numLeaves * BLK_SIZE);
   std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
   std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
   std::vector<SimplestOT*> baseOT;
   Aes aesLeft(k0_blk);
   Aes aesRight(k1_blk);
-  std::vector<size_t> puncture(nTree, 0);
+  std::vector<uint64_t> puncture(nTree, 0);
 
   SparseVector choiceVector = {
     .nBits = numLeaves,
   };
-  cudaError_t err = cudaMalloc(&choiceVector.nonZeros, nTree * sizeof(size_t));
+  cudaError_t err = cudaMalloc(&choiceVector.nonZeros, nTree * sizeof(uint64_t));
   if (err != cudaSuccess)
     fprintf(stderr, "choice vec: %s\n", cudaGetErrorString(err));
-  EventLog::end(BufferInit);
 
   auto &sum = choiceHash; // alias
-  for (size_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    input = output;
+  for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
+    input = puncVector;
 
-    EventLog::start(PprfRecverExpand);
     // expand layer
     for (int t = 0; t < nTree; t++) {
       TreeNode *inPtr = (TreeNode*) input.data_d + t * width;
-      TreeNode *outPtr = (TreeNode*) output.data_d + t * width;
+      TreeNode *outPtr = (TreeNode*) puncVector.data_d + t * width;
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1);
     }
     cudaDeviceSynchronize();
-    EventLog::end(PprfRecverExpand);
 
     while(msgDelivered < d);
-    EventLog::start(HashRecver);
+    EventLog::start(Recver, Hash);
     // once left sum^hash and right sum^hash ready, unhash to obtain sum
     for (int t = 0; t < nTree; t++) {
       int choice = (choices[t] & (1 << d-1)) >> d-1;
@@ -265,14 +290,14 @@ std::pair<GPUBlock, SparseVector> SilentOT::pprf_recv(uint64_t *choices) {
       if (d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
         sideCasted = (TreeNode*) xorSide->data_d;
-        size_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
+        uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
         cudaMemcpy(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
       }
     }
-    EventLog::end(HashRecver);
+    EventLog::end(Recver, Hash);
 
     // conduct sum/xor in parallel
-    EventLog::start(SumNodes);
+    EventLog::start(Recver, SumNodes);
     for (int t = 0; t < nTree; t++) {
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
@@ -284,29 +309,21 @@ std::pair<GPUBlock, SparseVector> SilentOT::pprf_recv(uint64_t *choices) {
       }
     }
     cudaDeviceSynchronize();
-    EventLog::end(SumNodes);
+    EventLog::end(Recver, SumNodes);
 
     // insert active node obtained from sum into output
     for (int t = 0; t < nTree; t++) {
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
-      TreeNode *oCasted = (TreeNode*) output.data_d + t * numLeaves;
+      TreeNode *oCasted = (TreeNode*) puncVector.data_d + t * numLeaves;
       int recvNodeId = puncture.at(t) * 2 + choice;
       cudaMemcpy(&oCasted[recvNodeId], side->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
 
       if(d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
-        size_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
+        uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
         cudaMemcpy(&oCasted[deltaNodeId], xorSide->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
       }
     }
   }
-
-  for (int t = 0; t < nTree; t++) {
-    set_choice<<<1, 1>>>(choiceVector, t*numLeaves + puncture.at(t), t);
-    cudaDeviceSynchronize();
-    choiceVector.weight++;
-  }
-
-  return {output, choiceVector};
 }

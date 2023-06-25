@@ -57,9 +57,14 @@ int main(int argc, char** argv) {
   int numTrees = atoi(argv[3]);
   printf("log OTs: %lu, Trees: %d\n", logOT, numTrees);
 
-  EventLog::open(argv[4]);
-  std::future sender = std::async(sender_worker, protocol, logOT, numTrees);
-  std::future recver = std::async(recver_worker, protocol, logOT, numTrees);
+  // temporary measure while RDMA being set up to run two processes
+  char filename[16];
+  char filename2[16];
+  sprintf(filename, "log-%d-%d-send.txt", logOT, numTrees);
+  sprintf(filename2, "log-%d-%d-recv.txt", logOT, numTrees);
+  EventLog::open(filename, filename2);
+  std::future<std::pair<GPUBlock, GPUBlock>> sender = std::async(sender_worker, protocol, logOT, numTrees);
+  std::future<std::pair<GPUBlock, GPUBlock>> recver = std::async(recver_worker, protocol, logOT, numTrees);
   auto [fullVector, delta] = sender.get();
   auto [puncVector, choiceVector] = recver.get();
   // test_cot(fullVector, puncVector, choiceVector, delta);

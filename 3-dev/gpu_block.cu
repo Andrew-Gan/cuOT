@@ -8,7 +8,7 @@ GPUBlock::GPUBlock() {
   nBytes = 0;
 }
 
-GPUBlock::GPUBlock(size_t n) {
+GPUBlock::GPUBlock(uint64_t n) {
   nBytes = n;
   cudaError_t err = cudaMalloc(&data_d, nBytes);
   if (err != cudaSuccess)
@@ -26,7 +26,7 @@ GPUBlock::~GPUBlock() {
 GPUBlock& GPUBlock::operator*=(const GPUBlock &rhs) {
   // scalar multiplication
   if (nBytes > rhs.nBytes) {
-    size_t numBlock = (rhs.nBytes - 1) / 1024 + 1;
+    uint64_t numBlock = (rhs.nBytes - 1) / 1024 + 1;
     for (int i = 0; i < nBytes / rhs.nBytes; i++) {
       and_gpu<<<numBlock, 1024>>>(&data_d[i * rhs.nBytes], rhs.data_d, rhs.nBytes);
     }
@@ -36,8 +36,8 @@ GPUBlock& GPUBlock::operator*=(const GPUBlock &rhs) {
 }
 
 GPUBlock& GPUBlock::operator^=(const GPUBlock &rhs) {
-  size_t numBlock = (nBytes - 1) / 1024 + 1;
-  size_t minNBytes = std::min(nBytes, rhs.nBytes);
+  uint64_t numBlock = (nBytes - 1) / 1024 + 1;
+  uint64_t minNBytes = std::min(nBytes, rhs.nBytes);
   xor_gpu<<<numBlock, 1024>>>(data_d, data_d, rhs.data_d, minNBytes);
   return *this;
 }
@@ -80,7 +80,7 @@ std::ostream& operator<<(std::ostream &os, const GPUBlock &obj) {
 
   mtx.lock();
   TreeNode *nodes = new TreeNode[obj.nBytes];
-  size_t numNode = obj.nBytes / sizeof(TreeNode);
+  uint64_t numNode = obj.nBytes / sizeof(TreeNode);
   cudaMemcpy(nodes, obj.data_d, obj.nBytes, cudaMemcpyDeviceToHost);
   for (int i = 0; i < numNode; i += 16) {
     for (int j = i; j < numNode && j < (i + 16); j++) {
@@ -102,23 +102,23 @@ void GPUBlock::set(uint64_t val) {
   cudaMemcpy(data_d, &val, sizeof(val), cudaMemcpyHostToDevice);
 }
 
-void GPUBlock::set(const uint8_t *val, size_t n) {
-  size_t min = nBytes < n ? nBytes : n;
+void GPUBlock::set(const uint8_t *val, uint64_t n) {
+  uint64_t min = nBytes < n ? nBytes : n;
   cudaMemcpy(data_d, val, min, cudaMemcpyHostToDevice);
 }
 
-void GPUBlock::set(const uint8_t *val, size_t n, size_t offset) {
-  size_t min = nBytes < n ? nBytes : n;
+void GPUBlock::set(const uint8_t *val, uint64_t n, uint64_t offset) {
+  uint64_t min = nBytes < n ? nBytes : n;
   cudaMemcpy(data_d + offset, val, min, cudaMemcpyHostToDevice);
 }
 
-void GPUBlock::sum_async(size_t elemSize) {
-  size_t numLL = nBytes / sizeof(uint64_t);
-  size_t sharedMemsize = 1024 * sizeof(uint64_t);
+void GPUBlock::sum_async(uint64_t elemSize) {
+  uint64_t numLL = nBytes / sizeof(uint64_t);
+  uint64_t sharedMemsize = 1024 * sizeof(uint64_t);
   sum_gpu<<<numLL / 2048, 1024, sharedMemsize>>>((uint64_t*) data_d, numLL);
 }
 
-void GPUBlock::resize(size_t size) {
+void GPUBlock::resize(uint64_t size) {
   uint8_t *newData;
   cudaMalloc(&newData, size);
   cudaMemcpy(newData, data_d, std::min(size, nBytes), cudaMemcpyDeviceToDevice);
@@ -138,6 +138,6 @@ void GPUBlock::append(GPUBlock &rhs) {
 }
 
 void GPUBlock::minCopy(GPUBlock &rhs) {
-  size_t copySize = std::min(nBytes, rhs.nBytes);
+  uint64_t copySize = std::min(nBytes, rhs.nBytes);
   cudaMemcpy(data_d, rhs.data_d, copySize, cudaMemcpyDeviceToDevice);
 }

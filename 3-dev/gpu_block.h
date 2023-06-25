@@ -6,12 +6,12 @@
 class GPUBlock {
 public:
   GPUBlock();
-  GPUBlock(size_t n);
+  GPUBlock(uint64_t n);
   GPUBlock(const GPUBlock &blk);
-  GPUBlock(const SparseVector &vec, size_t stretch);
+  GPUBlock(const SparseVector &vec, uint64_t stretch);
   virtual ~GPUBlock();
   uint8_t *data_d = nullptr;
-  size_t nBytes = 0;
+  uint64_t nBytes = 0;
   GPUBlock& operator=(const GPUBlock &rhs);
   GPUBlock& operator*=(const GPUBlock &rhs);
   GPUBlock& operator^=(const GPUBlock &rhs);
@@ -20,10 +20,10 @@ public:
   uint8_t& operator[](int index);
   void clear();
   void set(uint64_t val);
-  void set(const uint8_t *val, size_t n);
-  void set(const uint8_t *val, size_t n, size_t offset);
-  void sum_async(size_t elemSize);
-  void resize(size_t size);
+  void set(const uint8_t *val, uint64_t n);
+  void set(const uint8_t *val, uint64_t n, uint64_t offset);
+  void sum_async(uint64_t elemSize);
+  void resize(uint64_t size);
   void append(GPUBlock &rhs);
   void minCopy(GPUBlock &rhs);
 };

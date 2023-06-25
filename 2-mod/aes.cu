@@ -16,10 +16,8 @@ typedef uint8_t state_t[4][4];
 void Aes::init() {
   AES_ctx encExpKey;
   AES_ctx decExpKey;
-  EventLog::start(AesKeyExpansion);
   Aes::expand_encKey(encExpKey.roundKey, key);
   Aes::expand_decKey(decExpKey.roundKey, key);
-  EventLog::end(AesKeyExpansion);
   cudaError_t err = cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
   if (err != cudaSuccess)
     fprintf(stderr, "Aes() enc: %s\n", cudaGetErrorString(err));
@@ -48,7 +46,7 @@ Aes::~Aes() {
 }
 
 void Aes::decrypt(GPUBlock &msg) {
-  GPUBlock input(std::max(msg.nBytes, (size_t)1024));
+  GPUBlock input(std::max(msg.nBytes, (uint64_t)1024));
   input.clear();
   cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   if (msg.nBytes < 1024) {
@@ -60,7 +58,7 @@ void Aes::decrypt(GPUBlock &msg) {
 }
 
 void Aes::encrypt(GPUBlock &msg) {
-  GPUBlock input(std::max(msg.nBytes, (size_t)1024));
+  GPUBlock input(std::max(msg.nBytes, (uint64_t)1024));
   input.clear();
   cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
   if (msg.nBytes < 1024) {
@@ -71,9 +69,9 @@ void Aes::encrypt(GPUBlock &msg) {
   cudaDeviceSynchronize();
 }
 
-void Aes::expand_async(TreeNode *output_d, GPUBlock &m, TreeNode *input_d, size_t width, int dir) {
+void Aes::expand_async(TreeNode *output_d, GPUBlock &m, TreeNode *input_d, uint64_t width, int dir) {
   static int thread_per_aesblock = 4;
-  size_t paddedBytes = (width / 2) * sizeof(*output_d);
+  uint64_t paddedBytes = (width / 2) * sizeof(*output_d);
   if (paddedBytes % 1024 != 0)
     paddedBytes += 1024 - (paddedBytes % 1024);
   dim3 grid(paddedBytes * thread_per_aesblock / 16 / AES_BSIZE, 1);
