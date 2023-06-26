@@ -89,14 +89,14 @@ void SilentOTSender::expand() {
   delta.clear();
   delta.set(123456);
 
-  GPUBlock input(numOT * BLK_SIZE);
+  GPUBlock input(2 * numOT * BLK_SIZE);
   std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
   std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
   Aes aesLeft(k0_blk);
   Aes aesRight(k1_blk);
 
   for (int t = 0; t < nTree; t++) {
-    fullVector.set((uint8_t*) root.data, BLK_SIZE, t * numLeaves * BLK_SIZE);
+    input.set((uint8_t*) root.data, BLK_SIZE, t * numLeaves * BLK_SIZE);
   }
   std::vector<cudaStream_t> streams(nTree);
   for (cudaStream_t &s : streams) {
@@ -106,7 +106,6 @@ void SilentOTSender::expand() {
 
   EventLog::start(Sender, PprfExpand);
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    input = fullVector;
     for (uint64_t t = 0; t < nTree; t++) {
       cudaStream_t &stream = streams.at(t);
 
@@ -114,6 +113,12 @@ void SilentOTSender::expand() {
       TreeNode *outPtr = ((TreeNode*) fullVector.data_d) + t * numLeaves;
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
+
+      cudaMemcpyAsync(
+        input.data_d + t * numLeaves,
+        fullVector.data_d + t * numLeaves,
+        width * BLK_SIZE, cudaMemcpyDeviceToDevice, stream
+      );
 
       leftNodes.at(t).sum_async(BLK_SIZE, stream);
       rightNodes.at(t).sum_async(BLK_SIZE, stream);
@@ -138,8 +143,8 @@ void SilentOTSender::expand() {
   }
   cudaDeviceSynchronize();
   other->msgDelivered = true;
-  EventLog::end(Sender, PprfExpand);
   for (auto &s : streams) {
     cudaStreamDestroy(s);
   }
+  EventLog::end(Sender, PprfExpand);
 }
