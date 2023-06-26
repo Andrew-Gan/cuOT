@@ -16,13 +16,13 @@ public:
   virtual std::pair<GPUBlock, GPUBlock> run() = 0;
 
   // network
-  std::atomic<uint64_t> msgDelivered = 0;
+  std::atomic<bool> msgDelivered = false;
   std::vector<std::vector<GPUBlock>> leftHash;
   std::vector<std::vector<GPUBlock>> rightHash;
 
 protected:
   uint64_t id, depth, nTree, numOT;
-  
+
   curandGenerator_t prng;
   Matrix randMatrix;
   SilentOT *other = nullptr;
@@ -39,7 +39,7 @@ protected:
   GPUBlock fullVector, delta;
   void baseOT();
   void expand();
-  void hash(GPUBlock &fullVectorHashed, Matrix &randMatrix, GPUBlock &fullVector, int chunkC);
+  void compress(GPUBlock &fullVectorHashed, Matrix &randMatrix, GPUBlock &fullVector, int chunkC);
 };
 
 class SilentOTRecver : public SilentOT {
@@ -53,7 +53,7 @@ protected:
   std::vector<std::vector<GPUBlock>> choiceHash;
   void baseOT();
   void expand();
-  void hash(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
+  void compress(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
   Matrix &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector,
   int chunkR, int chunkC);
 };

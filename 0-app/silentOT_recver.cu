@@ -106,92 +106,82 @@ void SilentOTRecver::expand() {
     fprintf(stderr, "choice vec: %s\n", cudaGetErrorString(err));
   EventLog::end(Recver, BufferInit);
 
+  while(!msgDelivered);
   EventLog::start(Recver, PprfExpand);
   auto &sum = choiceHash; // alias
+  std::vector<cudaStream_t> streams(nTree);
+  for (cudaStream_t &s : streams) {
+    cudaStreamCreate(&s);
+  }
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     input = puncVector;
-
-    std::vector<cudaStream_t> streams(2 * depth);
-    for (cudaStream_t &s : streams) {
-      cudaStreamCreate(&s);
-    }
-    int sid = 0;
     for (int t = 0; t < nTree; t++) {
-      TreeNode *inPtr = &((TreeNode*) input.data_d)[t * numLeaves];
-      TreeNode *outPtr = &((TreeNode*) puncVector.data_d)[t * numLeaves];
-      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, streams.at(sid++));
-      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, streams.at(sid++));
-    }
-    cudaDeviceSynchronize();
-    for (cudaStream_t &s : streams) {
-      cudaStreamDestroy(s);
-    }
+      cudaStream_t &stream = streams.at(t);
 
-    while(msgDelivered < d);
-    EventLog::start(Recver, Hash);
-    // once left sum^hash and right sum^hash ready, unhash to obtain sum
-    for (int t = 0; t < nTree; t++) {
+      TreeNode *inPtr = ((TreeNode*) input.data_d) + t * numLeaves;
+      TreeNode *outPtr = ((TreeNode*) puncVector.data_d) + t * numLeaves;
+      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
+      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
+
+      // once left sum^hash and right sum^hash ready, unhash to obtain sum
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       if (choice == 0)
-        sum.at(t).at(d-1) ^= leftHash.at(t).at(d-1);
+        sum.at(t).at(d-1).xor_async(leftHash.at(t).at(d-1), stream);
       else
-        sum.at(t).at(d-1) ^= rightHash.at(t).at(d-1);
+        sum.at(t).at(d-1).xor_async(rightHash.at(t).at(d-1), stream);
 
       if (d == depth) {
         if (choice == 0)
-          sum.at(t).at(d) ^= rightHash.at(t).at(d);
+          sum.at(t).at(d).xor_async(rightHash.at(t).at(d), stream);
         else
-          sum.at(t).at(d) ^= leftHash.at(t).at(d);
+          sum.at(t).at(d).xor_async(leftHash.at(t).at(d), stream);
       }
-    }
-    cudaDeviceSynchronize();
 
-    // insert obtained sum into layer
-    for (int t = 0; t < nTree; t++) {
-      int choice = (choices[t] & (1 << d-1)) >> d-1;
+      // insert obtained sum into layer
+      choice = (choices[t] & (1 << d-1)) >> d-1;
       GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
       TreeNode *sideCasted = (TreeNode*) side->data_d;
       int recvNodeId = puncture.at(t) * 2 + choice;
-      cudaMemcpy(&sideCasted[recvNodeId / 2], sum.at(t).at(d-1).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
+      cudaMemcpyAsync(&sideCasted[recvNodeId / 2], sum.at(t).at(d-1).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
 
       if (d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
         sideCasted = (TreeNode*) xorSide->data_d;
         uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
-        cudaMemcpy(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
+        cudaMemcpyAsync(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
+      }
+
+      // conduct sum/xor in parallel
+      for (int t = 0; t < nTree; t++) {
+        int choice = (choices[t] & (1 << d-1)) >> d-1;
+        GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
+        side->sum_async(BLK_SIZE, stream);
+
+        if (d == depth) {
+          GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
+          xorSide->sum_async(BLK_SIZE, stream);
+        }
+      }
+
+      // insert active node obtained from sum into output
+      for (int t = 0; t < nTree; t++) {
+        int choice = (choices[t] & (1 << d-1)) >> d-1;
+        GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
+        TreeNode *oCasted = (TreeNode*) puncVector.data_d + t * numLeaves;
+        int recvNodeId = puncture.at(t) * 2 + choice;
+        cudaMemcpyAsync(&oCasted[recvNodeId], side->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
+
+        if(d == depth) {
+          GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
+          uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
+          cudaMemcpyAsync(&oCasted[deltaNodeId], xorSide->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
+        }
       }
     }
-    EventLog::end(Recver, Hash);
-
-    // conduct sum/xor in parallel
-    EventLog::start(Recver, SumNodes);
-    for (int t = 0; t < nTree; t++) {
-      int choice = (choices[t] & (1 << d-1)) >> d-1;
-      GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
-      side->sum_async(BLK_SIZE);
-
-      if (d == depth) {
-        GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
-        xorSide->sum_async(BLK_SIZE);
-      }
-    }
-    cudaDeviceSynchronize();
-    EventLog::end(Recver, SumNodes);
-
-    // insert active node obtained from sum into output
-    for (int t = 0; t < nTree; t++) {
-      int choice = (choices[t] & (1 << d-1)) >> d-1;
-      GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
-      TreeNode *oCasted = (TreeNode*) puncVector.data_d + t * numLeaves;
-      int recvNodeId = puncture.at(t) * 2 + choice;
-      cudaMemcpy(&oCasted[recvNodeId], side->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
-
-      if(d == depth) {
-        GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
-        uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
-        cudaMemcpy(&oCasted[deltaNodeId], xorSide->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
-      }
-    }
+  }
+  cudaDeviceSynchronize();
+  for (auto &s : streams) {
+    cudaStreamDestroy(s);
   }
   EventLog::end(Recver, PprfExpand);
 }

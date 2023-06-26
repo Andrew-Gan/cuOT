@@ -40,6 +40,7 @@ GPUBlock& GPUBlock::operator^=(const GPUBlock &rhs) {
   uint64_t numBlock = (nBytes - 1) / 1024 + 1;
   uint64_t minNBytes = std::min(nBytes, rhs.nBytes);
   xor_gpu<<<numBlock, 1024>>>(data_d, data_d, rhs.data_d, minNBytes);
+  cudaDeviceSynchronize();
   return *this;
 }
 
@@ -114,10 +115,28 @@ void GPUBlock::set(const uint8_t *val, uint64_t n, uint64_t offset) {
   cudaMemcpy(data_d + offset, val, min, cudaMemcpyHostToDevice);
 }
 
-void GPUBlock::sum_async(uint64_t elemSize) {
+void GPUBlock::sum_async(uint64_t elemSize, cudaStream_t stream) {
   uint64_t numLL = nBytes / sizeof(uint64_t);
   uint64_t sharedMemsize = 1024 * sizeof(uint64_t);
-  sum_gpu<<<numLL / 2048, 1024, sharedMemsize>>>((uint64_t*) data_d, numLL);
+  sum_gpu<<<numLL / 2048, 1024, sharedMemsize, stream>>>((uint64_t*) data_d, numLL);
+}
+
+void GPUBlock::xor_async(GPUBlock &rhs, cudaStream_t stream) {
+  uint64_t numBlock = (nBytes - 1) / 1024 + 1;
+  uint64_t minNBytes = std::min(nBytes, rhs.nBytes);
+  xor_gpu<<<numBlock, 1024, 0, stream>>>(data_d, data_d, rhs.data_d, minNBytes);
+}
+
+void GPUBlock::copy_async(GPUBlock &rhs, cudaStream_t stream) {
+  if (nBytes != rhs.nBytes) {
+    if (data_d != nullptr)
+      cudaFree(data_d);
+    cudaError_t err = cudaMallocAsync(&data_d, rhs.nBytes, stream);
+    if (err != cudaSuccess)
+      fprintf(stderr, "operator=(GPUBlock): %s\n", cudaGetErrorString(err));
+    nBytes = rhs.nBytes;
+  }
+  cudaMemcpyAsync(data_d, rhs.data_d, nBytes, cudaMemcpyDeviceToDevice, stream);
 }
 
 void GPUBlock::resize(uint64_t size) {

@@ -70,7 +70,7 @@ def plot_pipeline(runconfig, dataSend, dataRecv):
 
   plt.savefig(OUTPUT_FOLDER + runconfig, bbox_inches='tight')
 
-def plot_tree_graph(runconfig, eventList, eventDurationS, eventDurationsR, eventID):
+def plot_numtree_runtime(runconfig, eventList, eventDurationS, eventDurationsR, eventID):
   xVal = []
   yValS = []
   yValR = []
@@ -81,8 +81,10 @@ def plot_tree_graph(runconfig, eventList, eventDurationS, eventDurationsR, event
     yValR.append(durationRecv[eventID])
   plt.figure(figsize=(12, 6))
   plt.cla()
-  plt.scatter(xVal, yValS)
-  plt.scatter(xVal, yValR)
+  plt.plot(xVal, yValS)
+  # plt.plot(xVal, yValR)
+  plt.xscale('log', base=2)
+  plt.legend(['Sender', 'Recver'])
   plt.title('Runtime of %s vs Number of PPRF Trees' % eventList[eventID])
   plt.savefig(OUTPUT_FOLDER + eventList[eventID], bbox_inches='tight')
 
@@ -95,13 +97,18 @@ if __name__ == '__main__':
     if filename.endswith('send.txt'):
       src = '-'.join(filename.split('-')[:3])
       runconfig.append(src)
+  runconfig = sorted(runconfig)
+
+  config24 = []
 
   for src in runconfig:
     dataSend = extract_data(OUTPUT_FOLDER + src + '-send.txt')
     dataRecv = extract_data(OUTPUT_FOLDER + src + '-recv.txt')
     plot_pipeline(src, dataSend, dataRecv)
-    eventDurationS.append(dataSend[2])
-    eventDurationsR.append(dataRecv[2])
+    if 'log-24' in src:
+      config24.append(src)
+      eventDurationS.append(dataSend[2])
+      eventDurationsR.append(dataRecv[2])
 
   eventList = dataSend[0]
-  plot_tree_graph(runconfig, eventList, eventDurationS, eventDurationsR, 2)
+  plot_numtree_runtime(config24, eventList, eventDurationS, eventDurationsR, 2)

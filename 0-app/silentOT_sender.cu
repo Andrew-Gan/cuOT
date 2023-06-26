@@ -98,52 +98,48 @@ void SilentOTSender::expand() {
   for (int t = 0; t < nTree; t++) {
     fullVector.set((uint8_t*) root.data, BLK_SIZE, t * numLeaves * BLK_SIZE);
   }
-  EventLog::end(Sender, BufferInit);
-
-  EventLog::start(Sender, PprfExpand);
-  std::vector<cudaStream_t> streams(2 * depth);
+  std::vector<cudaStream_t> streams(nTree);
   for (cudaStream_t &s : streams) {
     cudaStreamCreate(&s);
   }
+  EventLog::end(Sender, BufferInit);
+
+  EventLog::start(Sender, PprfExpand);
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     input = fullVector;
+    for (uint64_t t = 0; t < nTree; t++) {
+      cudaStream_t &stream = streams.at(t);
 
-    int sid = 0;
-    for (int t = 0; t < nTree; t++) {
       TreeNode *inPtr = ((TreeNode*) input.data_d) + t * numLeaves;
       TreeNode *outPtr = ((TreeNode*) fullVector.data_d) + t * numLeaves;
-      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, streams.at(sid++));
-      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, streams.at(sid++));
-    }
-    cudaDeviceSynchronize();
+      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
+      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
 
-    EventLog::start(Sender, SumNodes);
-    for (int t = 0; t < nTree; t++) {
-      leftNodes.at(t).sum_async(BLK_SIZE);
-      rightNodes.at(t).sum_async(BLK_SIZE);
-    }
-    cudaDeviceSynchronize();
-    EventLog::end(Sender, SumNodes);
+      leftNodes.at(t).sum_async(BLK_SIZE, stream);
+      rightNodes.at(t).sum_async(BLK_SIZE, stream);
 
-    EventLog::start(Sender, Hash);
-    for (int t = 0; t < nTree; t++) {
-      other->leftHash.at(t).at(d-1) = leftHash.at(t).at(d-1) ^= leftNodes.at(t);
-      other->rightHash.at(t).at(d-1) = rightHash.at(t).at(d-1) ^= rightNodes.at(t);
-    }
-    if (d == depth) {
-      for (int t = 0; t < nTree; t++) {
-        leftHash.at(t).at(d) ^= leftNodes.at(t);
-        other->leftHash.at(t).at(d) = leftHash.at(t).at(d) ^= delta;
-        rightHash.at(t).at(d) ^= rightNodes.at(t);
-        other->rightHash.at(t).at(d) = rightHash.at(t).at(d) ^= delta;
+      leftHash.at(t).at(d-1).xor_async(leftNodes.at(t), stream);
+      rightHash.at(t).at(d-1).xor_async(rightNodes.at(t), stream);
+
+      other->leftHash.at(t).at(d-1).copy_async(leftHash.at(t).at(d-1), stream);
+      other->rightHash.at(t).at(d-1).copy_async(rightHash.at(t).at(d-1), stream);
+
+      if (d == depth) {
+        leftHash.at(t).at(d).xor_async(leftNodes.at(t), stream);
+        rightHash.at(t).at(d).xor_async(rightNodes.at(t), stream);
+
+        leftHash.at(t).at(d).xor_async(delta, stream);
+        rightHash.at(t).at(d).xor_async(delta, stream);
+
+        other->leftHash.at(t).at(d).copy_async(leftHash.at(t).at(d), stream);
+        other->rightHash.at(t).at(d).copy_async(rightHash.at(t).at(d), stream);
       }
     }
-    cudaDeviceSynchronize();
-    other->msgDelivered++;
-    EventLog::end(Sender, Hash);
   }
-  for (cudaStream_t &s : streams) {
+  cudaDeviceSynchronize();
+  other->msgDelivered = true;
+  EventLog::end(Sender, PprfExpand);
+  for (auto &s : streams) {
     cudaStreamDestroy(s);
   }
-  EventLog::end(Sender, PprfExpand);
 }
