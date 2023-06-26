@@ -39,7 +39,7 @@ std::pair<GPUBlock, GPUBlock> SilentOTRecver::run() {
     gen_rand(prng, randMatrix); // transposed
     EventLog::end(Recver, MatrixRand);
     EventLog::start(Recver, MatrixMult);
-    hash(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, 0, 0);
+    compress(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, 0, 0);
     EventLog::end(Recver, MatrixMult);
   }
   else {
@@ -52,7 +52,7 @@ std::pair<GPUBlock, GPUBlock> SilentOTRecver::run() {
         gen_rand(prng, randMatrix);
         EventLog::end(Recver, MatrixRand);
         EventLog::start(Recver, MatrixMult);
-        hash(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, chunkR, chunkC);
+        compress(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, chunkR, chunkC);
         EventLog::end(Recver, MatrixMult);
       }
     }

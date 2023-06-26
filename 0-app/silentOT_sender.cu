@@ -36,7 +36,7 @@ std::pair<GPUBlock, GPUBlock> SilentOTSender::run() {
     gen_rand(prng, randMatrix); // transposed
     EventLog::end(Sender, MatrixRand);
     EventLog::start(Sender, MatrixMult);
-    hash(fullVectorHashed, randMatrix, fullVector, 0);
+    compress(fullVectorHashed, randMatrix, fullVector, 0);
     EventLog::end(Sender, MatrixMult);
   }
   else {
@@ -49,7 +49,7 @@ std::pair<GPUBlock, GPUBlock> SilentOTSender::run() {
         gen_rand(prng, randMatrix);
         EventLog::end(Sender, MatrixRand);
         EventLog::start(Sender, MatrixMult);
-        hash(fullVectorHashed, randMatrix, fullVector, chunkC);
+        compress(fullVectorHashed, randMatrix, fullVector, chunkC);
         EventLog::end(Sender, MatrixMult);
       }
     }
