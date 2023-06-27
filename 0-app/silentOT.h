@@ -6,8 +6,12 @@
 #include <array>
 #include <atomic>
 #include "gpu_block.h"
+#include "gpu_matrix.h"
 
 #define CHUNK_SIDE (1<<18)
+
+class SilentOTSender;
+class SilentOTRecver;
 
 class SilentOT {
 public:
@@ -16,16 +20,14 @@ public:
   virtual std::pair<GPUBlock, GPUBlock> run() = 0;
 
   // network
-  std::atomic<uint64_t> msgDelivered = 0;
   std::vector<std::vector<GPUBlock>> leftHash;
   std::vector<std::vector<GPUBlock>> rightHash;
 
 protected:
-  uint64_t id, depth, nTree, numOT;
-  
+  uint64_t id, depth, nTree, numOT, numLeaves;
+
   curandGenerator_t prng;
-  Matrix randMatrix;
-  SilentOT *other = nullptr;
+  GPUMatrix<OTBlock> randMatrix;
   virtual void baseOT() = 0;
   virtual void expand() = 0;
 };
@@ -37,24 +39,28 @@ public:
 
 protected:
   GPUBlock fullVector, delta;
+  SilentOTRecver *other = nullptr;
   void baseOT();
   void expand();
-  void hash(GPUBlock &fullVectorHashed, Matrix &randMatrix, GPUBlock &fullVector, int chunkC);
+  void compress(GPUBlock &fullVectorHashed, GPUMatrix<OTBlock> &randMatrix, GPUBlock &fullVector, int chunkC);
 };
 
 class SilentOTRecver : public SilentOT {
 public:
+  std::vector<std::vector<cudaEvent_t>> expandEvents;
+  std::atomic<bool> eventsRecorded = false;
   std::pair<GPUBlock, GPUBlock> run();
   SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mychoices);
 
 protected:
   GPUBlock puncVector;
   uint64_t *choices;
+  SilentOTSender *other = nullptr;
   std::vector<std::vector<GPUBlock>> choiceHash;
   void baseOT();
   void expand();
-  void hash(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
-  Matrix &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector,
+  void compress(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
+  GPUMatrix<OTBlock> &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector,
   int chunkR, int chunkC);
 };
 

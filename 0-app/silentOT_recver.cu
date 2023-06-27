@@ -9,9 +9,28 @@ SilentOTRecver::SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mych
   SilentOT(myid, logOT, numTrees){
 
   choices = mychoices;
+  expandEvents = std::vector<std::vector<cudaEvent_t>>(nTree, std::vector<cudaEvent_t>(depth));
+  for (auto &depths : expandEvents) {
+    for (auto &event : depths) {
+      cudaEventCreate(&event);
+    }
+  }
   silentOTRecvers[id] = this;
   while(silentOTSenders[id] == nullptr);
   other = silentOTSenders[id];
+}
+
+__global__
+void pathToChoice(uint8_t *choiceVec, uint64_t depth, uint64_t numLeaves, uint64_t *choices) {
+  uint64_t treeStartIndex = threadIdx.x * numLeaves;
+  uint64_t path = choices[threadIdx.x];
+  uint64_t puncIndex = 0;
+  for (int d = 0; d < depth; d++) {
+    puncIndex *= 2;
+    if (path & (1 << d)) puncIndex += 1;
+  }
+  puncIndex += treeStartIndex;
+  choiceVec[puncIndex / 8] |= 1 << (puncIndex % 8);
 }
 
 std::pair<GPUBlock, GPUBlock> SilentOTRecver::run() {
@@ -25,39 +44,45 @@ std::pair<GPUBlock, GPUBlock> SilentOTRecver::run() {
 
   expand();
 
+  GPUBlock choiceVector(2 * numOT / 8);
+  uint64_t *choices_d;
+  cudaMalloc(&choices_d, nTree * sizeof(*choices_d));
+  cudaMemcpy(choices_d, choices, nTree * sizeof(*choices_d), cudaMemcpyHostToDevice);
+  pathToChoice<<<1, nTree>>>(choiceVector.data_d, depth, numLeaves, choices_d);
+  cudaDeviceSynchronize();
+
   GPUBlock puncVectorHashed(numOT * BLK_SIZE);
   GPUBlock choiceVectorHashed(numOT * BLK_SIZE);
-  return std::pair<GPUBlock, GPUBlock>(); //debug
 
-  SparseVector choiceVector;
+  // SparseVector choiceVector;
 
-  if (numOT < CHUNK_SIDE) {
-    EventLog::start(Recver, MatrixInit);
-    randMatrix = init_rand(prng, 2 * numOT, numOT);
-    EventLog::end(Recver, MatrixInit);
-    EventLog::start(Recver, MatrixRand);
-    gen_rand(prng, randMatrix); // transposed
-    EventLog::end(Recver, MatrixRand);
-    EventLog::start(Recver, MatrixMult);
-    hash(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, 0, 0);
-    EventLog::end(Recver, MatrixMult);
-  }
-  else {
-    EventLog::start(Recver, MatrixInit);
-    randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
-    EventLog::end(Recver, MatrixInit);
-    for (uint64_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
-      for (uint64_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-        EventLog::start(Recver, MatrixRand);
-        gen_rand(prng, randMatrix);
-        EventLog::end(Recver, MatrixRand);
-        EventLog::start(Recver, MatrixMult);
-        hash(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, chunkR, chunkC);
-        EventLog::end(Recver, MatrixMult);
-      }
-    }
-  }
-  del_rand(prng, randMatrix);
+  // if (numOT < CHUNK_SIDE) {
+  //   EventLog::start(Recver, MatrixInit);
+  //   randMatrix = init_rand(prng, 2 * numOT, numOT);
+  //   EventLog::end(Recver, MatrixInit);
+  //   EventLog::start(Recver, MatrixRand);
+  //   gen_rand(prng, randMatrix); // transposed
+  //   EventLog::end(Recver, MatrixRand);
+  //   EventLog::start(Recver, MatrixMult);
+  //   compress(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, 0, 0);
+  //   EventLog::end(Recver, MatrixMult);
+  // }
+  // else {
+  //   EventLog::start(Recver, MatrixInit);
+  //   randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
+  //   EventLog::end(Recver, MatrixInit);
+  //   for (uint64_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
+  //     for (uint64_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
+  //       EventLog::start(Recver, MatrixRand);
+  //       gen_rand(prng, randMatrix);
+  //       EventLog::end(Recver, MatrixRand);
+  //       EventLog::start(Recver, MatrixMult);
+  //       compress(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, chunkR, chunkC);
+  //       EventLog::end(Recver, MatrixMult);
+  //     }
+  //   }
+  // }
+  // del_rand(prng, randMatrix);
   return {puncVectorHashed, choiceVectorHashed};
 }
 
@@ -82,7 +107,6 @@ void SilentOTRecver::baseOT() {
 
 void SilentOTRecver::expand() {
   EventLog::start(Recver, BufferInit);
-  uint64_t numLeaves = pow(2, depth);
   uint64_t k0 = 3242342, k1 = 8993849;
   uint8_t k0_blk[16] = {0};
   uint8_t k1_blk[16] = {0};
@@ -90,108 +114,94 @@ void SilentOTRecver::expand() {
   memcpy(&k0_blk[8], &k0, sizeof(k0));
   memcpy(&k1_blk[8], &k1, sizeof(k1));
 
-  GPUBlock input(numOT * BLK_SIZE);
+  GPUBlock bufferA(2 * numOT * BLK_SIZE);
+  GPUBlock bufferB(2 * numOT * BLK_SIZE);
   std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
   std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
-  std::vector<SimplestOT*> baseOT;
   Aes aesLeft(k0_blk);
   Aes aesRight(k1_blk);
   std::vector<uint64_t> puncture(nTree, 0);
 
-  SparseVector choiceVector = {
-    .nBits = numLeaves,
-  };
-  cudaError_t err = cudaMalloc(&choiceVector.nonZeros, nTree * sizeof(uint64_t));
-  if (err != cudaSuccess)
-    fprintf(stderr, "choice vec: %s\n", cudaGetErrorString(err));
+  std::vector<cudaStream_t> streams(nTree);
+  for (cudaStream_t &s : streams) {
+    cudaStreamCreate(&s);
+  }
   EventLog::end(Recver, BufferInit);
 
+  while(!eventsRecorded);
   EventLog::start(Recver, PprfExpand);
+  GPUBlock *inBuffer, *outBuffer;
   auto &sum = choiceHash; // alias
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    input = puncVector;
+    for (uint64_t t = 0; t < nTree; t++) {
+      cudaStream_t &stream = streams.at(t);
 
-    std::vector<cudaStream_t> streams(2 * depth);
-    for (cudaStream_t &s : streams) {
-      cudaStreamCreate(&s);
-    }
-    int sid = 0;
-    for (int t = 0; t < nTree; t++) {
-      TreeNode *inPtr = &((TreeNode*) input.data_d)[t * numLeaves];
-      TreeNode *outPtr = &((TreeNode*) puncVector.data_d)[t * numLeaves];
-      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, streams.at(sid++));
-      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, streams.at(sid++));
-    }
-    cudaDeviceSynchronize();
-    for (cudaStream_t &s : streams) {
-      cudaStreamDestroy(s);
-    }
+      inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
+      outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
 
-    while(msgDelivered < d);
-    EventLog::start(Recver, Hash);
-    // once left sum^hash and right sum^hash ready, unhash to obtain sum
-    for (int t = 0; t < nTree; t++) {
+      OTBlock *inPtr = (OTBlock*)inBuffer->data_d + t * numLeaves;
+      OTBlock *outPtr = (OTBlock*)outBuffer->data_d + t * numLeaves;
+      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
+      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
+
+      cudaStreamWaitEvent(stream, expandEvents.at(t).at(d-1));
+
+      // once left sum^hash and right sum^hash ready, unhash to obtain sum
       int choice = (choices[t] & (1 << d-1)) >> d-1;
       if (choice == 0)
-        sum.at(t).at(d-1) ^= leftHash.at(t).at(d-1);
+        sum.at(t).at(d-1).xor_async(leftHash.at(t).at(d-1), stream);
       else
-        sum.at(t).at(d-1) ^= rightHash.at(t).at(d-1);
+        sum.at(t).at(d-1).xor_async(rightHash.at(t).at(d-1), stream);
 
       if (d == depth) {
         if (choice == 0)
-          sum.at(t).at(d) ^= rightHash.at(t).at(d);
+          sum.at(t).at(d).xor_async(rightHash.at(t).at(d), stream);
         else
-          sum.at(t).at(d) ^= leftHash.at(t).at(d);
+          sum.at(t).at(d).xor_async(leftHash.at(t).at(d), stream);
       }
-    }
-    cudaDeviceSynchronize();
 
-    // insert obtained sum into layer
-    for (int t = 0; t < nTree; t++) {
-      int choice = (choices[t] & (1 << d-1)) >> d-1;
+      // insert obtained sum into layer
+      choice = (choices[t] & (1 << d-1)) >> d-1;
       GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
-      TreeNode *sideCasted = (TreeNode*) side->data_d;
+      OTBlock *sideCasted = (OTBlock*) side->data_d;
       int recvNodeId = puncture.at(t) * 2 + choice;
-      cudaMemcpy(&sideCasted[recvNodeId / 2], sum.at(t).at(d-1).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
+      cudaMemcpyAsync(&sideCasted[recvNodeId / 2], sum.at(t).at(d-1).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
 
       if (d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
-        sideCasted = (TreeNode*) xorSide->data_d;
+        sideCasted = (OTBlock*) xorSide->data_d;
         uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
-        cudaMemcpy(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
+        cudaMemcpyAsync(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
       }
-    }
-    EventLog::end(Recver, Hash);
 
-    // conduct sum/xor in parallel
-    EventLog::start(Recver, SumNodes);
-    for (int t = 0; t < nTree; t++) {
-      int choice = (choices[t] & (1 << d-1)) >> d-1;
-      GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
-      side->sum_async(BLK_SIZE);
+      // conduct sum/xor in parallel
+      choice = (choices[t] & (1 << d-1)) >> d-1;
+      side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
+      side->sum_async(BLK_SIZE * width / 2, stream);
 
       if (d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
-        xorSide->sum_async(BLK_SIZE);
+        xorSide->sum_async(BLK_SIZE * width / 2, stream);
       }
-    }
-    cudaDeviceSynchronize();
-    EventLog::end(Recver, SumNodes);
 
-    // insert active node obtained from sum into output
-    for (int t = 0; t < nTree; t++) {
-      int choice = (choices[t] & (1 << d-1)) >> d-1;
-      GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
-      TreeNode *oCasted = (TreeNode*) puncVector.data_d + t * numLeaves;
-      int recvNodeId = puncture.at(t) * 2 + choice;
-      cudaMemcpy(&oCasted[recvNodeId], side->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
+      // insert active node obtained from sum into output
+      choice = (choices[t] & (1 << d-1)) >> d-1;
+      side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
+      OTBlock *oCasted = (OTBlock*) puncVector.data_d + t * numLeaves;
+      recvNodeId = puncture.at(t) * 2 + choice;
+      cudaMemcpyAsync(&oCasted[recvNodeId], side->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
 
       if(d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
         uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
-        cudaMemcpy(&oCasted[deltaNodeId], xorSide->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice);
+        cudaMemcpyAsync(&oCasted[deltaNodeId], xorSide->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
       }
     }
   }
+  cudaDeviceSynchronize();
+  for (auto &s : streams) {
+    cudaStreamDestroy(s);
+  }
+  puncVector = *outBuffer;
   EventLog::end(Recver, PprfExpand);
 }

@@ -8,4 +8,5 @@ SilentOT::SilentOT(int myid, int logOT, int numTrees) {
   nTree = numTrees;
   depth = logOT - log2((float) nTree) + 1;
   numOT = pow(2, logOT);
+  numLeaves = pow(2, depth);
 }

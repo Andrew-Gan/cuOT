@@ -1,0 +1,19 @@
+0 BaseOT
+1 BufferInit
+2 PprfExpand
+3 SumNodes
+4 Hash
+5 MatrixInit
+6 MatrixRand
+7 MatrixMult
+--------------------
+<start/end> <event> <ms since init>
+--------------------
+s 0 0.432107
+e 0 27.1786
+s 1 27.1863
+e 1 27.7752
+s 1 27.7811
+e 1 36.6177
+s 2 36.6262
+e 2 157.155

@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "type_traits": "cpp",
-        "array": "cpp",
-        "out": "cpp",
-        "__locale": "cpp"
-    },
-    "C_Cpp.errorSquiggles": "disabled"
-}

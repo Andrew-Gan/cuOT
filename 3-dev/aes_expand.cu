@@ -34,7 +34,7 @@
 #include "aes_expand.h"
 
 __global__
-void aesExpand128(uint32_t *aesKey, TreeNode *interleaved, uint32_t *separated,
+void aesExpand128(uint32_t *aesKey, OTBlock *interleaved, uint32_t *separated,
 	uint32_t *inData, int expandDir, uint64_t width) {
 	uint32_t bx		= blockIdx.x;
     uint32_t tx		= threadIdx.x;
