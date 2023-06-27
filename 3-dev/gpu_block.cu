@@ -82,8 +82,8 @@ std::ostream& operator<<(std::ostream &os, const GPUBlock &obj) {
   static std::mutex mtx;
 
   mtx.lock();
-  TreeNode *nodes = new TreeNode[obj.nBytes];
-  uint64_t numNode = obj.nBytes / sizeof(TreeNode);
+  OTBlock *nodes = new OTBlock[obj.nBytes];
+  uint64_t numNode = obj.nBytes / sizeof(OTBlock);
   cudaMemcpy(nodes, obj.data_d, obj.nBytes, cudaMemcpyDeviceToHost);
   for (int i = 0; i < numNode; i += 16) {
     for (int j = i; j < numNode && j < (i + 16); j++) {

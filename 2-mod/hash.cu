@@ -19,37 +19,37 @@ Tile    | 2^12  x 2^10      | 512 KB
 #define TILE_W (uint64_t) 1024 // at most 1024
 
 __global__
-void mat_vec_hash(uint8_t *out, uint8_t *subTotal, Matrix matrix, uint8_t *in, int numRows, int globalCol) {
-  int chunkStartRow = blockIdx.y * numRows;
-  int col_byte = blockIdx.x * blockDim.x + threadIdx.x;
+void mat_vec_hash(uint8_t *out, uint8_t *subTotal, GPUMatrix<OTBlock> matrix, uint8_t *in, int numRows, int globalCol) {
+  // int chunkStartRow = blockIdx.y * numRows;
+  // int col_byte = blockIdx.x * blockDim.x + threadIdx.x;
 
-  for (int row = chunkStartRow; row < chunkStartRow + numRows; row++) {
-    if (in[row / 8] & (1 << (row % 8)) != 0) {
-      subTotal[blockIdx.y * (matrix.cols / 8) + col_byte]
-       ^= matrix.data[row * (matrix.cols / 8) + col_byte];
-    }
-  }
-  if (blockIdx.y == 0) {
-    for(int i = 0; i < gridDim.y; i++) {
-      out[globalCol/8+col_byte] ^= subTotal[i*matrix.cols/8+col_byte];
-    }
-  }
+  // for (int row = chunkStartRow; row < chunkStartRow + numRows; row++) {
+  //   if (in[row / 8] & (1 << (row % 8)) != 0) {
+  //     subTotal[blockIdx.y * (matrix.cols / 8) + col_byte]
+  //      ^= matrix.data[row * (matrix.cols / 8) + col_byte];
+  //   }
+  // }
+  // if (blockIdx.y == 0) {
+  //   for(int i = 0; i < gridDim.y; i++) {
+  //     out[globalCol/8+col_byte] ^= subTotal[i*matrix.cols/8+col_byte];
+  //   }
+  // }
 }
 
 __global__
-void mat_sparse_vec_hash(uint8_t *out, Matrix matrix, SparseVector vec, int globalRow, int globalCol) {
-  int col_byte = blockIdx.x * blockDim.x + threadIdx.x;
-  for (uint64_t t = 0; t < vec.weight; t++) {
-    uint64_t globalRow = vec.nonZeros[t];
-    if (globalRow > globalRow && globalRow < globalRow + matrix.rows) {
-      uint64_t localRow = globalRow - globalRow;
-      out[matrix.cols/8+col_byte] ^= matrix.data[localRow*matrix.cols/8+col_byte];
-    }
-  }
+void mat_sparse_vec_hash(uint8_t *out, GPUMatrix<OTBlock> matrix, SparseVector vec, int globalRow, int globalCol) {
+  // int col_byte = blockIdx.x * blockDim.x + threadIdx.x;
+  // for (uint64_t t = 0; t < vec.weight; t++) {
+  //   uint64_t globalRow = vec.nonZeros[t];
+  //   if (globalRow > globalRow && globalRow < globalRow + matrix.rows) {
+  //     uint64_t localRow = globalRow - globalRow;
+  //     out[matrix.cols/8+col_byte] ^= matrix.data[localRow*matrix.cols/8+col_byte];
+  //   }
+  // }
 }
 
 __host__
-void SilentOTSender::compress(GPUBlock &fullVectorHashed, Matrix &randMatrix,
+void SilentOTSender::compress(GPUBlock &fullVectorHashed, GPUMatrix<OTBlock> &randMatrix,
   GPUBlock &fullVector, int chunkC) {
 
   EventLog::start(Sender, Hash);
@@ -66,7 +66,7 @@ void SilentOTSender::compress(GPUBlock &fullVectorHashed, Matrix &randMatrix,
 
 __host__
 void SilentOTRecver::compress(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
-  Matrix &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector,
+  GPUMatrix<OTBlock> &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector,
   int chunkR, int chunkC) {
 
   EventLog::start(Recver, Hash);

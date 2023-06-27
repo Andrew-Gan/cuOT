@@ -26,35 +26,34 @@ std::pair<GPUBlock, GPUBlock> SilentOTSender::run() {
   expand();
 
   GPUBlock fullVectorHashed(numOT * BLK_SIZE);
-  return std::pair<GPUBlock, GPUBlock>(); //debug
 
-  if (numOT < CHUNK_SIDE) {
-    EventLog::start(Sender, MatrixInit);
-    randMatrix = init_rand(prng, 2 * numOT, numOT);
-    EventLog::end(Sender, MatrixInit);
-    EventLog::start(Sender, MatrixRand);
-    gen_rand(prng, randMatrix); // transposed
-    EventLog::end(Sender, MatrixRand);
-    EventLog::start(Sender, MatrixMult);
-    compress(fullVectorHashed, randMatrix, fullVector, 0);
-    EventLog::end(Sender, MatrixMult);
-  }
-  else {
-    EventLog::start(Sender, MatrixInit);
-    randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
-    EventLog::end(Sender, MatrixInit);
-    for (uint64_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
-      for (uint64_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-        EventLog::start(Sender, MatrixRand);
-        gen_rand(prng, randMatrix);
-        EventLog::end(Sender, MatrixRand);
-        EventLog::start(Sender, MatrixMult);
-        compress(fullVectorHashed, randMatrix, fullVector, chunkC);
-        EventLog::end(Sender, MatrixMult);
-      }
-    }
-  }
-  del_rand(prng, randMatrix);
+  // if (numOT < CHUNK_SIDE) {
+  //   EventLog::start(Sender, MatrixInit);
+  //   randMatrix = init_rand(prng, 2 * numOT, numOT);
+  //   EventLog::end(Sender, MatrixInit);
+  //   EventLog::start(Sender, MatrixRand);
+  //   gen_rand(prng, randMatrix); // transposed
+  //   EventLog::end(Sender, MatrixRand);
+  //   EventLog::start(Sender, MatrixMult);
+  //   compress(fullVectorHashed, randMatrix, fullVector, 0);
+  //   EventLog::end(Sender, MatrixMult);
+  // }
+  // else {
+  //   EventLog::start(Sender, MatrixInit);
+  //   randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
+  //   EventLog::end(Sender, MatrixInit);
+  //   for (uint64_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
+  //     for (uint64_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
+  //       EventLog::start(Sender, MatrixRand);
+  //       gen_rand(prng, randMatrix);
+  //       EventLog::end(Sender, MatrixRand);
+  //       EventLog::start(Sender, MatrixMult);
+  //       compress(fullVectorHashed, randMatrix, fullVector, chunkC);
+  //       EventLog::end(Sender, MatrixMult);
+  //     }
+  //   }
+  // }
+  // del_rand(prng, randMatrix);
   return {fullVectorHashed, delta};
 }
 
@@ -72,9 +71,14 @@ void SilentOTSender::baseOT() {
   }
 }
 
+__global__
+void set_flag(bool *flag) {
+  *flag = true;
+}
+
 void SilentOTSender::expand() {
   EventLog::start(Sender, BufferInit);
-  TreeNode root;
+  OTBlock root;
   root.data[0] = 123456;
   root.data[1] = 7890123;
 
@@ -109,8 +113,8 @@ void SilentOTSender::expand() {
     for (uint64_t t = 0; t < nTree; t++) {
       cudaStream_t &stream = streams.at(t);
 
-      TreeNode *inPtr = ((TreeNode*) input.data_d) + t * numLeaves;
-      TreeNode *outPtr = ((TreeNode*) fullVector.data_d) + t * numLeaves;
+      OTBlock *inPtr = ((OTBlock*) input.data_d) + t * numLeaves;
+      OTBlock *outPtr = ((OTBlock*) fullVector.data_d) + t * numLeaves;
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
 
@@ -139,6 +143,8 @@ void SilentOTSender::expand() {
         other->leftHash.at(t).at(d).copy_async(leftHash.at(t).at(d), stream);
         other->rightHash.at(t).at(d).copy_async(rightHash.at(t).at(d), stream);
       }
+
+      // set_flag<<<1, 1, 0, stream>>>(&other->treeLayerExpanded.at(t, d-1));
     }
   }
   cudaDeviceSynchronize();

@@ -69,7 +69,7 @@ void Aes::encrypt(GPUBlock &msg) {
   cudaDeviceSynchronize();
 }
 
-void Aes::expand_async(TreeNode *interleaved, GPUBlock &separated, TreeNode *input_d, uint64_t width, int dir, cudaStream_t &s) {
+void Aes::expand_async(OTBlock *interleaved, GPUBlock &separated, OTBlock *input_d, uint64_t width, int dir, cudaStream_t &s) {
   static int thread_per_aesblock = 4;
   uint64_t paddedBytes = (width / 2) * sizeof(*interleaved);
   if (paddedBytes % 1024 != 0)
