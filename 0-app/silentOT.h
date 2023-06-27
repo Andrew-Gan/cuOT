@@ -47,8 +47,8 @@ protected:
 
 class SilentOTRecver : public SilentOT {
 public:
-  GPUMatrix<bool> treeLayerExpanded;
-  std::atomic<bool> msgDelivered = false;
+  std::vector<std::vector<cudaEvent_t>> expandEvents;
+  std::atomic<bool> eventsRecorded = false;
   std::pair<GPUBlock, GPUBlock> run();
   SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mychoices);
 

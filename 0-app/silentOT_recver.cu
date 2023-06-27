@@ -9,10 +9,15 @@ SilentOTRecver::SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mych
   SilentOT(myid, logOT, numTrees){
 
   choices = mychoices;
+  expandEvents = std::vector<std::vector<cudaEvent_t>>(nTree, std::vector<cudaEvent_t>(depth));
+  for (auto &depths : expandEvents) {
+    for (auto &event : depths) {
+      cudaEventCreate(&event);
+    }
+  }
   silentOTRecvers[id] = this;
   while(silentOTSenders[id] == nullptr);
   other = silentOTSenders[id];
-  treeLayerExpanded = GPUMatrix<bool>(nTree, depth);
 }
 
 __global__
@@ -100,11 +105,6 @@ void SilentOTRecver::baseOT() {
   }
 }
 
-__global__
-void wait_flag(bool *flag) {
-  while(!*flag);
-}
-
 void SilentOTRecver::expand() {
   EventLog::start(Recver, BufferInit);
   uint64_t k0 = 3242342, k1 = 8993849;
@@ -128,7 +128,7 @@ void SilentOTRecver::expand() {
   }
   EventLog::end(Recver, BufferInit);
 
-  while(!msgDelivered);
+  while(!eventsRecorded);
   EventLog::start(Recver, PprfExpand);
   GPUBlock *inBuffer, *outBuffer;
   auto &sum = choiceHash; // alias
@@ -144,7 +144,7 @@ void SilentOTRecver::expand() {
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
 
-      // wait_flag<<<1, 1, 0, stream>>>(&treeLayerExpanded.at(t, d-1));
+      cudaStreamWaitEvent(stream, expandEvents.at(t).at(d-1));
 
       // once left sum^hash and right sum^hash ready, unhash to obtain sum
       int choice = (choices[t] & (1 << d-1)) >> d-1;

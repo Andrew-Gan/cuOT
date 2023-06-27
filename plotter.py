@@ -108,7 +108,7 @@ def plot_custom_graph():
   plt.savefig(OUTPUT_FOLDER + 'expansion-vs-cluster.png', bbox_inches='tight')
 
 if __name__ == '__main__':
-  # plot_custom_graph()
+  plot_custom_graph()
 
   runconfig = []
   eventDurationS = []

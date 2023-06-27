@@ -116,7 +116,7 @@ void GPUBlock::set(const uint8_t *val, uint64_t n, uint64_t offset) {
 }
 
 void GPUBlock::sum_async(uint64_t n, cudaStream_t stream) {
-  uint64_t nBlocks = (n / 4) / 2048;
+  uint64_t nBlocks = (( (n / 4) - 1) / 2048) + 1;
   xor_reduce_gpu<<<nBlocks, 1024, 4096, stream>>>((uint32_t*) data_d, n / 4);
   // uint64_t numLL = nBytes / sizeof(uint64_t);
   // uint64_t sharedMemsize = 1024 * sizeof(uint64_t);

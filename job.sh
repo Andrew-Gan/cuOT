@@ -15,6 +15,8 @@ do
     ./ot 1 $LOGOT 8
 done
 
+# ./ot 1 24 8
+
 python plotter.py
 
 # nsys profile --stats=true --output=nsys-stats ./ot 1 14 4 data/log-14-nsys.txt

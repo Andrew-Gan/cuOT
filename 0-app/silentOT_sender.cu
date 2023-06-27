@@ -70,11 +70,6 @@ void SilentOTSender::baseOT() {
   }
 }
 
-__global__
-void set_flag(bool *flag) {
-  *flag = true;
-}
-
 void SilentOTSender::expand() {
   EventLog::start(Sender, BufferInit);
   OTBlock root;
@@ -141,11 +136,11 @@ void SilentOTSender::expand() {
         other->rightHash.at(t).at(d).copy_async(rightHash.at(t).at(d), stream);
       }
 
-      // set_flag<<<1, 1, 0, stream>>>(&other->treeLayerExpanded.at(t, d-1));
+      cudaEventRecord(other->expandEvents.at(t).at(d-1), stream);
     }
   }
+  other->eventsRecorded = true;
   cudaDeviceSynchronize();
-  other->msgDelivered = true;
   for (auto &s : streams) {
     cudaStreamDestroy(s);
   }
