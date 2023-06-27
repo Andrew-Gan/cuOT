@@ -24,7 +24,7 @@ public:
   std::vector<std::vector<GPUBlock>> rightHash;
 
 protected:
-  uint64_t id, depth, nTree, numOT;
+  uint64_t id, depth, nTree, numOT, numLeaves;
 
   curandGenerator_t prng;
   GPUMatrix<OTBlock> randMatrix;

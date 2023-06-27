@@ -58,7 +58,7 @@ def plot_pipeline(runconfig, dataSend, dataRecv):
   plt.title('Pipeline Graph over Time with n=%s and t=%s' % (logOT, numTree))
   plt.xlabel('Time (ms)')
   plt.yticks([0, 1], ['Sender', 'Recver'])
-  plt.legend(eventList.values(), loc='lower left', bbox_to_anchor=(-.2, 0.25))
+  plt.legend(eventList.values(), loc='lower left', bbox_to_anchor=(-.2, .25))
 
   plt.table([[eventList[i], f"{eventDurationSend[i]:.3f}"] for i in eventList],
     colWidths=[0.2, 0.15], colLabels=['Operation', 'Duration (ms)'],
@@ -88,7 +88,28 @@ def plot_numtree_runtime(runconfig, eventList, eventDurationS, eventDurationsR, 
   plt.title('Runtime of %s vs Number of PPRF Trees' % eventList[eventID])
   plt.savefig(OUTPUT_FOLDER + eventList[eventID], bbox_inches='tight')
 
+def plot_custom_graph():
+  xVal = list(range(7))
+  expTime = [274, 253, 146, 150, 140, 137, 108]
+  sumTime = [30, 20, 9, 9, 13, 14, 6]
+  clusters = ['B', 'D', 'E', 'F', "G", 'H', 'K']
+  gpu = ['A30', 'A30', 'V100', 'V100', 'A100', 'A10', 'A100']
+  mem = [8, 8, 8, 16, 20, 8, 40]
+  plt.bar([x-.05 for x in xVal], expTime, width=0.1)
+  plt.bar([x+.05 for x in xVal], sumTime, width=0.1)
+  plt.xticks(xVal, clusters)
+  plt.table([[c, g, m, e, s, round(330/(e+s), 1)] for c, g, m, e, s in zip(clusters, gpu, mem, expTime, sumTime)],
+    colLabels=['cluster', 'gpu', 'mem (GB)', 'exp (ms)', 'sum (ms)', 'speed up'],
+    bbox=[0, -.9, 1, .75],
+  )
+  plt.xlabel('Sub Cluster')
+  plt.ylabel('Runtime (ms)')
+  plt.title('PPRF Expansion and Summation Runtime vs GPU Type')
+  plt.savefig(OUTPUT_FOLDER + 'expansion-vs-cluster.png', bbox_inches='tight')
+
 if __name__ == '__main__':
+  # plot_custom_graph()
+
   runconfig = []
   eventDurationS = []
   eventDurationsR = []

@@ -5,7 +5,7 @@
 #include <mutex>
 
 enum Event {
-  BufferInit, BaseOT, PprfExpand, SumNodes, Hash,
+  BaseOT, BufferInit, PprfExpand, SumNodes, Hash,
   MatrixInit, MatrixRand, MatrixMult,
 };
 

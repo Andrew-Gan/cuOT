@@ -19,7 +19,6 @@ std::pair<GPUBlock, GPUBlock> SilentOTSender::run() {
   EventLog::end(Sender, BaseOT);
 
   EventLog::start(Sender, BufferInit);
-  fullVector.resize(2 * numOT * BLK_SIZE);
   delta.resize(BLK_SIZE);
   EventLog::end(Sender, BufferInit);
 
@@ -82,7 +81,6 @@ void SilentOTSender::expand() {
   root.data[0] = 123456;
   root.data[1] = 7890123;
 
-  uint64_t numLeaves = pow(2, depth);
   uint64_t k0 = 3242342, k1 = 8993849;
   uint8_t k0_blk[16] = {0};
   uint8_t k1_blk[16] = {0};
@@ -93,14 +91,15 @@ void SilentOTSender::expand() {
   delta.clear();
   delta.set(123456);
 
-  GPUBlock input(2 * numOT * BLK_SIZE);
+  GPUBlock bufferA(2 * numOT * BLK_SIZE);
+  GPUBlock bufferB(2 * numOT * BLK_SIZE);
   std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
   std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
   Aes aesLeft(k0_blk);
   Aes aesRight(k1_blk);
 
   for (int t = 0; t < nTree; t++) {
-    input.set((uint8_t*) root.data, BLK_SIZE, t * numLeaves * BLK_SIZE);
+    bufferA.set((uint8_t*) root.data, BLK_SIZE, t * numLeaves * BLK_SIZE);
   }
   std::vector<cudaStream_t> streams(nTree);
   for (cudaStream_t &s : streams) {
@@ -109,23 +108,21 @@ void SilentOTSender::expand() {
   EventLog::end(Sender, BufferInit);
 
   EventLog::start(Sender, PprfExpand);
+  GPUBlock *inBuffer, *outBuffer;
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     for (uint64_t t = 0; t < nTree; t++) {
       cudaStream_t &stream = streams.at(t);
 
-      OTBlock *inPtr = ((OTBlock*) input.data_d) + t * numLeaves;
-      OTBlock *outPtr = ((OTBlock*) fullVector.data_d) + t * numLeaves;
+      inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
+      outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
+
+      OTBlock *inPtr = (OTBlock*)inBuffer->data_d + t * numLeaves;
+      OTBlock *outPtr = (OTBlock*)outBuffer->data_d + t * numLeaves;
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
 
-      cudaMemcpyAsync(
-        input.data_d + t * numLeaves,
-        fullVector.data_d + t * numLeaves,
-        width * BLK_SIZE, cudaMemcpyDeviceToDevice, stream
-      );
-
-      leftNodes.at(t).sum_async(BLK_SIZE, stream);
-      rightNodes.at(t).sum_async(BLK_SIZE, stream);
+      leftNodes.at(t).sum_async(BLK_SIZE * width / 2, stream);
+      rightNodes.at(t).sum_async(BLK_SIZE * width / 2, stream);
 
       leftHash.at(t).at(d-1).xor_async(leftNodes.at(t), stream);
       rightHash.at(t).at(d-1).xor_async(rightNodes.at(t), stream);
@@ -152,5 +149,6 @@ void SilentOTSender::expand() {
   for (auto &s : streams) {
     cudaStreamDestroy(s);
   }
+  fullVector = *outBuffer;
   EventLog::end(Sender, PprfExpand);
 }

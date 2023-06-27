@@ -47,28 +47,30 @@ void chinese_rem_theorem_gpu(uint32_t *c, uint32_t d, uint32_t p,
   *c = (m2 + h * q) % (p * q);
 }
 
-__global__
-void sum_reduce(uint64_t *c) {
-  uint64_t numThreads = gridDim.x * blockDim.x;
-  uint64_t destId = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t srcId = destId + numThreads;
-  c[destId] ^= c[srcId];
+// https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
+__device__
+void warpReduce(volatile uint32_t *sdata, uint64_t tid) {
+  if (blockDim.x >= 64) sdata[tid] = sdata[tid] ^ sdata[tid + 32];
+  if (blockDim.x >= 32) sdata[tid] = sdata[tid] ^ sdata[tid + 16];
+  if (blockDim.x >= 16) sdata[tid] = sdata[tid] ^ sdata[tid + 8];
+  if (blockDim.x >= 8) sdata[tid] = sdata[tid] ^ sdata[tid + 4];
+  // stop here for OTBlock reduction
+  // if (blockDim.x >= 4) sdata[tid] ^= sdata[tid + 2];
+  // if (blockDim.x >= 2) sdata[tid] ^= sdata[tid + 1];
 }
 
-// https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
 __global__
-void sum_gpu(uint64_t *c, uint64_t n) {
-  extern __shared__ uint64_t sdata[];
-  uint64_t tid = threadIdx.x;
-  uint64_t i = blockIdx.x * blockDim.x * 2 + threadIdx.x;
-  uint64_t gridSize = blockDim.x * 2 * gridDim.x;
+void xor_reduce_gpu(uint32_t *g_data, uint64_t n) {
+  extern __shared__ uint32_t sdata[];
+  unsigned int tid = threadIdx.x;
+  unsigned int i = blockIdx.x*(blockDim.x*2) + tid;
+  unsigned int gridSize = blockDim.x*2*gridDim.x;
   sdata[tid] = 0;
-
-  for(; i < n; i += gridSize) {
-    sdata[tid] ^= c[i] ^ c[i+blockDim.x];
-  }
+  while (i < n) { sdata[tid] ^= g_data[i] + g_data[i+blockDim.x]; i ^= gridSize; }
   __syncthreads();
-
-  if (tid == 0)
-    c[blockIdx.x] = sdata[0];
+  if (blockDim.x >= 512) { if (tid < 256) { sdata[tid] ^= sdata[tid + 256]; } __syncthreads(); }
+  if (blockDim.x >= 256) { if (tid < 128) { sdata[tid] ^= sdata[tid + 128]; } __syncthreads(); }
+  if (blockDim.x >= 128) { if (tid < 64) { sdata[tid] ^= sdata[tid + 64]; } __syncthreads(); }
+  if (tid < 32) warpReduce(sdata, tid);
+  if (tid < (BLK_SIZE / 4)) g_data[blockIdx.x + tid] = sdata[tid];
 }

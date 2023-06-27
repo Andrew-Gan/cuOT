@@ -15,6 +15,19 @@ SilentOTRecver::SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mych
   treeLayerExpanded = GPUMatrix<bool>(nTree, depth);
 }
 
+__global__
+void pathToChoice(uint8_t *choiceVec, uint64_t depth, uint64_t numLeaves, uint64_t *choices) {
+  uint64_t treeStartIndex = threadIdx.x * numLeaves;
+  uint64_t path = choices[threadIdx.x];
+  uint64_t puncIndex = 0;
+  for (int d = 0; d < depth; d++) {
+    puncIndex *= 2;
+    if (path & (1 << d)) puncIndex += 1;
+  }
+  puncIndex += treeStartIndex;
+  choiceVec[puncIndex / 8] |= 1 << (puncIndex % 8);
+}
+
 std::pair<GPUBlock, GPUBlock> SilentOTRecver::run() {
   EventLog::start(Recver, BaseOT);
   baseOT();
@@ -25,6 +38,13 @@ std::pair<GPUBlock, GPUBlock> SilentOTRecver::run() {
   EventLog::end(Recver, BufferInit);
 
   expand();
+
+  GPUBlock choiceVector(2 * numOT / 8);
+  uint64_t *choices_d;
+  cudaMalloc(&choices_d, nTree * sizeof(*choices_d));
+  cudaMemcpy(choices_d, choices, nTree * sizeof(*choices_d), cudaMemcpyHostToDevice);
+  pathToChoice<<<1, nTree>>>(choiceVector.data_d, depth, numLeaves, choices_d);
+  cudaDeviceSynchronize();
 
   GPUBlock puncVectorHashed(numOT * BLK_SIZE);
   GPUBlock choiceVectorHashed(numOT * BLK_SIZE);
@@ -87,7 +107,6 @@ void wait_flag(bool *flag) {
 
 void SilentOTRecver::expand() {
   EventLog::start(Recver, BufferInit);
-  uint64_t numLeaves = pow(2, depth);
   uint64_t k0 = 3242342, k1 = 8993849;
   uint8_t k0_blk[16] = {0};
   uint8_t k1_blk[16] = {0};
@@ -95,35 +114,33 @@ void SilentOTRecver::expand() {
   memcpy(&k0_blk[8], &k0, sizeof(k0));
   memcpy(&k1_blk[8], &k1, sizeof(k1));
 
-  GPUBlock input(2 * numOT * BLK_SIZE);
+  GPUBlock bufferA(2 * numOT * BLK_SIZE);
+  GPUBlock bufferB(2 * numOT * BLK_SIZE);
   std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
   std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
-  std::vector<SimplestOT*> baseOT;
   Aes aesLeft(k0_blk);
   Aes aesRight(k1_blk);
   std::vector<uint64_t> puncture(nTree, 0);
 
-  SparseVector choiceVector = {
-    .nBits = numLeaves,
-  };
-  cudaError_t err = cudaMalloc(&choiceVector.nonZeros, nTree * sizeof(uint64_t));
-  if (err != cudaSuccess)
-    fprintf(stderr, "choice vec: %s\n", cudaGetErrorString(err));
-  EventLog::end(Recver, BufferInit);
-
-  EventLog::start(Recver, PprfExpand);
-  auto &sum = choiceHash; // alias
   std::vector<cudaStream_t> streams(nTree);
   for (cudaStream_t &s : streams) {
     cudaStreamCreate(&s);
   }
+  EventLog::end(Recver, BufferInit);
+
   while(!msgDelivered);
+  EventLog::start(Recver, PprfExpand);
+  GPUBlock *inBuffer, *outBuffer;
+  auto &sum = choiceHash; // alias
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    for (int t = 0; t < nTree; t++) {
+    for (uint64_t t = 0; t < nTree; t++) {
       cudaStream_t &stream = streams.at(t);
 
-      OTBlock *inPtr = ((OTBlock*) input.data_d) + t * numLeaves;
-      OTBlock *outPtr = ((OTBlock*) puncVector.data_d) + t * numLeaves;
+      inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
+      outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
+
+      OTBlock *inPtr = (OTBlock*)inBuffer->data_d + t * numLeaves;
+      OTBlock *outPtr = (OTBlock*)outBuffer->data_d + t * numLeaves;
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
 
@@ -160,11 +177,11 @@ void SilentOTRecver::expand() {
       // conduct sum/xor in parallel
       choice = (choices[t] & (1 << d-1)) >> d-1;
       side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
-      side->sum_async(BLK_SIZE, stream);
+      side->sum_async(BLK_SIZE * width / 2, stream);
 
       if (d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
-        xorSide->sum_async(BLK_SIZE, stream);
+        xorSide->sum_async(BLK_SIZE * width / 2, stream);
       }
 
       // insert active node obtained from sum into output
@@ -179,17 +196,12 @@ void SilentOTRecver::expand() {
         uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
         cudaMemcpyAsync(&oCasted[deltaNodeId], xorSide->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
       }
-
-      cudaMemcpyAsync(
-        input.data_d + t * numLeaves,
-        puncVector.data_d + t * numLeaves,
-        width * BLK_SIZE, cudaMemcpyDeviceToDevice, stream
-      );
     }
   }
   cudaDeviceSynchronize();
   for (auto &s : streams) {
     cudaStreamDestroy(s);
   }
+  puncVector = *outBuffer;
   EventLog::end(Recver, PprfExpand);
 }

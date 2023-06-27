@@ -81,3 +81,20 @@ void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, GPUBlock &choiceVector
   // assert(fullVector == choiceVector);
   printf("test_cot passed!\n");
 }
+
+#include "basic_op.h"
+
+void test_reduce() {
+  GPUBlock data(16 * BLK_SIZE);
+  data.set(64);
+  cudaStream_t s;
+  cudaStreamCreate(&s);
+  data.sum_async(data.nBytes, s);
+  cudaDeviceSynchronize();
+  cudaStreamDestroy(s);
+
+  GPUBlock data2(BLK_SIZE);
+  data2.set(64);
+
+  assert(data == data2);
+}

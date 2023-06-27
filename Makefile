@@ -28,6 +28,7 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 QUEUE=standby #zghodsi-b
 NUM_CPU=64
 NUM_GPU=2
+CLUSTER=K
 
 ############################################################
 
@@ -54,7 +55,7 @@ $(OBJ):
 	mkdir -p $@/app $@/lib $@/mod $@/dev
 
 sbatch:
-	sbatch -n $(NUM_CPU) -N 1 --gpus-per-node=$(NUM_GPU) -A $(QUEUE) job.sh
+	sbatch -n $(NUM_CPU) -N 1 --gpus-per-node=$(NUM_GPU) -A $(QUEUE) --constraint=$(CLUSTER) job.sh
 
 plot:
 	python plotter.py

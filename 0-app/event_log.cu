@@ -6,7 +6,7 @@ std::ofstream EventLog::logFile[2];
 struct timespec EventLog::initTime;
 
 const char *eventString[] = {
-  "BufferInit", "BaseOT", "PprfExpand", "SumNodes", "Hash",
+  "BaseOT", "BufferInit", "PprfExpand", "SumNodes", "Hash",
   "MatrixInit", "MatrixRand", "MatrixMult",
 };
 

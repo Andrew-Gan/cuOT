@@ -30,6 +30,7 @@ int main(int argc, char** argv) {
   if (argc == 1) {
     test_aes();
     test_base_ot();
+    test_reduce();
     return 0;
   }
   if (argc < 4) {
