@@ -85,7 +85,7 @@ void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, GPUBlock &choiceVector
 #include "basic_op.h"
 
 void test_reduce() {
-  GPUBlock data(16 * BLK_SIZE);
+  GPUBlock data(16 * sizeof(OTBlock));
   data.set(64);
   cudaStream_t s;
   cudaStreamCreate(&s);
@@ -93,7 +93,7 @@ void test_reduce() {
   cudaDeviceSynchronize();
   cudaStreamDestroy(s);
 
-  GPUBlock data2(BLK_SIZE);
+  GPUBlock data2(sizeof(OTBlock));
   data2.set(64);
 
   assert(data == data2);

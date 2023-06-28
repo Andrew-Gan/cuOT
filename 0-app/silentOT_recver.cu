@@ -5,6 +5,8 @@
 #include "basic_op.h"
 #include <future>
 
+std::array<std::atomic<SilentOTRecver*>, 100> silentOTRecvers;
+
 SilentOTRecver::SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mychoices) :
   SilentOT(myid, logOT, numTrees){
 
@@ -33,57 +35,21 @@ void pathToChoice(uint8_t *choiceVec, uint64_t depth, uint64_t numLeaves, uint64
   choiceVec[puncIndex / 8] |= 1 << (puncIndex % 8);
 }
 
-std::pair<GPUBlock, GPUBlock> SilentOTRecver::run() {
+void SilentOTRecver::run() {
   EventLog::start(Recver, BaseOT);
   baseOT();
   EventLog::end(Recver, BaseOT);
 
   EventLog::start(Recver, BufferInit);
-  puncVector.resize(2 * numOT * BLK_SIZE);
+  puncVector.resize(2 * numOT * sizeof(OTBlock));
   EventLog::end(Recver, BufferInit);
 
   expand();
+  pathToChoiceVector();
 
-  GPUBlock choiceVector(2 * numOT / 8);
-  uint64_t *choices_d;
-  cudaMalloc(&choices_d, nTree * sizeof(*choices_d));
-  cudaMemcpy(choices_d, choices, nTree * sizeof(*choices_d), cudaMemcpyHostToDevice);
-  pathToChoice<<<1, nTree>>>(choiceVector.data_d, depth, numLeaves, choices_d);
-  cudaDeviceSynchronize();
-
-  GPUBlock puncVectorHashed(numOT * BLK_SIZE);
-  GPUBlock choiceVectorHashed(numOT * BLK_SIZE);
-
-  // SparseVector choiceVector;
-
-  // if (numOT < CHUNK_SIDE) {
-  //   EventLog::start(Recver, MatrixInit);
-  //   randMatrix = init_rand(prng, 2 * numOT, numOT);
-  //   EventLog::end(Recver, MatrixInit);
-  //   EventLog::start(Recver, MatrixRand);
-  //   gen_rand(prng, randMatrix); // transposed
-  //   EventLog::end(Recver, MatrixRand);
-  //   EventLog::start(Recver, MatrixMult);
-  //   compress(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, 0, 0);
-  //   EventLog::end(Recver, MatrixMult);
-  // }
-  // else {
-  //   EventLog::start(Recver, MatrixInit);
-  //   randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
-  //   EventLog::end(Recver, MatrixInit);
-  //   for (uint64_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
-  //     for (uint64_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-  //       EventLog::start(Recver, MatrixRand);
-  //       gen_rand(prng, randMatrix);
-  //       EventLog::end(Recver, MatrixRand);
-  //       EventLog::start(Recver, MatrixMult);
-  //       compress(puncVectorHashed, choiceVectorHashed, randMatrix, puncVector, choiceVector, chunkR, chunkC);
-  //       EventLog::end(Recver, MatrixMult);
-  //     }
-  //   }
-  // }
-  // del_rand(prng, randMatrix);
-  return {puncVectorHashed, choiceVectorHashed};
+  QuasiCyclic code;
+  code.encode(puncVector);
+  code.encode(choiceVector);
 }
 
 void SilentOTRecver::baseOT() {
@@ -105,6 +71,15 @@ void SilentOTRecver::baseOT() {
   }
 }
 
+void SilentOTRecver::get_choice_vector() {
+  choiceVector.resize(2 * numOT / 8);
+  uint64_t *choices_d;
+  cudaMalloc(&choices_d, nTree * sizeof(*choices_d));
+  cudaMemcpy(choices_d, choices, nTree * sizeof(*choices_d), cudaMemcpyHostToDevice);
+  pathToChoice<<<1, nTree>>>(choiceVector.data_d, depth, numLeaves, choices_d);
+  cudaDeviceSynchronize();
+}
+
 void SilentOTRecver::expand() {
   EventLog::start(Recver, BufferInit);
   uint64_t k0 = 3242342, k1 = 8993849;
@@ -114,10 +89,10 @@ void SilentOTRecver::expand() {
   memcpy(&k0_blk[8], &k0, sizeof(k0));
   memcpy(&k1_blk[8], &k1, sizeof(k1));
 
-  GPUBlock bufferA(2 * numOT * BLK_SIZE);
-  GPUBlock bufferB(2 * numOT * BLK_SIZE);
-  std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
-  std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
+  GPUBlock bufferA(2 * numOT * sizeof(OTBlock));
+  GPUBlock bufferB(2 * numOT * sizeof(OTBlock));
+  std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
+  std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
   Aes aesLeft(k0_blk);
   Aes aesRight(k1_blk);
   std::vector<uint64_t> puncture(nTree, 0);
@@ -165,23 +140,23 @@ void SilentOTRecver::expand() {
       GPUBlock *side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
       OTBlock *sideCasted = (OTBlock*) side->data_d;
       int recvNodeId = puncture.at(t) * 2 + choice;
-      cudaMemcpyAsync(&sideCasted[recvNodeId / 2], sum.at(t).at(d-1).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
+      cudaMemcpyAsync(&sideCasted[recvNodeId / 2], sum.at(t).at(d-1).data_d, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream);
 
       if (d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
         sideCasted = (OTBlock*) xorSide->data_d;
         uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
-        cudaMemcpyAsync(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
+        cudaMemcpyAsync(&sideCasted[deltaNodeId / 2], sum.at(t).at(d).data_d, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream);
       }
 
       // conduct sum/xor in parallel
       choice = (choices[t] & (1 << d-1)) >> d-1;
       side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
-      side->sum_async(BLK_SIZE * width / 2, stream);
+      side->sum_async(sizeof(OTBlock) * width / 2, stream);
 
       if (d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
-        xorSide->sum_async(BLK_SIZE * width / 2, stream);
+        xorSide->sum_async(sizeof(OTBlock) * width / 2, stream);
       }
 
       // insert active node obtained from sum into output
@@ -189,12 +164,12 @@ void SilentOTRecver::expand() {
       side = choice == 0 ? &leftNodes.at(t) : &rightNodes.at(t);
       OTBlock *oCasted = (OTBlock*) puncVector.data_d + t * numLeaves;
       recvNodeId = puncture.at(t) * 2 + choice;
-      cudaMemcpyAsync(&oCasted[recvNodeId], side->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
+      cudaMemcpyAsync(&oCasted[recvNodeId], side->data_d, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream);
 
       if(d == depth) {
         GPUBlock *xorSide = choice == 0 ? &rightNodes.at(t) : &leftNodes.at(t);
         uint64_t deltaNodeId = puncture.at(t) * 2 + (1-choice);
-        cudaMemcpyAsync(&oCasted[deltaNodeId], xorSide->data_d, BLK_SIZE, cudaMemcpyDeviceToDevice, stream);
+        cudaMemcpyAsync(&oCasted[deltaNodeId], xorSide->data_d, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream);
       }
     }
   }

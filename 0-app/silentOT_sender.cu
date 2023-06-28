@@ -5,6 +5,8 @@
 #include "basic_op.h"
 #include <future>
 
+std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
+
 SilentOTSender::SilentOTSender(int myid, int logOT, int numTrees) :
   SilentOT(myid, logOT, numTrees) {
 
@@ -13,47 +15,19 @@ SilentOTSender::SilentOTSender(int myid, int logOT, int numTrees) :
   other = silentOTRecvers[id];
 }
 
-std::pair<GPUBlock, GPUBlock> SilentOTSender::run() {
+void SilentOTSender::run() {
   EventLog::start(Sender, BaseOT);
   baseOT();
   EventLog::end(Sender, BaseOT);
 
   EventLog::start(Sender, BufferInit);
-  delta.resize(BLK_SIZE);
+  delta.resize(sizeof(OTBlock));
   EventLog::end(Sender, BufferInit);
 
   expand();
 
-  GPUBlock fullVectorHashed(numOT * BLK_SIZE);
-
-  // if (numOT < CHUNK_SIDE) {
-  //   EventLog::start(Sender, MatrixInit);
-  //   randMatrix = init_rand(prng, 2 * numOT, numOT);
-  //   EventLog::end(Sender, MatrixInit);
-  //   EventLog::start(Sender, MatrixRand);
-  //   gen_rand(prng, randMatrix); // transposed
-  //   EventLog::end(Sender, MatrixRand);
-  //   EventLog::start(Sender, MatrixMult);
-  //   compress(fullVectorHashed, randMatrix, fullVector, 0);
-  //   EventLog::end(Sender, MatrixMult);
-  // }
-  // else {
-  //   EventLog::start(Sender, MatrixInit);
-  //   randMatrix = init_rand(prng, CHUNK_SIDE, CHUNK_SIDE);
-  //   EventLog::end(Sender, MatrixInit);
-  //   for (uint64_t chunkR = 0; chunkR < 2 * numOT / CHUNK_SIDE; chunkR++) {
-  //     for (uint64_t chunkC = 0; chunkC < numOT / CHUNK_SIDE; chunkC++) {
-  //       EventLog::start(Sender, MatrixRand);
-  //       gen_rand(prng, randMatrix);
-  //       EventLog::end(Sender, MatrixRand);
-  //       EventLog::start(Sender, MatrixMult);
-  //       compress(fullVectorHashed, randMatrix, fullVector, chunkC);
-  //       EventLog::end(Sender, MatrixMult);
-  //     }
-  //   }
-  // }
-  // del_rand(prng, randMatrix);
-  return {fullVectorHashed, delta};
+  QuasiCyclic code;
+  code.encode(fullVector);
 }
 
 void SilentOTSender::baseOT() {
@@ -86,15 +60,15 @@ void SilentOTSender::expand() {
   delta.clear();
   delta.set(123456);
 
-  GPUBlock bufferA(2 * numOT * BLK_SIZE);
-  GPUBlock bufferB(2 * numOT * BLK_SIZE);
-  std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
-  std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * BLK_SIZE / 2));
+  GPUBlock bufferA(2 * numOT * sizeof(OTBlock));
+  GPUBlock bufferB(2 * numOT * sizeof(OTBlock));
+  std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
+  std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
   Aes aesLeft(k0_blk);
   Aes aesRight(k1_blk);
 
   for (int t = 0; t < nTree; t++) {
-    bufferA.set((uint8_t*) root.data, BLK_SIZE, t * numLeaves * BLK_SIZE);
+    bufferA.set((uint8_t*) root.data, sizeof(OTBlock), t * numLeaves * sizeof(OTBlock));
   }
   std::vector<cudaStream_t> streams(nTree);
   for (cudaStream_t &s : streams) {
@@ -116,8 +90,8 @@ void SilentOTSender::expand() {
       aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
       aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
 
-      leftNodes.at(t).sum_async(BLK_SIZE * width / 2, stream);
-      rightNodes.at(t).sum_async(BLK_SIZE * width / 2, stream);
+      leftNodes.at(t).sum_async(sizeof(OTBlock) * width / 2, stream);
+      rightNodes.at(t).sum_async(sizeof(OTBlock) * width / 2, stream);
 
       leftHash.at(t).at(d-1).xor_async(leftNodes.at(t), stream);
       rightHash.at(t).at(d-1).xor_async(rightNodes.at(t), stream);
