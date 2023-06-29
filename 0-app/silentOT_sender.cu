@@ -1,5 +1,4 @@
 #include "rand.h"
-#include "aes.h"
 #include "simplest_ot.h"
 #include "silentOT.h"
 #include "basic_op.h"
@@ -16,18 +15,25 @@ SilentOTSender::SilentOTSender(int myid, int logOT, int numTrees) :
 }
 
 void SilentOTSender::run() {
-  EventLog::start(Sender, BaseOT);
+  Log::start(Sender, BaseOT);
   baseOT();
-  EventLog::end(Sender, BaseOT);
+  Log::end(Sender, BaseOT);
 
-  EventLog::start(Sender, BufferInit);
-  delta.resize(sizeof(OTBlock));
-  EventLog::end(Sender, BufferInit);
+  Log::start(Sender, BufferInit);
+  buffer_init();
+  Log::end(Sender, BufferInit);
 
+  Log::start(Sender, PprfExpand);
   expand();
+  Log::end(Sender, PprfExpand);
 
-  QuasiCyclic code;
+  Log::start(Sender, MatrixInit);
+  QuasiCyclic code(2 * numOT, numOT);
+  Log::end(Sender, MatrixInit);
+
+  Log::start(Sender, MatrixMult);
   code.encode(fullVector);
+  Log::end(Sender, MatrixMult);
 }
 
 void SilentOTSender::baseOT() {
@@ -44,8 +50,7 @@ void SilentOTSender::baseOT() {
   }
 }
 
-void SilentOTSender::expand() {
-  EventLog::start(Sender, BufferInit);
+void SilentOTSender::buffer_init() {
   OTBlock root;
   root.data[0] = 123456;
   root.data[1] = 7890123;
@@ -53,30 +58,30 @@ void SilentOTSender::expand() {
   uint64_t k0 = 3242342, k1 = 8993849;
   uint8_t k0_blk[16] = {0};
   uint8_t k1_blk[16] = {0};
-
   memcpy(&k0_blk[8], &k0, sizeof(k0));
   memcpy(&k1_blk[8], &k1, sizeof(k1));
+  aesLeft.init(k0_blk);
+  aesRight.init(k1_blk);
 
+  delta.resize(sizeof(OTBlock));
   delta.clear();
   delta.set(123456);
 
-  GPUBlock bufferA(2 * numOT * sizeof(OTBlock));
-  GPUBlock bufferB(2 * numOT * sizeof(OTBlock));
-  std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
-  std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
-  Aes aesLeft(k0_blk);
-  Aes aesRight(k1_blk);
+  bufferA.resize(2 * numOT * sizeof(OTBlock));
+  bufferB.resize(2 * numOT * sizeof(OTBlock));
+  leftNodes.resize(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
+  rightNodes.resize(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
 
   for (int t = 0; t < nTree; t++) {
     bufferA.set((uint8_t*) root.data, sizeof(OTBlock), t * numLeaves * sizeof(OTBlock));
   }
+}
+
+void SilentOTSender::expand() {
   std::vector<cudaStream_t> streams(nTree);
   for (cudaStream_t &s : streams) {
     cudaStreamCreate(&s);
   }
-  EventLog::end(Sender, BufferInit);
-
-  EventLog::start(Sender, PprfExpand);
   GPUBlock *inBuffer, *outBuffer;
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     for (uint64_t t = 0; t < nTree; t++) {
@@ -119,5 +124,4 @@ void SilentOTSender::expand() {
     cudaStreamDestroy(s);
   }
   fullVector = *outBuffer;
-  EventLog::end(Sender, PprfExpand);
 }

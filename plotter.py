@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 OUTPUT_FOLDER = 'output/'
-hideEvents = ['AesKeyExpansion', 'MatrixInit', 'MatrixRand', 'MatrixMult', 'Hash']
+hideEvents = []
 
 def extract_data(filename):
   eventList = {}

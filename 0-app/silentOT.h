@@ -8,6 +8,7 @@
 #include "gpu_block.h"
 #include "gpu_matrix.h"
 #include "quasi_cyclic.h"
+#include "aes.h"
 
 #define CHUNK_SIDE (1<<18)
 
@@ -29,6 +30,9 @@ public:
   std::vector<std::vector<GPUBlock>> rightHash;
 
 protected:
+  Aes aesLeft, aesRight;
+  GPUBlock bufferA, bufferB;
+  std::vector<GPUBlock> leftNodes, rightNodes;
   uint64_t id, depth, nTree, numOT, numLeaves;
   virtual void baseOT() = 0;
   virtual void expand() = 0;
@@ -39,12 +43,12 @@ public:
   void run();
   SilentOTSender(int myid, int logOT, int numTrees);
 
-protected:
+private:
   GPUBlock fullVector, delta;
   SilentOTRecver *other = nullptr;
   void baseOT();
+  void buffer_init();
   void expand();
-  void compress(GPUBlock &fullVectorHashed, GPUMatrix<OTBlock> &randMatrix, GPUBlock &fullVector, int chunkC);
 };
 
 class SilentOTRecver : public SilentOT {
@@ -54,17 +58,15 @@ public:
   void run();
   SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mychoices);
 
-protected:
+private:
   GPUBlock puncVector, choiceVector;
   uint64_t *choices;
   SilentOTSender *other = nullptr;
   std::vector<std::vector<GPUBlock>> choiceHash;
   void baseOT();
+  void buffer_init();
   void expand();
   void get_choice_vector();
-  void compress(GPUBlock &puncVectorHashed, GPUBlock &choiceVectorHashed,
-  GPUMatrix<OTBlock> &randMatrix, GPUBlock &puncVector, SparseVector &choiceVector,
-  int chunkR, int chunkC);
 };
 
 extern std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;

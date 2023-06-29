@@ -51,12 +51,12 @@ int main(int argc, char** argv) {
   char filename2[32];
   sprintf(filename, "output/log-%02d-%02d-send.txt", logOT, numTrees);
   sprintf(filename2, "output/log-%02d-%02d-recv.txt", logOT, numTrees);
-  EventLog::open(filename, filename2);
+  Log::open(filename, filename2);
   std::future<void> sender = std::async(sender_worker, protocol, logOT, numTrees);
   std::future<void> recver = std::async(recver_worker, protocol, logOT, numTrees);
   sender.get();
   recver.get();
   // test_cot(fullVector, puncVector, choiceVector, delta);
-  EventLog::close();
+  Log::close();
   return EXIT_SUCCESS;
 }

@@ -1,13 +1,14 @@
 #include "quasi_cyclic.h"
+#include <cmath>
 
-QuasiCyclic::QuasiCyclic(uint64_t n) : numCols(n), numRows(n/2) {
-  if (n == 0) return;
-  printf("n = %lu, numRows = %lu\n", n, numRows);
+#define DENSITY 1024 // out of matrix numCols
+
+QuasiCyclic::QuasiCyclic(uint64_t in, uint64_t out) : numCols(in), numRows(out) {
+  if (in == 0 || out == 0) return;
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
   curandSetPseudoRandomGeneratorSeed(prng, 0);
-  cudaMalloc(&nonZeroPos, (n / 4) * sizeof(float));
-  curandGenerateUniform(prng, (float*) nonZeroPos, n / 4);
-  nonZeroCount = n / 4;
+  cudaMalloc(&nonZeroPos, DENSITY * sizeof(float));
+  curandGenerateUniform(prng, (float*) nonZeroPos, DENSITY);
 }
 
 QuasiCyclic::~QuasiCyclic() {
@@ -17,43 +18,45 @@ QuasiCyclic::~QuasiCyclic() {
 }
 
 __global__
-void dot_product(float *nonZeroPos, uint64_t nonZeroCount, uint64_t n, OTBlock *vec) {
-  extern __shared__ OTBlock res[];
-  uint64_t bid = blockIdx.x;
-  uint64_t tid = threadIdx.x;
-  for (int i = 0; i < sizeof(OTBlock) / 4; i++) {
-    res[tid].data[i] = 0;
+void dot_product(float *nonZeroPos, uint64_t threadsPerRow, uint64_t cols, OTBlock *vec) {
+  extern __shared__ OTBlock s[];
+  uint64_t tid_global = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t tid_local = threadIdx.x;
+  uint64_t row = tid_global / threadsPerRow;
+  uint64_t innerRow = tid_global % threadsPerRow;
+  uint64_t rand = 0;
+
+  for (uint64_t j = 0; j < sizeof(OTBlock) / 4; j++) {
+    s[tid_local].data[j] = 0;
   }
 
-  uint64_t workload = nonZeroCount / blockDim.x;
-  for (uint64_t i = tid*workload; i < (tid+1)*workload; i++) {
-    uint64_t col = (((uint32_t)(nonZeroPos[i]) % n) - bid) % n;
-    // for (int j = 0; j < sizeof(OTBlock) / 4; j++) {
-    //   res[tid].data[j] ^= vec[col].data[j];
-    // }
+  uint64_t workload = DENSITY / threadsPerRow;
+  for (uint64_t i = innerRow * workload; i < (innerRow+1) * workload; i++) {
+    rand = (uint64_t) (nonZeroPos[i] * (cols-1));
+    rand = (rand + row) % cols;
+    for (uint64_t j = 0; j < sizeof(OTBlock) / 4; j++) {
+      s[tid_local].data[j] ^= vec[rand].data[j];
+    }
   }
   __syncthreads();
 
-  for (int threadGroup = 512; threadGroup >= 1; threadGroup /= 2) {
-    if (tid < threadGroup) {
-      for (int j = 0; j < sizeof(OTBlock) / 4; j++) {
-        res[tid].data[j] ^= vec[tid+threadGroup].data[j];
+  if (innerRow == 0) {
+    for (uint64_t i = 0; i < threadsPerRow; i++) {
+      for (uint64_t j = 0; j < sizeof(OTBlock) / 4; j++) {
+        vec[row].data[j] = s[tid_local].data[j];
       }
-    }
-    __syncthreads();
-  }
-
-  if (tid == 0) {
-    for (int j = 0; j < sizeof(OTBlock) / 4; j++) {
-      vec[tid].data[j] = res[0].data[j];
     }
   }
 }
 
 void QuasiCyclic::encode(GPUBlock &vector) {
-  printf("%lu x %lu\n", numRows, numCols);
-  return;
-  dot_product<<<numRows, 1024, 1024 * sizeof(OTBlock)>>>(nonZeroPos, nonZeroCount, numCols, (OTBlock*)vector.data_d);
+  cudaStream_t s;
+  cudaStreamCreate(&s);
+  uint64_t threadsPerRow = 1;
+  uint64_t nB = threadsPerRow * numRows / 1024;
+  uint64_t mem = 1024 * sizeof(OTBlock);
+  dot_product<<<nB, 1024, mem, s>>>(nonZeroPos, threadsPerRow, numCols, (OTBlock*)vector.data_d);
   cudaDeviceSynchronize();
+  cudaStreamDestroy(s);
   vector.resize(vector.nBytes / 2);
 }

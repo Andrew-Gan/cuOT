@@ -36,20 +36,26 @@ void pathToChoice(uint8_t *choiceVec, uint64_t depth, uint64_t numLeaves, uint64
 }
 
 void SilentOTRecver::run() {
-  EventLog::start(Recver, BaseOT);
+  Log::start(Recver, BaseOT);
   baseOT();
-  EventLog::end(Recver, BaseOT);
+  Log::end(Recver, BaseOT);
 
-  EventLog::start(Recver, BufferInit);
-  puncVector.resize(2 * numOT * sizeof(OTBlock));
-  EventLog::end(Recver, BufferInit);
+  Log::start(Recver, BufferInit);
+  buffer_init();
+  Log::end(Recver, BufferInit);
 
+  Log::start(Recver, PprfExpand);
   expand();
-  pathToChoiceVector();
+  get_choice_vector();
+  Log::end(Recver, PprfExpand);
 
-  QuasiCyclic code;
+  Log::start(Recver, MatrixInit);
+  QuasiCyclic code(2 * numOT, numOT);
+  Log::end(Recver, MatrixInit);
+
+  Log::start(Recver, MatrixMult);
   code.encode(puncVector);
-  code.encode(choiceVector);
+  Log::end(Recver, MatrixMult);
 }
 
 void SilentOTRecver::baseOT() {
@@ -71,9 +77,26 @@ void SilentOTRecver::baseOT() {
   }
 }
 
+void SilentOTRecver::buffer_init() {
+  puncVector.resize(2 * numOT * sizeof(OTBlock));
+
+  uint64_t k0 = 3242342, k1 = 8993849;
+  uint8_t k0_blk[16] = {0};
+  uint8_t k1_blk[16] = {0};
+  memcpy(&k0_blk[8], &k0, sizeof(k0));
+  memcpy(&k1_blk[8], &k1, sizeof(k1));
+  aesLeft.init(k0_blk);
+  aesRight.init(k1_blk);
+
+  bufferA.resize(2 * numOT * sizeof(OTBlock));
+  bufferB.resize(2 * numOT * sizeof(OTBlock));
+  leftNodes.resize(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
+  rightNodes.resize(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
+}
+
 void SilentOTRecver::get_choice_vector() {
-  choiceVector.resize(2 * numOT / 8);
   uint64_t *choices_d;
+  choiceVector.resize(2 * numOT / 8);
   cudaMalloc(&choices_d, nTree * sizeof(*choices_d));
   cudaMemcpy(choices_d, choices, nTree * sizeof(*choices_d), cudaMemcpyHostToDevice);
   pathToChoice<<<1, nTree>>>(choiceVector.data_d, depth, numLeaves, choices_d);
@@ -81,30 +104,13 @@ void SilentOTRecver::get_choice_vector() {
 }
 
 void SilentOTRecver::expand() {
-  EventLog::start(Recver, BufferInit);
-  uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k0_blk[16] = {0};
-  uint8_t k1_blk[16] = {0};
-
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
-
-  GPUBlock bufferA(2 * numOT * sizeof(OTBlock));
-  GPUBlock bufferB(2 * numOT * sizeof(OTBlock));
-  std::vector<GPUBlock> leftNodes(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
-  std::vector<GPUBlock> rightNodes(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
-  Aes aesLeft(k0_blk);
-  Aes aesRight(k1_blk);
   std::vector<uint64_t> puncture(nTree, 0);
-
   std::vector<cudaStream_t> streams(nTree);
   for (cudaStream_t &s : streams) {
     cudaStreamCreate(&s);
   }
-  EventLog::end(Recver, BufferInit);
-
   while(!eventsRecorded);
-  EventLog::start(Recver, PprfExpand);
+  Log::start(Recver, PprfExpand);
   GPUBlock *inBuffer, *outBuffer;
   auto &sum = choiceHash; // alias
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
@@ -178,5 +184,4 @@ void SilentOTRecver::expand() {
     cudaStreamDestroy(s);
   }
   puncVector = *outBuffer;
-  EventLog::end(Recver, PprfExpand);
 }

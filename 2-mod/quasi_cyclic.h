@@ -8,10 +8,9 @@ class QuasiCyclic {
 private:
   curandGenerator_t prng;
   float *nonZeroPos = nullptr;
-  uint64_t nonZeroCount;
   uint64_t numRows, numCols;
 public:
-  QuasiCyclic(uint64_t n);
+  QuasiCyclic(uint64_t in, uint64_t out);
   virtual ~QuasiCyclic();
   void encode(GPUBlock &vector);
 };
