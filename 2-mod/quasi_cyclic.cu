@@ -1,10 +1,10 @@
 #include "quasi_cyclic.h"
 #include <cmath>
 
-#define DENSITY 4096 // out of matrix numCols
+#define DENSITY 4096
 
 QuasiCyclic::QuasiCyclic(uint64_t in, uint64_t out) : mIn(in), mOut(out) {
-  if (in == 0 || out == 0) return;
+  if (mIn == 0 || mOut == 0) return;
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
   curandSetPseudoRandomGeneratorSeed(prng, 0);
   cudaMalloc(&nonZeroPos, DENSITY * sizeof(float));
@@ -12,7 +12,7 @@ QuasiCyclic::QuasiCyclic(uint64_t in, uint64_t out) : mIn(in), mOut(out) {
 }
 
 QuasiCyclic::~QuasiCyclic() {
-  if (numCols == 0) return;
+  if (mIn == 0 || mOut == 0) return;
   curandDestroyGenerator(prng);
   if (nonZeroPos) cudaFree(nonZeroPos);
 }
@@ -43,12 +43,10 @@ void dot_product(float *nonZeroPos, uint64_t cols, OTBlock *vec) {
 
 void QuasiCyclic::encode(GPUBlock &vector) {
   uint64_t firstMatrixNumRows = (1 << 10);
-  uint64_t nB = firstMatrixNumRows / 1024;
-  dot_product<<<firstMatrixNumRows, 1024>>>(nonZeroPos, numCols, (OTBlock*)vector.data_d);
+  dot_product<<<firstMatrixNumRows, 1024>>>(nonZeroPos, mIn, (OTBlock*)vector.data_d);
   cudaDeviceSynchronize();
-  uint64_t firstMatrixNumRows = (1 << 10);
 
-  dot_product<<<out, 1024>>>(nonZeroPos, firstMatrixNumRows, (OTBlock*)vector.data_d);
+  dot_product<<<mOut, 1024>>>(nonZeroPos, firstMatrixNumRows, (OTBlock*)vector.data_d);
   cudaDeviceSynchronize();
-  vector.resize(out * sizeof(OTBlock));
+  // vector.resize(mOut * sizeof(OTBlock));
 }

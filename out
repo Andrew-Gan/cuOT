@@ -1,6 +1,0 @@
-========= COMPUTE-SANITIZER
-test_cuda passed!
-log OTs: 24, Trees: 8
-launch <<<16384, 1024, 16384>>>
-launch <<<16384, 1024, 16384>>>
-========= ERROR SUMMARY: 0 errors

@@ -8,7 +8,7 @@ class QuasiCyclic {
 private:
   curandGenerator_t prng;
   float *nonZeroPos = nullptr;
-  uint64_t numRows, numCols;
+  uint64_t mIn, mOut;
 public:
   QuasiCyclic(uint64_t in, uint64_t out);
   virtual ~QuasiCyclic();
