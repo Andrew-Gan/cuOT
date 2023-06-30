@@ -11,6 +11,7 @@ public:
   GPUMatrix() : rows(0), cols(0) {}
   GPUMatrix(uint64_t r, uint64_t c);
   T& at(size_t r, size_t c);
+  T* get_dptr();
 };
 
 template<typename T>
@@ -23,6 +24,11 @@ template<typename T>
 T& GPUMatrix<T>::at(size_t r, size_t c) {
   T *ref = ((T*) block.data_d) + r * cols + c;
   return *ref;
+}
+
+template<typename T>
+T* GPUMatrix<T>::get_dptr() {
+  return (T*) block.data_d;
 }
 
 #endif

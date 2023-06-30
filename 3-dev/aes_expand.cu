@@ -291,14 +291,14 @@ void aesExpand128(uint32_t *aesKey, OTBlock *interleaved, uint32_t *separated,
 
 	//-------------------------------- end of 15th stage --------------------------------
 
-	int elemPerNode = BLK_SIZE / 4;
+	int elemPerNode = sizeof(OTBlock) / 4;
 	uint64_t pairId =  (bx * AES_BSIZE + tx) / elemPerNode;
 	uint64_t leavesId = 2 * pairId + expandDir;
 	if (leavesId < width) {
 		interleaved[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
 	if (separated != nullptr) {
-		uint64_t offset = (pairId*BLK_SIZE+4*(tx%elemPerNode)) / sizeof(*separated);
+		uint64_t offset = (pairId*sizeof(OTBlock)+4*(tx%elemPerNode)) / sizeof(*separated);
 		separated[offset] = stageBlock2[tx].uival;
 	}
 }

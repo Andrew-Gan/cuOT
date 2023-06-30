@@ -5,7 +5,6 @@
 #include "event_log.h"
 
 #define AES_KEYLEN 16
-#define BLK_SIZE 16
 #define AES_BSIZE 256
 
 struct AES_ctx {
@@ -13,7 +12,7 @@ struct AES_ctx {
 };
 
 struct OTBlock {
-  uint32_t data[BLK_SIZE / 4];
+  uint32_t data[4];
 };
 
 struct SparseVector {

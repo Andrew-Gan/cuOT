@@ -5,11 +5,11 @@
 #include <mutex>
 
 enum Event {
-  BaseOT, BufferInit, PprfExpand, SumNodes, Hash,
-  MatrixInit, MatrixRand, MatrixMult,
+  BaseOT, BufferInit, PprfExpand, SumNodes,
+  MatrixInit, MatrixMult,
 };
 
-class EventLog {
+class Log {
 private:
   static std::mutex mtx;
   static std::ofstream logFile[2];

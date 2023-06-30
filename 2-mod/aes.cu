@@ -13,7 +13,12 @@
 // state - array holding the intermediate results during decryption.
 typedef uint8_t state_t[4][4];
 
-void Aes::init() {
+Aes::~Aes() {
+  if (encExpKey_d) cudaFree(encExpKey_d);
+  if (decExpKey_d) cudaFree(decExpKey_d);
+}
+
+void Aes::init(uint8_t *key) {
   AES_ctx encExpKey;
   AES_ctx decExpKey;
   Aes::expand_encKey(encExpKey.roundKey, key);
@@ -26,23 +31,6 @@ void Aes::init() {
   if (err != cudaSuccess)
     fprintf(stderr, "Aes() dec: %s\n", cudaGetErrorString(err));
   cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
-}
-
-Aes::Aes() {
-  for (int i = 0; i < AES_KEYLEN / 4; i++) {
-    ((uint32_t*) key)[i] = 0;
-  }
-  init();
-}
-
-Aes::Aes(uint8_t *newkey) {
-  memcpy(key, newkey, AES_KEYLEN);
-  init();
-}
-
-Aes::~Aes() {
-  cudaFree(encExpKey_d);
-  cudaFree(decExpKey_d);
 }
 
 void Aes::decrypt(GPUBlock &msg) {

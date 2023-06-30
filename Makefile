@@ -1,5 +1,7 @@
-CC := nvcc -g -G -std=c++20 --compiler-options='-g -std=c++20 -gdwarf-4 -w'
-LIB := -lcurand
+CC := nvcc
+CUFLG := -g -G -std=c++20
+CCFLG := -g -std=c++20 -gdwarf-4 -w
+LIB := -lcurand -lcublas
 INC := -I0-app -I2-mod -I3-dev $(addprefix -I,$(shell find 1-lib -type d -print))
 EXE := ot
 
@@ -26,8 +28,9 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 ############################################################
 
 QUEUE=standby #zghodsi-b
-NUM_CPU=64
-NUM_GPU=2
+CPU_PER_NODE=64
+GPU_PER_NODE=2
+NUM_NODE=1
 CLUSTER=K
 
 ############################################################
@@ -37,25 +40,25 @@ CLUSTER=K
 all: $(EXE)
 
 $(EXE): $(APP_OBJ) $(LIB_OBJ) $(MOD_OBJ) $(DEV_OBJ)
-	$(CC) $(LIB) $^ -o $(EXE)
+	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $^ -o $(EXE)
 
 $(OBJ)/app/%.o: 0-app/%.cu | $(OBJ)
-	$(CC) $(LIB) $(INC) -c -o $@ $<
+	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ)/lib/%.o: $(OBJ)
-	$(CC) $(LIB) $(INC) -c -o $@ $(call FILTER,/$(basename $(notdir $@)).,$(LIB_SRC))
+	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $(call FILTER,/$(basename $(notdir $@)).,$(LIB_SRC))
 
 $(OBJ)/mod/%.o: 2-mod/%.cu | $(OBJ)
-	$(CC) $(LIB) $(INC) -c -o $@ $<
+	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ)/dev/%.o: 3-dev/%.cu | $(OBJ)
-	$(CC) $(LIB) $(INC) -c -o $@ $<
+	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
 $(OBJ):
 	mkdir -p $@/app $@/lib $@/mod $@/dev
 
 sbatch:
-	sbatch -n $(NUM_CPU) -N 1 --gpus-per-node=$(NUM_GPU) -A $(QUEUE) --constraint=$(CLUSTER) job.sh
+	sbatch -n $(CPU_PER_NODE) -N $(NUM_NODE) --gpus-per-node=$(GPU_PER_NODE) -A $(QUEUE) --constraint=$(CLUSTER) job.sh
 
 plot:
 	python plotter.py

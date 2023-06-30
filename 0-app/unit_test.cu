@@ -27,8 +27,12 @@ void test_cuda() {
 }
 
 void test_aes() {
-  Aes aes0;
-  Aes aes1(aes0.key);
+  uint64_t k0 = 3242342;
+  uint8_t k0_blk[16] = {0};
+  memcpy(&k0_blk[8], &k0, sizeof(k0));
+  Aes aes0, aes1;
+  aes0.init(k0_blk);
+  aes1.init(k0_blk);
   const char *sample = "this is a test";
 
   GPUBlock buffer(1024);
@@ -85,7 +89,7 @@ void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, GPUBlock &choiceVector
 #include "basic_op.h"
 
 void test_reduce() {
-  GPUBlock data(16 * BLK_SIZE);
+  GPUBlock data(16 * sizeof(OTBlock));
   data.set(64);
   cudaStream_t s;
   cudaStreamCreate(&s);
@@ -93,7 +97,7 @@ void test_reduce() {
   cudaDeviceSynchronize();
   cudaStreamDestroy(s);
 
-  GPUBlock data2(BLK_SIZE);
+  GPUBlock data2(sizeof(OTBlock));
   data2.set(64);
 
   assert(data == data2);

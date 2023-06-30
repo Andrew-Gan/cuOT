@@ -72,5 +72,5 @@ void xor_reduce_gpu(uint32_t *g_data, uint64_t n) {
   if (blockDim.x >= 256) { if (tid < 128) { sdata[tid] ^= sdata[tid + 128]; } __syncthreads(); }
   if (blockDim.x >= 128) { if (tid < 64) { sdata[tid] ^= sdata[tid + 64]; } __syncthreads(); }
   if (tid < 32) warpReduce(sdata, tid);
-  if (tid < (BLK_SIZE / 4)) g_data[blockIdx.x + tid] = sdata[tid];
+  if (tid < (sizeof(OTBlock) / 4)) g_data[blockIdx.x + tid] = sdata[tid];
 }
