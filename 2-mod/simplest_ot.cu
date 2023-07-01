@@ -5,26 +5,31 @@
 std::array<std::atomic<SimplestOT*>, 100> simplestOTSenders;
 std::array<std::atomic<SimplestOT*>, 100> simplestOTRecvers;
 
-SimplestOT::SimplestOT(Role myrole, int myid) : role(myrole), id(myid) {
-  if (role == Sender) {
-    simplestOTSenders[id] = this;
-    while(simplestOTRecvers[id] == nullptr);
-    other = simplestOTRecvers[id];
-  }
-  else {
-    simplestOTRecvers[id] = this;
-    while(simplestOTSenders[id] == nullptr);
-    other = simplestOTSenders[id];
-  }
+SimplestOT::SimplestOT(Role role, int id, uint64_t count) :
+  mRole(role), mID(id), mCount(count) {
+
   hasContent = false;
   prng.SetSeed(osuCrypto::block(clock(), 0));
+  buffer = new uint8_t[mCount * sizeof(Point)];
+
+  if (mRole == Sender) {
+    simplestOTSenders[mID] = this;
+    while(simplestOTRecvers[mID] == nullptr);
+    other = simplestOTRecvers[mID];
+  }
+  else {
+    simplestOTRecvers[mID] = this;
+    while(simplestOTSenders[mID] == nullptr);
+    other = simplestOTSenders[mID];
+  }
 }
 
 SimplestOT::~SimplestOT() {
-  if (role == Sender)
-    simplestOTSenders[id] = nullptr;
+  if (mRole == Sender)
+    simplestOTSenders[mID] = nullptr;
   else
-    simplestOTRecvers[id] = nullptr;
+    simplestOTRecvers[mID] = nullptr;
+  delete[] buffer;
 }
 
 void SimplestOT::fromOwnBuffer(uint8_t *d, uint64_t nBytes) {
@@ -39,57 +44,58 @@ void SimplestOT::toOtherBuffer(uint8_t *s, uint64_t nBytes) {
   other->hasContent = true;
 }
 
-std::array<std::vector<GPUBlock>, 2> SimplestOT::send(uint64_t count) {
+std::array<GPUBlock, 2> SimplestOT::send() {
   a.randomize(prng);
   A = Point::mulGenerator(a);
   toOtherBuffer((uint8_t*) &A, sizeof(A));
 
-  B.resize(count);
-  std::array<std::vector<GPUBlock>, 2> m;
-  m[0] = std::vector<GPUBlock>(count, GPUBlock(sizeof(OTBlock)));
-  m[1] = std::vector<GPUBlock>(count, GPUBlock(sizeof(OTBlock)));
+  B.resize(mCount);
+  std::array<GPUBlock, 2> m;
+  m[0].resize(mCount * sizeof(OTBlock));
+  m[1].resize(mCount * sizeof(OTBlock));
   A *= a;
   fromOwnBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
 
-  for (uint64_t i = 0; i < count; i++) {
+  for (uint64_t i = 0; i < mCount; i++) {
     B.at(i) *= a;
     osuCrypto::RandomOracle ro(sizeof(OTBlock));
     ro.Update(B.at(i));
     ro.Update(i);
     uint8_t buff0[sizeof(OTBlock)];
     ro.Final(buff0);
-    cudaMemcpy(m[0].at(i).data_d, buff0, sizeof(OTBlock), cudaMemcpyHostToDevice);
+    cudaMemcpy((OTBlock*) m[0].data_d + i, buff0, sizeof(OTBlock), cudaMemcpyHostToDevice);
     B.at(i) -= A;
     ro.Reset();
     ro.Update(B.at(i));
     ro.Update(i);
     uint8_t buff1[sizeof(OTBlock)];
     ro.Final(buff1);
-    cudaMemcpy(m[1].at(i).data_d, buff1, sizeof(OTBlock), cudaMemcpyHostToDevice);
+    cudaMemcpy((OTBlock*) m[1].data_d + i, buff1, sizeof(OTBlock), cudaMemcpyHostToDevice);
   }
   return m;
 }
 
-std::vector<GPUBlock> SimplestOT::recv(uint64_t count, uint64_t choice) {
+GPUBlock SimplestOT::recv(uint64_t choice) {
   fromOwnBuffer((uint8_t*) &A, sizeof(A));
-  std::vector<GPUBlock> mb(count, sizeof(OTBlock));
-  for (uint64_t i = 0; i < count; i++) {
+  GPUBlock mb(mCount * sizeof(OTBlock));
+  B.resize(mCount);
+  for (uint64_t i = 0; i < mCount; i++) {
     b.emplace_back(prng);
     Point B0 = Point::mulGenerator(b.at(i));
     Point B1 = A + B0;
     uint64_t c = choice & (1 << i);
-    B.push_back(c == 0 ? B0 : B1);
+    B.at(i) = c == 0 ? B0 : B1;
   }
   toOtherBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
 
   uint8_t buff[sizeof(OTBlock)];
-  for (uint64_t i = 0; i < count; i++) {
-    Point mB = A * b.at(i);
+  for (uint64_t i = 0; i < mCount; i++) {
+    Point point = A * b.at(i);
     osuCrypto::RandomOracle ro(sizeof(OTBlock));
-    ro.Update(mB);
+    ro.Update(point);
     ro.Update(i);
     ro.Final(buff);
-    cudaMemcpy(mb.at(i).data_d, buff, sizeof(OTBlock), cudaMemcpyHostToDevice);
+    cudaMemcpy((OTBlock*) mb.data_d + i, buff, sizeof(OTBlock), cudaMemcpyHostToDevice);
   }
   return mb;
 }

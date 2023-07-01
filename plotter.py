@@ -70,11 +70,11 @@ def plot_pipeline(runconfig, dataSend, dataRecv):
 
   plt.savefig(OUTPUT_FOLDER + runconfig, bbox_inches='tight')
 
-def plot_numtree_runtime(runconfig, eventList, eventDurationS, eventDurationsR, eventID):
+def plot_numtree_runtime(runconfig, eventList, eventDurationS, eventDurationR, eventID):
   xVal = []
   yValS = []
   yValR = []
-  for run, durationSend, durationRecv in zip(runconfig, eventDurationS, eventDurationsR):
+  for run, durationSend, durationRecv in zip(runconfig, eventDurationS, eventDurationR):
     numTree = run.split('-')[2].split('.')[0]
     xVal.append(int(numTree))
     yValS.append(durationSend[eventID])
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
   runconfig = []
   eventDurationS = []
-  eventDurationsR = []
+  eventDurationR = []
 
   for filename in os.listdir(OUTPUT_FOLDER):
     if filename.endswith('send.txt'):
@@ -126,10 +126,10 @@ if __name__ == '__main__':
     dataSend = extract_data(OUTPUT_FOLDER + src + '-send.txt')
     dataRecv = extract_data(OUTPUT_FOLDER + src + '-recv.txt')
     plot_pipeline(src, dataSend, dataRecv)
-    if 'log-24' in src:
+    if 'log-024' in src:
       config24.append(src)
       eventDurationS.append(dataSend[2])
-      eventDurationsR.append(dataRecv[2])
+      eventDurationR.append(dataRecv[2])
 
   eventList = dataSend[0]
-  plot_numtree_runtime(config24, eventList, eventDurationS, eventDurationsR, 2)
+  plot_numtree_runtime(config24, eventList, eventDurationS, eventDurationR, 2)

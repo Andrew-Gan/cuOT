@@ -26,13 +26,13 @@ public:
   virtual void run() = 0;
 
   // network
-  std::vector<std::vector<GPUBlock>> leftHash;
-  std::vector<std::vector<GPUBlock>> rightHash;
+  std::vector<GPUBlock> leftHash;
+  std::vector<GPUBlock> rightHash;
 
 protected:
   Aes aesLeft, aesRight;
   GPUBlock bufferA, bufferB;
-  std::vector<GPUBlock> leftNodes, rightNodes;
+  GPUBlock leftNodes, rightNodes;
   uint64_t id, depth, nTree, numOT, numLeaves;
   virtual void baseOT() = 0;
   virtual void expand() = 0;
@@ -53,7 +53,7 @@ private:
 
 class SilentOTRecver : public SilentOT {
 public:
-  std::vector<std::vector<cudaEvent_t>> expandEvents;
+  std::vector<cudaEvent_t> expandEvents;
   std::atomic<bool> eventsRecorded = false;
   void run();
   SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mychoices);
@@ -62,7 +62,7 @@ private:
   GPUBlock puncVector, choiceVector;
   uint64_t *choices;
   SilentOTSender *other = nullptr;
-  std::vector<std::vector<GPUBlock>> choiceHash;
+  std::vector<GPUBlock> choiceHash;
   void baseOT();
   void buffer_init();
   void expand();
