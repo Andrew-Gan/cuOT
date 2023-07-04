@@ -26,6 +26,7 @@ void SilentOTSender::run() {
   Log::start(Sender, PprfExpand);
   expand();
   Log::end(Sender, PprfExpand);
+  return;
 
   Log::start(Sender, MatrixInit);
   QuasiCyclic code(2 * numOT, numOT);
@@ -37,10 +38,10 @@ void SilentOTSender::run() {
 }
 
 void SilentOTSender::baseOT() {
-  std::vector<std::future<std::array<std::vector<GPUBlock>, 2>>> workers;
-  for (int t = 0; t < nTree; t++) {
-    workers.push_back(std::async([t, this]() {
-      return SimplestOT(SimplestOT::Sender, t).send(depth+1);
+  std::vector<std::future<std::array<GPUBlock, 2>>> workers;
+  for (int d = 0; d < depth+1; d++) {
+    workers.push_back(std::async([d, this]() {
+      return SimplestOT(SimplestOT::Sender, d, nTree).send();
     }));
   }
   for (auto &worker : workers) {
@@ -51,10 +52,6 @@ void SilentOTSender::baseOT() {
 }
 
 void SilentOTSender::buffer_init() {
-  OTBlock root;
-  root.data[0] = 123456;
-  root.data[1] = 7890123;
-
   uint64_t k0 = 3242342, k1 = 8993849;
   uint8_t k0_blk[16] = {0};
   uint8_t k1_blk[16] = {0};
@@ -63,65 +60,65 @@ void SilentOTSender::buffer_init() {
   aesLeft.init(k0_blk);
   aesRight.init(k1_blk);
 
-  delta.resize(sizeof(OTBlock));
+  delta.resize(nTree * sizeof(OTBlock));
   delta.clear();
-  delta.set(123456);
+  // delta.set(123456);
 
   bufferA.resize(2 * numOT * sizeof(OTBlock));
   bufferB.resize(2 * numOT * sizeof(OTBlock));
-  leftNodes.resize(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
-  rightNodes.resize(nTree, GPUBlock(numLeaves * sizeof(OTBlock) / 2));
+  leftNodes.resize(numOT * sizeof(OTBlock));
+  rightNodes.resize(numOT * sizeof(OTBlock));
 
+  OTBlock root;
   for (int t = 0; t < nTree; t++) {
-    bufferA.set((uint8_t*) root.data, sizeof(OTBlock), t * numLeaves * sizeof(OTBlock));
+    root.data[0] = rand();
+    root.data[1] = rand();
+    bufferA.set((uint8_t*) root.data, sizeof(OTBlock), t * sizeof(OTBlock));
   }
 }
 
 void SilentOTSender::expand() {
-  std::vector<cudaStream_t> streams(nTree);
-  for (cudaStream_t &s : streams) {
-    cudaStreamCreate(&s);
-  }
+  cudaStream_t stream[2];
+  cudaStreamCreate(&stream[0]);
+  cudaStreamCreate(&stream[1]);
   GPUBlock *inBuffer, *outBuffer;
+
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    for (uint64_t t = 0; t < nTree; t++) {
-      cudaStream_t &stream = streams.at(t);
+    inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
+    outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
+    OTBlock *inPtr = (OTBlock*) inBuffer->data_d;
+    OTBlock *outPtr = (OTBlock*) outBuffer->data_d;
 
-      inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
-      outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
+    uint64_t packedWidth = nTree * width;
+    aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
+    aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
 
-      OTBlock *inPtr = (OTBlock*)inBuffer->data_d + t * numLeaves;
-      OTBlock *outPtr = (OTBlock*)outBuffer->data_d + t * numLeaves;
-      aesLeft.expand_async(outPtr, leftNodes.at(t), inPtr, width, 0, stream);
-      aesRight.expand_async(outPtr, rightNodes.at(t), inPtr, width, 1, stream);
+    leftNodes.sum_async(nTree, width / 2, stream[0]);
+    rightNodes.sum_async(nTree, width / 2, stream[1]);
 
-      leftNodes.at(t).sum_async(sizeof(OTBlock) * width / 2, stream);
-      rightNodes.at(t).sum_async(sizeof(OTBlock) * width / 2, stream);
+    leftHash.at(d-1).xor_async(leftNodes, stream[0]);
+    rightHash.at(d-1).xor_async(rightNodes, stream[1]);
 
-      leftHash.at(t).at(d-1).xor_async(leftNodes.at(t), stream);
-      rightHash.at(t).at(d-1).xor_async(rightNodes.at(t), stream);
+    other->leftHash.at(d-1).copy_async(leftHash.at(d-1), stream[0]);
+    other->rightHash.at(d-1).copy_async(rightHash.at(d-1), stream[1]);
 
-      other->leftHash.at(t).at(d-1).copy_async(leftHash.at(t).at(d-1), stream);
-      other->rightHash.at(t).at(d-1).copy_async(rightHash.at(t).at(d-1), stream);
+    if (d == depth) {
+      leftHash.at(d).xor_async(leftNodes, stream[0]);
+      rightHash.at(d).xor_async(rightNodes, stream[1]);
 
-      if (d == depth) {
-        leftHash.at(t).at(d).xor_async(leftNodes.at(t), stream);
-        rightHash.at(t).at(d).xor_async(rightNodes.at(t), stream);
+      leftHash.at(d).xor_async(delta, stream[0]);
+      rightHash.at(d).xor_async(delta, stream[1]);
 
-        leftHash.at(t).at(d).xor_async(delta, stream);
-        rightHash.at(t).at(d).xor_async(delta, stream);
-
-        other->leftHash.at(t).at(d).copy_async(leftHash.at(t).at(d), stream);
-        other->rightHash.at(t).at(d).copy_async(rightHash.at(t).at(d), stream);
-      }
-
-      cudaEventRecord(other->expandEvents.at(t).at(d-1), stream);
+      other->leftHash.at(d).copy_async(leftHash.at(d), stream[0]);
+      other->rightHash.at(d).copy_async(rightHash.at(d), stream[1]);
     }
+
+    cudaEventRecord(other->expandEvents.at(d-1), stream[0]);
+    cudaEventRecord(other->expandEvents.at(d-1), stream[1]);
   }
   other->eventsRecorded = true;
   cudaDeviceSynchronize();
-  for (auto &s : streams) {
-    cudaStreamDestroy(s);
-  }
+  cudaStreamDestroy(stream[0]);
+  cudaStreamDestroy(stream[1]);
   fullVector = *outBuffer;
 }

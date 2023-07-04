@@ -1,9 +1,6 @@
 # GPU Accelerated OT Protocols
 
-A platform for running existing or designing new Oblivious Transfer protocols by harnessing the power of hardware acceleration on the GPU.
-
-
-
+Running SilentOT on the GPU.
 
 ## Dependencies:
 * gcc 9.3.0+

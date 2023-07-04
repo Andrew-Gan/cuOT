@@ -22,7 +22,7 @@ public:
   void set(uint64_t val);
   void set(const uint8_t *val, uint64_t n);
   void set(const uint8_t *val, uint64_t n, uint64_t offset);
-  void sum_async(uint64_t n, cudaStream_t stream);
+  void sum_async(uint64_t nPartition, uint64_t blocksPerPartition, cudaStream_t stream);
   void xor_async(GPUBlock &rhs, cudaStream_t stream);
   void copy_async(GPUBlock &rhs, cudaStream_t stream);
   void resize(uint64_t size);

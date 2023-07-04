@@ -115,9 +115,16 @@ void GPUBlock::set(const uint8_t *val, uint64_t n, uint64_t offset) {
   cudaMemcpy(data_d + offset, val, min, cudaMemcpyHostToDevice);
 }
 
-void GPUBlock::sum_async(uint64_t n, cudaStream_t stream) {
-  uint64_t nBlocks = (( (n / 4) - 1) / 2048) + 1;
-  xor_reduce_gpu<<<nBlocks, 1024, 4096, stream>>>((uint32_t*) data_d, n / 4);
+// nPartition: number of partitions to reduce to separate totals
+// blocksPerPartition: number of OTBlocks in a partition
+void GPUBlock::sum_async(uint64_t nPartition, uint64_t blocksPerPartition, cudaStream_t stream) {
+  for (uint64_t remBlocks = blocksPerPartition; remBlocks > 1; remBlocks /= 1024) {
+    uint64_t longsPerPartition = 2 * remBlocks;
+    uint64_t blockSize = longsPerPartition >= 2048 ? 1024 : longsPerPartition / 2;
+    uint64_t nBlocks = (nPartition * longsPerPartition) / (2 * blockSize);
+    uint64_t mem = blockSize * sizeof(uint64_t);
+    xor_reduce_gpu<<<nBlocks, blockSize, mem, stream>>>((uint64_t*) data_d);
+  }
 }
 
 void GPUBlock::xor_async(GPUBlock &rhs, cudaStream_t stream) {

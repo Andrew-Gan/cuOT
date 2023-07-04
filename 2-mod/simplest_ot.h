@@ -15,22 +15,22 @@ using Number = osuCrypto::Sodium::Prime25519;
 class SimplestOT {
 public:
   enum Role { Sender, Recver };
-  SimplestOT(Role role, int id);
+  SimplestOT(Role role, int id, uint64_t count);
   virtual ~SimplestOT();
-  std::array<std::vector<GPUBlock>, 2> send(uint64_t count);
-  std::vector<GPUBlock> recv(uint64_t count, uint64_t choice);
+  std::array<GPUBlock, 2> send();
+  GPUBlock recv(uint64_t choice);
 
 private:
-  Role role;
-  int id;
-  uint64_t g = 2;
+  Role mRole;
+  int mID;
+  uint64_t mCount = 0;
   Number a;
   std::vector<Number> b;
   Point A;
   std::vector<Point> B;
   osuCrypto::PRNG prng;
   SimplestOT *other = nullptr;
-  uint8_t buffer[1024];
+  uint8_t *buffer = nullptr;
   std::atomic<bool> hasContent;
 
   void fromOwnBuffer(uint8_t *d, uint64_t nBytes);

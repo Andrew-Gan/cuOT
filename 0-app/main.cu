@@ -49,8 +49,8 @@ int main(int argc, char** argv) {
   // temporary measure while RDMA being set up to run two processes
   char filename[32];
   char filename2[32];
-  sprintf(filename, "output/log-%02d-%02d-send.txt", logOT, numTrees);
-  sprintf(filename2, "output/log-%02d-%02d-recv.txt", logOT, numTrees);
+  sprintf(filename, "output/log-%03d-%03d-send.txt", logOT, numTrees);
+  sprintf(filename2, "output/log-%03d-%03d-recv.txt", logOT, numTrees);
   Log::open(filename, filename2);
   std::future<void> sender = std::async(sender_worker, protocol, logOT, numTrees);
   std::future<void> recver = std::async(recver_worker, protocol, logOT, numTrees);
