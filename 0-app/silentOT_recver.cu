@@ -103,9 +103,10 @@ void SilentOTRecver::expand() {
   std::vector<uint64_t> activeParent(nTree, 0);
   cudaStream_t stream[2];
   cudaStreamCreate(&stream[0]);
+  cudaStreamCreate(&stream[1]);
   GPUBlock *inBuffer, *outBuffer;
   GPUBlock recvSums(nTree * sizeof(OTBlock));
-  GPUBlock *tmp;
+  GPUBlock *tmp0, *tmp1;
   uint8_t choice;
   size_t offsetInVec;
 
@@ -118,58 +119,51 @@ void SilentOTRecver::expand() {
 
     uint64_t packedWidth = nTree * width;
     aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
-    aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[0]);
+    aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
 
     cudaStreamWaitEvent(stream[0], expandEvents.at(d-1));
-    cudaStreamWaitEvent(stream[0], expandEvents.at(d-1));
+    cudaStreamWaitEvent(stream[1], expandEvents.at(d-1));
 
-    for (uint64_t t = 0; t < nTree; t++) {
-      // copy from left or right hashed sum into vector and hash the vector
-      // with choice values obtained from BaseOT to obtain the sum values
-      choice = choices[t] >> (d-1) & 1;
-      tmp = choice == 0 ? &leftHash.at(d-1) : &rightHash.at(d-1);
-      cudaMemcpyAsync((OTBlock*)recvSums.data_d+t, (OTBlock*)tmp->data_d+t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[0]);
-      if (d == depth) {
-        tmp = choice == 0 ? &rightHash.at(d) : &leftHash.at(d);
-        cudaMemcpyAsync((OTBlock*)recvSums.data_d+t, (OTBlock*)tmp->data_d+t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[0]);
-      }
+    leftHash.at(d-1).xor_async(choiceHash.at(d-1), stream[0]);
+    rightHash.at(d-1).xor_async(choiceHash.at(d-1), stream[1]);
+    if (d == depth) {
+      leftHash.at(d).xor_async(choiceHash.at(d), stream[0]);
+      rightHash.at(d).xor_async(choiceHash.at(d), stream[1]);
     }
-
-    choiceHash.at(d-1).xor_async(recvSums, stream[0]);
-    if (d == depth)
-      choiceHash.at(d).xor_async(recvSums, stream[0]);
 
     for (uint64_t t = 0; t < nTree; t++) {
       // insert obtained sum into left side or right side
       // and hash to retrieve active node value
       choice = choices[t] >> (d-1) & 1;
-      tmp = choice == 0 ? &leftNodes : &rightNodes;
+      tmp0 = choice == 0 ? &leftHash.at(d-1) : &rightHash.at(d-1);
+      tmp1 = choice == 0 ? &leftNodes : &rightNodes;
       offsetInVec = t * width / 2 + activeParent.at(t);
-      cudaMemcpyAsync((OTBlock*)tmp->data_d + offsetInVec, (OTBlock*)choiceHash.at(d-1).data_d + t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[0]);
+      cudaMemcpyAsync((OTBlock*)tmp1->data_d + offsetInVec, (OTBlock*)tmp0->data_d + t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[choice]);
       if (d == depth) {
-        tmp = choice == 0 ? &rightNodes : &leftNodes;
-        cudaMemcpyAsync((OTBlock*)tmp->data_d + offsetInVec, (OTBlock*)choiceHash.at(d).data_d + t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[0]);
+        tmp0 = choice == 0 ? &rightHash.at(d) : &leftHash.at(d);
+        tmp1 = choice == 0 ? &rightNodes : &leftNodes;
+        cudaMemcpyAsync((OTBlock*)tmp1->data_d + offsetInVec, (OTBlock*)tmp0->data_d + t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[1-choice]);
       }
     }
     leftNodes.sum_async(nTree, width / 2, stream[0]);
-    rightNodes.sum_async(nTree, width / 2, stream[0]);
+    rightNodes.sum_async(nTree, width / 2, stream[1]);
 
     // insert active node value obtained from sum into output
     for (uint64_t t = 0; t < nTree; t++) {
       choice = choices[t] >> (d-1) & 1;
-      tmp = choice == 0 ? &leftNodes : &rightNodes;
+      tmp0 = choice == 0 ? &leftNodes : &rightNodes;
       offsetInVec = t * width + 2 * activeParent.at(t) + choice;
-      cudaMemcpyAsync((OTBlock*)outPtr + offsetInVec, (OTBlock*)tmp->data_d + t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[0]);
+      cudaMemcpyAsync((OTBlock*)outPtr + offsetInVec, (OTBlock*)tmp0->data_d + t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[choice]);
       if (d == depth) {
-        tmp = choice == 0 ? &rightNodes : &leftNodes;
+        tmp0 = choice == 0 ? &rightNodes : &leftNodes;
         offsetInVec = t * width + 2 * activeParent.at(t) + (1-choice);
-        cudaMemcpyAsync((OTBlock*)outPtr + offsetInVec, (OTBlock*)tmp->data_d + t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[0]);
+        cudaMemcpyAsync((OTBlock*)outPtr + offsetInVec, (OTBlock*)tmp0->data_d + t, sizeof(OTBlock), cudaMemcpyDeviceToDevice, stream[1-choice]);
       }
     }
   }
   cudaDeviceSynchronize();
   eventsRecorded = false;
   cudaStreamDestroy(stream[0]);
-  // cudaStreamDestroy(stream[1]);
+  cudaStreamDestroy(stream[1]);
   puncVector = *outBuffer;
 }
