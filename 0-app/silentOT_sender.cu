@@ -86,9 +86,9 @@ void SilentOTSender::expand() {
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
     outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
-
     OTBlock *inPtr = (OTBlock*) inBuffer->data_d;
     OTBlock *outPtr = (OTBlock*) outBuffer->data_d;
+
     uint64_t packedWidth = nTree * width;
     aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
     aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
