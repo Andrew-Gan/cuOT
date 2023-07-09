@@ -5,7 +5,7 @@
 #include <vector>
 #include <array>
 #include <atomic>
-#include "gpu_block.h"
+#include "gpu_vector.h"
 #include "gpu_matrix.h"
 #include "quasi_cyclic.h"
 #include "aes.h"
@@ -26,13 +26,13 @@ public:
   virtual void run() = 0;
 
   // network
-  std::vector<GPUBlock> leftHash;
-  std::vector<GPUBlock> rightHash;
+  std::vector<GPUvector<OTblock>> leftHash;
+  std::vector<GPUvector<OTblock>> rightHash;
 
 protected:
   Aes aesLeft, aesRight;
-  GPUBlock bufferA, bufferB;
-  GPUBlock leftNodes, rightNodes;
+  GPUvector<OTblock> bufferA, bufferB;
+  GPUvector<OTblock> leftNodes, rightNodes;
   uint64_t id, depth, nTree, numOT, numLeaves;
   virtual void baseOT() = 0;
   virtual void expand() = 0;
@@ -44,7 +44,8 @@ public:
   SilentOTSender(int myid, int logOT, int numTrees);
 
 private:
-  GPUBlock fullVector, delta;
+  GPUvector<OTblock> fullVector;
+  OTblock *delta = nullptr;
   SilentOTRecver *other = nullptr;
   void baseOT();
   void buffer_init();
@@ -59,10 +60,10 @@ public:
   SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mychoices);
 
 private:
-  GPUBlock puncVector, choiceVector;
+  GPUvector<OTblock> puncVector, choiceVector;
   uint64_t *choices;
   SilentOTSender *other = nullptr;
-  std::vector<GPUBlock> choiceHash;
+  std::vector<GPUvector<OTblock>> choiceHash;
   void baseOT();
   void buffer_init();
   void expand();

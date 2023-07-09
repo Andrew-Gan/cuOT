@@ -2,17 +2,19 @@
 #define __QUASI_CYCLIC_H__
 
 #include <curand_kernel.h>
-#include "gpu_block.h"
+#include <cufftXt.h>
+#include "gpu_vector.h"
 
 class QuasiCyclic {
 private:
   curandGenerator_t prng;
-  float *nonZeroPos = nullptr;
-  uint64_t mIn, mOut;
+  const uint64_t rows = 128;
+  uint64_t mIn, mOut, nBlocks, n2Blocks, n64;
+  cufftHandle aPlan, bPlan, cPlan;
 public:
   QuasiCyclic(uint64_t in, uint64_t out);
   virtual ~QuasiCyclic();
-  void encode(GPUBlock &vector);
+  void encode(GPUvector<OTblock> &vector);
 };
 
 #endif

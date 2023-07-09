@@ -1,7 +1,5 @@
-#include "rand.h"
 #include "simplest_ot.h"
 #include "silentOT.h"
-#include "basic_op.h"
 #include <future>
 
 std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
@@ -38,7 +36,7 @@ void SilentOTSender::run() {
 }
 
 void SilentOTSender::baseOT() {
-  std::vector<std::future<std::array<GPUBlock, 2>>> workers;
+  std::vector<std::future<std::array<GPUvector<OTblock>, 2>>> workers;
   for (int d = 0; d < depth+1; d++) {
     workers.push_back(std::async([d, this]() {
       return SimplestOT(SimplestOT::Sender, d, nTree).send();
@@ -60,20 +58,19 @@ void SilentOTSender::buffer_init() {
   aesLeft.init(k0_blk);
   aesRight.init(k1_blk);
 
-  delta.resize(nTree * sizeof(OTBlock));
-  delta.clear();
+  cudaMalloc(&delta, sizeof(*delta));
   // delta.set(123456);
 
-  bufferA.resize(2 * numOT * sizeof(OTBlock));
-  bufferB.resize(2 * numOT * sizeof(OTBlock));
-  leftNodes.resize(numOT * sizeof(OTBlock));
-  rightNodes.resize(numOT * sizeof(OTBlock));
+  bufferA.resize(2 * numOT);
+  bufferB.resize(2 * numOT);
+  leftNodes.resize(numOT);
+  rightNodes.resize(numOT);
 
-  OTBlock root;
+  OTblock root;
   for (int t = 0; t < nTree; t++) {
     root.data[0] = rand();
     root.data[1] = rand();
-    bufferA.set((uint8_t*) root.data, sizeof(OTBlock), t * sizeof(OTBlock));
+    bufferA.set(t, root);
   }
 }
 
@@ -81,13 +78,13 @@ void SilentOTSender::expand() {
   cudaStream_t stream[2];
   cudaStreamCreate(&stream[0]);
   cudaStreamCreate(&stream[1]);
-  GPUBlock *inBuffer, *outBuffer;
+  GPUvector<OTblock> *inBuffer, *outBuffer;
 
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
     outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
-    OTBlock *inPtr = (OTBlock*) inBuffer->data_d;
-    OTBlock *outPtr = (OTBlock*) outBuffer->data_d;
+    OTblock *inPtr = inBuffer->data();
+    OTblock *outPtr = outBuffer->data();
 
     uint64_t packedWidth = nTree * width;
     aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);

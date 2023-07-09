@@ -1,7 +1,7 @@
 CC := nvcc
 CUFLG := -g -G -std=c++20
 CCFLG := -g -std=c++20 -gdwarf-4 -w
-LIB := -lcurand -lcublas
+LIB := -lcurand -lcufft
 INC := -I0-app -I2-mod -I3-dev $(addprefix -I,$(shell find 1-lib -type d -print))
 EXE := ot
 
