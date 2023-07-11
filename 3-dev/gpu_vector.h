@@ -12,6 +12,7 @@ public:
   GPUvector(uint64_t len) : GPUmatrix<T>(1, len) {}
   uint64_t size() { return this->mCols; }
   void set(uint64_t i, T &val) { set(1, i, val); }
+  void resize(uint64_t len) { GPUmatrix<T>::resize(1, len); }
   void sum_async(uint64_t nPartition, uint64_t blkPerPart, cudaStream_t s);
 };
 

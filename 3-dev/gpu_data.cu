@@ -4,9 +4,6 @@
 #include "gpu_data.h"
 #include "gpu_ops.h"
 
-#define CUDA_CALL(e) if (e != cudaSuccess) \
-  fprintf(stderr, "%s\n", cudaGetErrorString(e));
-
 GPUdata::GPUdata(uint64_t n) : mNBytes(n) {
   CUDA_CALL(cudaMalloc(&mPtr, n));
 }
@@ -77,9 +74,7 @@ std::ostream& operator<<(std::ostream &os, const GPUdata &obj) {
 void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
   uint8_t *newData;
-  cudaError_t err = cudaMalloc(&newData, size);
-  if (err != cudaSuccess)
-    fprintf(stderr, "resize(%lu): %s\n", size, cudaGetErrorString(err));
+  CUDA_CALL(cudaMalloc(&newData, size));
   if (mPtr != nullptr) {
     cudaMemcpy(newData, mPtr, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
     cudaFree(mPtr);

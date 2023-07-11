@@ -40,8 +40,8 @@ protected:
 
 class SilentOTSender : public SilentOT {
 public:
-  void run();
   SilentOTSender(int myid, int logOT, int numTrees);
+  void run();
 
 private:
   GPUvector<OTblock> fullVector;
@@ -56,8 +56,8 @@ class SilentOTRecver : public SilentOT {
 public:
   std::vector<cudaEvent_t> expandEvents;
   std::atomic<bool> eventsRecorded = false;
-  void run();
   SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mychoices);
+  void run();
 
 private:
   GPUvector<OTblock> puncVector, choiceVector;

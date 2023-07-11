@@ -42,20 +42,29 @@ all: $(EXE)
 $(EXE): $(APP_OBJ) $(LIB_OBJ) $(MOD_OBJ) $(DEV_OBJ)
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $^ -o $(EXE)
 
-$(OBJ)/app/%.o: 0-app/%.cu | $(OBJ)
+$(OBJ)/app/%.o: 0-app/%.cu | $(OBJ)/app
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
-$(OBJ)/lib/%.o: $(OBJ)
+$(OBJ)/lib/%.o: $(OBJ)/lib
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $(call FILTER,/$(basename $(notdir $@)).,$(LIB_SRC))
 
-$(OBJ)/mod/%.o: 2-mod/%.cu | $(OBJ)
+$(OBJ)/mod/%.o: 2-mod/%.cu | $(OBJ)/mod
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
-$(OBJ)/dev/%.o: 3-dev/%.cu | $(OBJ)
+$(OBJ)/dev/%.o: 3-dev/%.cu | $(OBJ)/dev
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
-$(OBJ):
-	mkdir -p $@/app $@/lib $@/mod $@/dev
+$(OBJ)/app:
+	mkdir -p $@/app
+
+$(OBJ)/lib:
+	mkdir -p $@/lib
+
+$(OBJ)/mod:
+	mkdir -p $@/mod
+
+$(OBJ)/dev:
+	mkdir -p $@/dev
 
 sbatch:
 	sbatch -n $(CPU_PER_NODE) -N $(NUM_NODE) --gpus-per-node=$(GPU_PER_NODE) -A $(QUEUE) --constraint=$(CLUSTER) job.sh
@@ -64,4 +73,4 @@ plot:
 	python plotter.py
 
 clean:
-	rm -rf $(EXE) $(OBJ)
+	rm -rf $(EXE) $(OBJ)/app $(OBJ)/mod $(OBJ)/dev

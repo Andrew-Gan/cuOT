@@ -7,6 +7,9 @@
 #define AES_KEYLEN 16
 #define AES_BSIZE 256
 
+#define CUDA_CALL(e) if (e != cudaSuccess) \
+  fprintf(stderr, "%s\n", cudaGetErrorString(e));
+
 struct AES_ctx {
   uint8_t roundKey[176];
 };

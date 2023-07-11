@@ -1,6 +1,6 @@
 #include "aes.h"
 #include "simplest_ot.h"
-#include "silentOT.h"
+#include "silent_ot.h"
 #include <future>
 
 std::array<std::atomic<SilentOTRecver*>, 100> silentOTRecvers;
@@ -18,21 +18,6 @@ SilentOTRecver::SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mych
   other = silentOTSenders[id];
 }
 
-__global__
-void pathToChoice(OTblock *choiceVec, uint64_t depth, uint64_t numLeaves, uint64_t *choices) {
-  uint64_t treeStartIndex = threadIdx.x * numLeaves;
-  uint64_t path = choices[threadIdx.x];
-  uint64_t puncIndex = 0;
-  for (int d = 0; d < depth; d++) {
-    puncIndex *= 2;
-    if (path & (1 << d)) puncIndex += 1;
-  }
-  puncIndex += treeStartIndex;
-  for (int i = 0; i < 4; i++) {
-    choiceVec[puncIndex].data[i] = 0xffff;
-  }
-}
-
 void SilentOTRecver::run() {
   Log::start(Recver, BaseOT);
   baseOT();
@@ -46,7 +31,6 @@ void SilentOTRecver::run() {
   expand();
   get_choice_vector();
   Log::end(Recver, PprfExpand);
-  return;
 
   Log::start(Recver, MatrixInit);
   QuasiCyclic code(2 * numOT, numOT);
@@ -90,9 +74,24 @@ void SilentOTRecver::buffer_init() {
   rightNodes.resize(numOT);
 }
 
+__global__
+void pathToChoice(OTblock *choiceVec, uint64_t depth, uint64_t numLeaves, uint64_t *choices) {
+  uint64_t treeStartIndex = threadIdx.x * numLeaves;
+  uint64_t path = choices[threadIdx.x];
+  uint64_t puncIndex = 0;
+  for (int d = 0; d < depth; d++) {
+    puncIndex *= 2;
+    if (path & (1 << d)) puncIndex += 1;
+  }
+  puncIndex += treeStartIndex;
+  for (int i = 0; i < 4; i++) {
+    choiceVec[puncIndex].data[i] = 0xffff;
+  }
+}
+
 void SilentOTRecver::get_choice_vector() {
   uint64_t *choices_d;
-  choiceVector.resize(2 * numOT / 8);
+  choiceVector.resize(2 * numOT);
   cudaMalloc(&choices_d, nTree * sizeof(*choices_d));
   cudaMemcpy(choices_d, choices, nTree * sizeof(*choices_d), cudaMemcpyHostToDevice);
   pathToChoice<<<1, nTree>>>(choiceVector.data(), depth, numLeaves, choices_d);

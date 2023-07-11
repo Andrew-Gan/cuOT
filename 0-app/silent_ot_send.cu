@@ -1,5 +1,5 @@
 #include "simplest_ot.h"
-#include "silentOT.h"
+#include "silent_ot.h"
 #include <future>
 
 std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
@@ -24,7 +24,6 @@ void SilentOTSender::run() {
   Log::start(Sender, PprfExpand);
   expand();
   Log::end(Sender, PprfExpand);
-  return;
 
   Log::start(Sender, MatrixInit);
   QuasiCyclic code(2 * numOT, numOT);

@@ -26,6 +26,20 @@ QuasiCyclic::~QuasiCyclic() {
   curandDestroyGenerator(prng);
 }
 
+__global__
+void load_column(OTblock *o, OTblock *i, uint64_t c, uint64_t numCols) {
+  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  o[tid] = i[0 * numCols + c];
+}
+
+__global__
+void xor_column(OTblock *out, OTblock *in, uint64_t vecStart) {
+  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  for (int i = 0; i < 4; i++) {
+    out[tid + vecStart].data[i] ^= in[tid].data[i];
+  }
+}
+
 void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   GPUmatrix<OTblock> XT(mOut, 1); // XT = mOut x 1
   XT.load((uint8_t*) vector.data());
@@ -64,18 +78,16 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
 
   cModP1.modp(mOut);
 
-  // GPUvector<OTblock> tpBuffer(rows);
-  // uint64_t numBlocks = (mOut + rows - 1) / rows;
-  // for (uint64_t i = 0; i < numBlocks) {
-  //   uint64_t j = i * tpBuffer.size();
-  //   uint64_t min = std::min<uint64_t>(tpBuffer.size(), mOut - j);
+  GPUvector<OTblock> tpBuffer(rows);
+  uint64_t numBlocks = (mOut + rows - 1) / rows;
+  for (uint64_t i = 0; i < numBlocks; i++) {
+    uint64_t j = i * rows;
+    uint64_t min = std::min<uint64_t>(rows, mOut - j);
 
-  //   for (uint64_t k = 0; k < tpBuffer.size(); k++) {
-  //     tpBuffer[k] = cModP1.at(k, i);
-  //   }
+    load_column<<<1, rows>>>(tpBuffer.data(), cModP1.data(), i, cModP1.cols());
+    cudaDeviceSynchronize();
 
-  //   for (uint64_t k = 0; j < i * rows + min; j++, k++) {
-  //     vector[j] ^= tpBuffer[k];
-  //   }
-  // }
+    xor_column<<<1, rows>>>(vector.data(), tpBuffer.data(), j);
+    cudaDeviceSynchronize();
+  }
 }

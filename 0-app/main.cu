@@ -4,7 +4,7 @@
 #include <thread>
 
 #include "unit_test.h"
-#include "silentOT.h"
+#include "silent_ot.h"
 
 uint64_t* gen_choices(int numTrees) {
   uint64_t *choices = new uint64_t[numTrees];
