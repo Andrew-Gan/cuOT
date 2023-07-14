@@ -47,10 +47,14 @@ template<typename T>
 void GPUmatrix<T>::bit_transpose() {
   uint8_t *tpBuffer;
   cudaMalloc(&tpBuffer, mNBytes);
-  dim3 nBlocks(32, 32);
-  dim3 grid(mCols * 128 / 32, mRows / 8 / 32);
-  bit_transposer<<<grid, nBlocks>>>(tpBuffer, mPtr);
+  uint64_t numThreadX = mCols * 8 * sizeof(OTblock);
+  uint64_t numThreadY = mRows / 64;
+  dim3 blocks(std::min((uint64_t) 32, numThreadX), std::min((uint64_t) 32, numThreadY));
+  dim3 grid((numThreadX + 31) / 32, (numThreadY + 31) / 32);
+  bit_transposer<<<grid, blocks>>>((uint64_t*) tpBuffer, (uint64_t*) mPtr);
   cudaDeviceSynchronize();
+  cudaFree(mPtr);
+  mPtr = tpBuffer;
   uint64_t tpRows = mCols * 8 * sizeof(T);
   mCols = mRows / (8 * sizeof(T));
   mRows = tpRows;
@@ -58,7 +62,7 @@ void GPUmatrix<T>::bit_transpose() {
 
 template<typename T>
 void GPUmatrix<T>::modp(uint64_t reducedTerms) {
-  poly_mod_gpu<<<reducedTerms / 1024, 1024>>>((OTblock*) mPtr, mCols);
+  poly_mod_gpu<<<reducedTerms / 1024, 1024>>>((uint64_t*) mPtr, mCols);
   cudaDeviceSynchronize();
   mCols = reducedTerms;
 }

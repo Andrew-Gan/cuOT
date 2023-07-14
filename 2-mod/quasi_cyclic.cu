@@ -26,26 +26,10 @@ QuasiCyclic::~QuasiCyclic() {
   curandDestroyGenerator(prng);
 }
 
-__global__
-void load_column(OTblock *o, OTblock *i, uint64_t c, uint64_t numCols) {
-  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  o[tid] = i[0 * numCols + c];
-}
-
-__global__
-void xor_column(OTblock *out, OTblock *in, uint64_t vecStart) {
-  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  for (int i = 0; i < 4; i++) {
-    out[tid + vecStart].data[i] ^= in[tid].data[i];
-  }
-}
-
 void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   GPUmatrix<OTblock> XT(mOut, 1); // XT = mOut x 1
   XT.load((uint8_t*) vector.data());
-  XT.bit_transpose(); // XT = 128 x n2blocks
-
-  GPUmatrix<OTblock> cModP1(rows, 2 * nBlocks);
+  XT.bit_transpose(); // XT = rows x n2blocks
 
   GPUvector<OTblock> temp128(n64);
   uint64_t *a64 = (uint64_t*) temp128.data();
@@ -74,20 +58,13 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   complex_dot_product<<<n64 / 1024, 1024>>>(c64_fft, a64_fft, b64_fft);
   cudaDeviceSynchronize();
   cufftExecC2R(cPlan, c64_fft, c64_poly);
+
+  GPUmatrix<OTblock> cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
   float_to_int<<<n64 / 1024, 1024>>>((uint64_t*) cModP1.data(), c64_poly);
 
-  cModP1.modp(mOut);
+  cModP1.modp(nBlocks); // cModP1 = rows x nBlocks
+  cModP1.bit_transpose(); // cModP1 = mOut x 1
 
-  GPUvector<OTblock> tpBuffer(rows);
-  uint64_t numBlocks = (mOut + rows - 1) / rows;
-  for (uint64_t i = 0; i < numBlocks; i++) {
-    uint64_t j = i * rows;
-    uint64_t min = std::min<uint64_t>(rows, mOut - j);
-
-    load_column<<<1, rows>>>(tpBuffer.data(), cModP1.data(), i, cModP1.cols());
-    cudaDeviceSynchronize();
-
-    xor_column<<<1, rows>>>(vector.data(), tpBuffer.data(), j);
-    cudaDeviceSynchronize();
-  }
+  xor_gpu<<<16 * mOut / 1024, 1024>>>((uint8_t*) vector.data(), (uint8_t*) cModP1.data(), 16 * mOut);
+  cudaDeviceSynchronize();
 }
