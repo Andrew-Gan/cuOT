@@ -31,6 +31,7 @@ void SilentOTRecver::run() {
   expand();
   get_choice_vector();
   Log::end(Recver, PprfExpand);
+  return;
 
   Log::start(Recver, MatrixInit);
   QuasiCyclic code(2 * numOT, numOT);

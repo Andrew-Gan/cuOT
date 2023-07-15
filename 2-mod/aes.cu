@@ -34,25 +34,25 @@ void Aes::init(uint8_t *key) {
 }
 
 void Aes::decrypt(GPUdata &msg) {
-  GPUdata input(std::max(msg.mNBytes, (uint64_t)1024));
+  GPUdata input(std::max(msg.size_bytes(), (uint64_t)1024));
   input.clear();
-  cudaMemcpy(input.data(), msg.data(), msg.mNBytes, cudaMemcpyDeviceToDevice);
-  if (msg.mNBytes < 1024) {
+  cudaMemcpy(input.data(), msg.data(), msg.size_bytes(), cudaMemcpyDeviceToDevice);
+  if (msg.size_bytes() < 1024) {
     msg = GPUdata(1024);
   }
-  dim3 grid(msg.mNBytes / 4 / AES_BSIZE);
+  dim3 grid(msg.size_bytes() / 4 / AES_BSIZE);
   aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) msg.data(), (uint32_t*) input.data());
   cudaDeviceSynchronize();
 }
 
 void Aes::encrypt(GPUdata &msg) {
-  GPUdata input(std::max(msg.mNBytes, (uint64_t)1024));
+  GPUdata input(std::max(msg.size_bytes(), (uint64_t)1024));
   input.clear();
-  cudaMemcpy(input.data(), msg.data(), msg.mNBytes, cudaMemcpyDeviceToDevice);
-  if (msg.mNBytes < 1024) {
+  cudaMemcpy(input.data(), msg.data(), msg.size_bytes(), cudaMemcpyDeviceToDevice);
+  if (msg.size_bytes() < 1024) {
     msg = GPUdata(1024);
   }
-  dim3 grid(msg.mNBytes / 4 / AES_BSIZE);
+  dim3 grid(msg.size_bytes() / 4 / AES_BSIZE);
   aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) msg.data(), (uint32_t*) input.data());
   cudaDeviceSynchronize();
 }

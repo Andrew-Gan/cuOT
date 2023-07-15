@@ -8,7 +8,7 @@ GPUdata::GPUdata(uint64_t n) : mNBytes(n) {
   CUDA_CALL(cudaMalloc(&mPtr, n));
 }
 
-GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.mNBytes) {
+GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
   CUDA_CALL(cudaMemcpy(mPtr, blk.data(), mNBytes, cudaMemcpyDeviceToDevice));
 }
 
@@ -17,7 +17,7 @@ GPUdata::~GPUdata() {
 }
 
 GPUdata& GPUdata::operator&=(const GPUdata &rhs) {
-  uint64_t min = std::min(mNBytes, rhs.mNBytes);
+  uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
   and_gpu<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
   cudaDeviceSynchronize();
@@ -25,7 +25,7 @@ GPUdata& GPUdata::operator&=(const GPUdata &rhs) {
 }
 
 GPUdata& GPUdata::operator^=(const GPUdata &rhs) {
-  uint64_t min = std::min(mNBytes, rhs.mNBytes);
+  uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   xor_gpu<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
   cudaDeviceSynchronize();
@@ -33,13 +33,13 @@ GPUdata& GPUdata::operator^=(const GPUdata &rhs) {
 }
 
 GPUdata& GPUdata::operator=(const GPUdata &rhs) {
-  if (mNBytes != rhs.mNBytes) resize(rhs.mNBytes);
+  if (mNBytes != rhs.size_bytes()) resize(rhs.size_bytes());
   cudaMemcpy(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice);
   return *this;
 }
 
 bool GPUdata::operator==(const GPUdata &rhs) {
-  if (mNBytes != rhs.mNBytes) return false;
+  if (mNBytes != rhs.size_bytes()) return false;
   uint8_t *left = new uint8_t[mNBytes];
   uint8_t *right = new uint8_t[mNBytes];
   cudaMemcpy(left, mPtr, mNBytes, cudaMemcpyDeviceToHost);
@@ -57,10 +57,10 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
 std::ostream& operator<<(std::ostream &os, const GPUdata &obj) {
   static std::mutex mtx;
   mtx.lock();
-  uint8_t *nodes = new uint8_t[obj.mNBytes];
-  cudaMemcpy(nodes, obj.data(), obj.mNBytes, cudaMemcpyDeviceToHost);
-  for (int i = 0; i < obj.mNBytes; i += 64) {
-    for (int j = i; j < obj.mNBytes && j < i + 64; j++) {
+  uint8_t *nodes = new uint8_t[obj.size_bytes()];
+  cudaMemcpy(nodes, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
+  for (int i = 0; i < obj.size_bytes(); i += 64) {
+    for (int j = i; j < obj.size_bytes() && j < i + 64; j++) {
       os << std::hex << +nodes[j] << " ";
     }
     os << std::endl;
@@ -93,15 +93,15 @@ void GPUdata::clear() {
 
 void GPUdata::xor_async(GPUdata &rhs, cudaStream_t s) {
   uint64_t nBlock = (mNBytes + 1023) / 1024;
-  uint64_t min = std::min(mNBytes, rhs.mNBytes);
+  uint64_t min = std::min(mNBytes, rhs.size_bytes());
   xor_gpu<<<nBlock, 1024, 0, s>>>(mPtr, rhs.data(), min);
 }
 
 void GPUdata::copy_async(GPUdata &rhs, cudaStream_t s) {
-  if (mNBytes != rhs.mNBytes) {
+  if (mNBytes != rhs.size_bytes()) {
     CUDA_CALL(cudaFree(mPtr));
-    CUDA_CALL(cudaMallocAsync(&mPtr, rhs.mNBytes, s));
-    mNBytes = rhs.mNBytes;
+    CUDA_CALL(cudaMallocAsync(&mPtr, rhs.size_bytes(), s));
+    mNBytes = rhs.size_bytes();
   }
   cudaMemcpyAsync(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice, s);
 }

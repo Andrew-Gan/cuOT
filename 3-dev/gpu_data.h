@@ -5,7 +5,6 @@
 
 class GPUdata {
 public:
-  uint64_t mNBytes = 0;
   GPUdata() {}
   GPUdata(uint64_t n);
   GPUdata(const GPUdata &blk);
@@ -16,6 +15,7 @@ public:
   bool operator==(const GPUdata &rhs);
   bool operator!=(const GPUdata &rhs);
   uint8_t* data() const { return mPtr; }
+  uint64_t size_bytes() const { return mNBytes; }
   void resize(uint64_t size);
   void load(const uint8_t *data);
   void clear();
@@ -24,6 +24,7 @@ public:
 
 protected:
   uint8_t *mPtr = nullptr;
+  uint64_t mNBytes = 0;
 };
 
 #endif

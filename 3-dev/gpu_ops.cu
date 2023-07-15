@@ -1,6 +1,6 @@
 #include "gpu_ops.h"
 
-#define BIT_ACCESS(d, w, r, c) ((d[r * w + c / 64] >> (c % 64)) & 0b1)
+#define BIT_ACCESS(d, w, r, c) ((d[r * w + c / 64] >> (63-(c % 64))) & 0b1)
 
 __global__
 void and_gpu(uint8_t *a, uint8_t *b, uint64_t n) {
@@ -46,9 +46,9 @@ void bit_transposer(uint64_t *out, uint64_t *in) {
   uint64_t colIn = rowOut;
   uint64_t res = 0;
 
-  for (uint8_t i = 0; i < 8 * sizeof(*out); i++) {
+  for (uint8_t i = 0; i < 64; i++) {
     uint64_t rowIn = 8 * colOut + i;
-    res |= BIT_ACCESS(in, colsU64In, rowIn, colIn) << i;
+    res |= BIT_ACCESS(in, colsU64In, rowIn, colIn) << (63-i);
   }
   out[rowOut * colsU64Out + colOut] = res;
 }

@@ -29,7 +29,9 @@ QuasiCyclic::~QuasiCyclic() {
 void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   GPUmatrix<OTblock> XT(mOut, 1); // XT = mOut x 1
   XT.load((uint8_t*) vector.data());
+  std::cout << XT << std::endl;
   XT.bit_transpose(); // XT = rows x n2blocks
+  std::cout << XT << std::endl;
 
   GPUvector<OTblock> temp128(n64);
   uint64_t *a64 = (uint64_t*) temp128.data();

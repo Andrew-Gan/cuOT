@@ -1,6 +1,7 @@
 #ifndef __GPU_MATRIX_H__
 #define __GPU_MATRIX_H__
 
+#include <bitset>
 #include "gpu_data.h"
 #include "gpu_ops.h"
 
@@ -17,8 +18,8 @@ public:
   void resize(uint64_t r, uint64_t c);
   void bit_transpose();
   void modp(uint64_t reducedTerms);
-  GPUmatrix<T>& operator&=(T *rhs);
   void xor_async(T *rhs, cudaStream_t s);
+  GPUmatrix<T>& operator&=(T *rhs);
 
 protected:
   uint64_t mRows, mCols;
@@ -68,6 +69,13 @@ void GPUmatrix<T>::modp(uint64_t reducedTerms) {
 }
 
 template<typename T>
+void GPUmatrix<T>::xor_async(T *rhs, cudaStream_t s) {
+  uint64_t nBlk = (mNBytes + 1023) / 1024;
+  xor_single_gpu<<<nBlk, 1024, 0, s>>>(mPtr, (uint8_t*) rhs, sizeof(T), mNBytes);
+  cudaDeviceSynchronize();
+}
+
+template<typename T>
 GPUmatrix<T>& GPUmatrix<T>::operator&=(T *rhs) {
   uint64_t nBlk = (mNBytes + 1023) / 1024;
   and_single_gpu<<<nBlk, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(T), mNBytes);
@@ -75,10 +83,18 @@ GPUmatrix<T>& GPUmatrix<T>::operator&=(T *rhs) {
 }
 
 template<typename T>
-void GPUmatrix<T>::xor_async(T *rhs, cudaStream_t s) {
-  uint64_t nBlk = (mNBytes + 1023) / 1024;
-  xor_single_gpu<<<nBlk, 1024, 0, s>>>(mPtr, (uint8_t*) rhs, sizeof(T), mNBytes);
-  cudaDeviceSynchronize();
+std::ostream& operator<<(std::ostream &os, GPUmatrix<T> &mat) {
+  uint64_t colU64 = mat.cols() * sizeof(T) / sizeof(colU64);
+  uint64_t *data = new uint64_t[mat.size_bytes() / sizeof(*data)];
+  cudaMemcpy(data, mat.data(), mat.size_bytes(), cudaMemcpyDeviceToHost);
+  for (uint64_t r = 0; r < mat.rows(); r++) {
+    for (uint64_t c = 0; c < colU64; c++) {
+      os << std::bitset<64>(data[r * colU64 + c]);
+    }
+    os << std::endl;
+  }
+  delete[] data;
+  return os;
 }
 
 #endif
