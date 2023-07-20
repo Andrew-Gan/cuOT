@@ -20,33 +20,30 @@ SilentOTRecver::SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mych
 
 void SilentOTRecver::run() {
   Log::start(Recver, BaseOT);
-  baseOT();
+  base_ot();
   Log::end(Recver, BaseOT);
 
-  Log::start(Recver, BufferInit);
+  Log::start(Recver, Expand);
   buffer_init();
-  Log::end(Recver, BufferInit);
-
-  Log::start(Recver, PprfExpand);
-  expand();
+  pprf_expand();
   get_choice_vector();
-  Log::end(Recver, PprfExpand);
-  return;
+  Log::end(Recver, Expand);
 
-  Log::start(Recver, MatrixInit);
-  QuasiCyclic code(2 * numOT, numOT);
-  Log::end(Recver, MatrixInit);
+  // std::cout << puncVector << std::endl;
+  // std::cout << choiceVector << std::endl;
 
-  Log::start(Recver, MatrixMult);
+  Log::start(Recver, Compress);
+  QuasiCyclic code(Recver, 2 * numOT, numOT);
   code.encode(puncVector);
-  Log::end(Recver, MatrixMult);
+  code.encode(choiceVector);
+  Log::end(Recver, Compress);
 }
 
-void SilentOTRecver::baseOT() {
+void SilentOTRecver::base_ot() {
   std::vector<std::future<GPUvector<OTblock>>> workers;
    for (int d = 0; d < depth+1; d++) {
     workers.push_back(std::async([d, this]() {
-      return SimplestOT(SimplestOT::Recver, d, nTree).recv(rand());
+      return SimplestOT(Recver, d, nTree).recv(choices[d]);
     }));
   }
   for (auto &worker : workers) {
@@ -78,28 +75,31 @@ void SilentOTRecver::buffer_init() {
 __global__
 void pathToChoice(OTblock *choiceVec, uint64_t depth, uint64_t numLeaves, uint64_t *choices) {
   uint64_t treeStartIndex = threadIdx.x * numLeaves;
-  uint64_t path = choices[threadIdx.x];
   uint64_t puncIndex = 0;
+  uint8_t path = 0;
+
   for (int d = 0; d < depth; d++) {
     puncIndex *= 2;
+    path = (choices[d-1] >> threadIdx.x) & 0x1;
     if (path & (1 << d)) puncIndex += 1;
   }
   puncIndex += treeStartIndex;
   for (int i = 0; i < 4; i++) {
-    choiceVec[puncIndex].data[i] = 0xffff;
+    choiceVec[puncIndex].data[i] = 0xffffffff;
   }
 }
 
 void SilentOTRecver::get_choice_vector() {
   uint64_t *choices_d;
   choiceVector.resize(2 * numOT);
+  choiceVector.clear();
   cudaMalloc(&choices_d, nTree * sizeof(*choices_d));
   cudaMemcpy(choices_d, choices, nTree * sizeof(*choices_d), cudaMemcpyHostToDevice);
   pathToChoice<<<1, nTree>>>(choiceVector.data(), depth, numLeaves, choices_d);
   cudaDeviceSynchronize();
 }
 
-void SilentOTRecver::expand() {
+void SilentOTRecver::pprf_expand() {
   std::vector<uint64_t> activeParent(nTree, 0);
   cudaStream_t stream[2];
   cudaStreamCreate(&stream[0]);
@@ -124,6 +124,11 @@ void SilentOTRecver::expand() {
     cudaStreamWaitEvent(stream[0], expandEvents.at(d-1));
     cudaStreamWaitEvent(stream[1], expandEvents.at(d-1));
 
+    cudaDeviceSynchronize();
+    printf("xored:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) leftHash.at(d-1).data(), 16);
+    cudaDeviceSynchronize();
+
     leftHash.at(d-1).xor_async(choiceHash.at(d-1), stream[0]);
     rightHash.at(d-1).xor_async(choiceHash.at(d-1), stream[1]);
     if (d == depth) {
@@ -131,10 +136,21 @@ void SilentOTRecver::expand() {
       rightHash.at(d).xor_async(choiceHash.at(d), stream[1]);
     }
 
+    cudaDeviceSynchronize();
+    printf("choice hash[%lu]:\n", choices[d-1] & 0x1);
+    print_gpu<<<1, 1>>>((uint8_t*) choiceHash.at(d-1).data(), 16);
+    cudaDeviceSynchronize();
+    printf("l summed:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) leftHash.at(d-1).data(), 16);
+    cudaDeviceSynchronize();
+    printf("r summed:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) rightHash.at(d-1).data(), 16);
+    cudaDeviceSynchronize();
+
     for (uint64_t t = 0; t < nTree; t++) {
       // insert obtained sum into left side or right side
       // and hash to retrieve active node value
-      choice = choices[t] >> (d-1) & 1;
+      choice = (choices[d-1] >> t) & 1;
       tmp0 = choice == 0 ? &leftHash.at(d-1) : &rightHash.at(d-1);
       tmp1 = choice == 0 ? &leftNodes : &rightNodes;
       offsetInVec = t * width / 2 + activeParent.at(t);
@@ -145,12 +161,13 @@ void SilentOTRecver::expand() {
         cudaMemcpyAsync(tmp1->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1-choice]);
       }
     }
+
     leftNodes.sum_async(nTree, width / 2, stream[0]);
     rightNodes.sum_async(nTree, width / 2, stream[1]);
 
     // insert active node value obtained from sum into output
     for (uint64_t t = 0; t < nTree; t++) {
-      choice = choices[t] >> (d-1) & 1;
+      choice = (choices[d-1] >> t) & 1;
       tmp0 = choice == 0 ? &leftNodes : &rightNodes;
       offsetInVec = t * width + 2 * activeParent.at(t) + choice;
       cudaMemcpyAsync(outPtr + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[choice]);
@@ -160,6 +177,12 @@ void SilentOTRecver::expand() {
         cudaMemcpyAsync(outPtr + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1-choice]);
       }
     }
+
+    cudaDeviceSynchronize();
+    printf("expanded with sum inplace:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) outPtr, 16);
+    cudaDeviceSynchronize();
+    printf("\n");
   }
   cudaDeviceSynchronize();
   eventsRecorded = false;

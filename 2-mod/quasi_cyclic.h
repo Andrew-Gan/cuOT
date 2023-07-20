@@ -9,10 +9,11 @@ class QuasiCyclic {
 private:
   curandGenerator_t prng;
   const uint64_t rows = 128;
+  int mRole;
   uint64_t mIn, mOut, nBlocks, n2Blocks, n64;
   cufftHandle aPlan, bPlan, cPlan;
 public:
-  QuasiCyclic(uint64_t in, uint64_t out);
+  QuasiCyclic(Role role, uint64_t in, uint64_t out);
   virtual ~QuasiCyclic();
   void encode(GPUvector<OTblock> &vector);
 };

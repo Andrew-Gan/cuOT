@@ -67,9 +67,12 @@ void float_to_int(uint64_t *o, float *i) {
 
 __global__
 void complex_dot_product(cufftComplex *c, cufftComplex *a, cufftComplex *b) {
+  uint64_t row = blockIdx.y;
   uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  c[tid].x = a[tid].x * b[tid].x + a[tid].y * b[tid].y;
-  c[tid].y = a[tid].x * a[tid].y + a[tid].y * a[tid].x;
+  uint64_t width = gridDim.x * blockDim.x;
+  uint64_t offset = row * width + tid;
+  c[offset].x = a[tid].x * b[offset].x + a[tid].y * b[offset].y;
+  c[offset].y = a[tid].x * b[offset].y + a[tid].y * b[offset].x;
 }
 
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
@@ -101,4 +104,13 @@ void xor_reduce_gpu(uint64_t *g_data) {
   __syncthreads();
   if (tid < 32) warp_reduce(sdata, tid);
   if (tid < 2) g_data[2 * blockIdx.x + tid] = sdata[tid];
+}
+
+__global__
+void print_gpu(uint8_t *data, uint64_t n) {
+  for(int i = 0; i < n; i+= 16) {
+    for (int j = i; j < n && j < i + 16; j++)
+      printf("%x ",  data[j]);
+    printf("\n");
+  }
 }

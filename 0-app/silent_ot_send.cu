@@ -14,31 +14,27 @@ SilentOTSender::SilentOTSender(int myid, int logOT, int numTrees) :
 
 void SilentOTSender::run() {
   Log::start(Sender, BaseOT);
-  baseOT();
+  base_ot();
   Log::end(Sender, BaseOT);
 
-  Log::start(Sender, BufferInit);
+  Log::start(Sender, Expand);
   buffer_init();
-  Log::end(Sender, BufferInit);
+  pprf_expand();
+  Log::end(Sender, Expand);
 
-  Log::start(Sender, PprfExpand);
-  expand();
-  Log::end(Sender, PprfExpand);
+  // std::cout << fullVector << std::endl;
 
-  Log::start(Sender, MatrixInit);
-  QuasiCyclic code(2 * numOT, numOT);
-  Log::end(Sender, MatrixInit);
-
-  Log::start(Sender, MatrixMult);
+  Log::start(Sender, Compress);
+  QuasiCyclic code(Sender, 2 * numOT, numOT);
   code.encode(fullVector);
-  Log::end(Sender, MatrixMult);
+  Log::end(Sender, Compress);
 }
 
-void SilentOTSender::baseOT() {
+void SilentOTSender::base_ot() {
   std::vector<std::future<std::array<GPUvector<OTblock>, 2>>> workers;
   for (int d = 0; d < depth+1; d++) {
     workers.push_back(std::async([d, this]() {
-      return SimplestOT(SimplestOT::Sender, d, nTree).send();
+      return SimplestOT(Sender, d, nTree).send();
     }));
   }
   for (auto &worker : workers) {
@@ -73,10 +69,12 @@ void SilentOTSender::buffer_init() {
   }
 }
 
-void SilentOTSender::expand() {
-  cudaStream_t stream[2];
+void SilentOTSender::pprf_expand() {
+  cudaStream_t stream[4];
   cudaStreamCreate(&stream[0]);
   cudaStreamCreate(&stream[1]);
+  cudaStreamCreate(&stream[2]);
+  cudaStreamCreate(&stream[3]);
   GPUvector<OTblock> *inBuffer, *outBuffer;
 
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
@@ -89,31 +87,58 @@ void SilentOTSender::expand() {
     aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
     aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
 
-    leftNodes.sum_async(nTree, width / 2, stream[0]);
-    rightNodes.sum_async(nTree, width / 2, stream[1]);
+    cudaStreamSynchronize(stream[0]);
+    cudaStreamSynchronize(stream[1]);
 
-    leftHash.at(d-1).xor_async(leftNodes, stream[0]);
-    rightHash.at(d-1).xor_async(rightNodes, stream[1]);
+    cudaDeviceSynchronize();
+    printf("expanded:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) outPtr, 16);
+    cudaDeviceSynchronize();
 
-    other->leftHash.at(d-1).copy_async(leftHash.at(d-1), stream[0]);
-    other->rightHash.at(d-1).copy_async(rightHash.at(d-1), stream[1]);
+    leftNodes.sum_async(nTree, width / 2, stream[2]);
+    rightNodes.sum_async(nTree, width / 2, stream[3]);
+
+    cudaDeviceSynchronize();
+    printf("summed:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) leftNodes.data(), 16);
+    cudaDeviceSynchronize();
+
+    cudaDeviceSynchronize();
+    printf("left hash:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) leftHash.at(d-1).data(), 16);
+    cudaDeviceSynchronize();
+    printf("right hash:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) rightHash.at(d-1).data(), 16);
+    cudaDeviceSynchronize();
+
+    leftHash.at(d-1).xor_async(leftNodes, stream[2]);
+    rightHash.at(d-1).xor_async(rightNodes, stream[3]);
+
+    printf("xored:\n");
+    print_gpu<<<1, 1>>>((uint8_t*) leftHash.at(d-1).data(), 16);
+    cudaDeviceSynchronize();
+    printf("\n");
+
+    other->leftHash.at(d-1).copy_async(leftHash.at(d-1), stream[2]);
+    other->rightHash.at(d-1).copy_async(rightHash.at(d-1), stream[3]);
 
     if (d == depth) {
-      leftHash.at(d).xor_async(leftNodes, stream[0]);
-      rightHash.at(d).xor_async(rightNodes, stream[1]);
+      leftHash.at(d).xor_async(leftNodes, stream[2]);
+      rightHash.at(d).xor_async(rightNodes, stream[3]);
 
-      leftHash.at(d).xor_async(delta, stream[0]);
-      rightHash.at(d).xor_async(delta, stream[1]);
+      leftHash.at(d).xor_async(delta, stream[2]);
+      rightHash.at(d).xor_async(delta, stream[3]);
 
-      other->leftHash.at(d).copy_async(leftHash.at(d), stream[0]);
-      other->rightHash.at(d).copy_async(rightHash.at(d), stream[1]);
+      other->leftHash.at(d).copy_async(leftHash.at(d), stream[2]);
+      other->rightHash.at(d).copy_async(rightHash.at(d), stream[3]);
     }
 
-    cudaEventRecord(other->expandEvents.at(d-1), stream[0]);
-    cudaEventRecord(other->expandEvents.at(d-1), stream[1]);
+    cudaEventRecord(other->expandEvents.at(d-1), stream[2]);
+    cudaEventRecord(other->expandEvents.at(d-1), stream[3]);
   }
-  other->eventsRecorded = true;
   cudaDeviceSynchronize();
+  printf("\n\n");
+  other->eventsRecorded = true;
   cudaStreamDestroy(stream[0]);
   cudaStreamDestroy(stream[1]);
   fullVector = *outBuffer;

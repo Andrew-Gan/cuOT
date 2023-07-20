@@ -1,5 +1,5 @@
 #include "simplest_ot.h"
-#include "cryptoTools/Crypto/RandomOracle.h"
+#include "../1-lib/cryptoTools/Crypto/RandomOracle.h"
 #include <ctime>
 
 std::array<std::atomic<SimplestOT*>, 100> simplestOTSenders;

@@ -5,15 +5,14 @@
 #include <vector>
 #include "gpu_vector.h"
 #include <array>
-#include "cryptoTools/Crypto/SodiumCurve.h"
-#include "cryptoTools/Crypto/PRNG.h"
+#include "../1-lib/cryptoTools/Crypto/SodiumCurve.h"
+#include "../1-lib/cryptoTools/Crypto/PRNG.h"
 
 using Point = osuCrypto::Sodium::Rist25519;
 using Number = osuCrypto::Sodium::Prime25519;
 
 class SimplestOT {
 public:
-  enum Role { Sender, Recver };
   SimplestOT(Role role, int id, uint64_t count);
   virtual ~SimplestOT();
   std::array<GPUvector<OTblock>, 2> send();

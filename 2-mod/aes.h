@@ -1,13 +1,11 @@
 #ifndef __AES_H__
 #define __AES_H__
 
-#include <curand_kernel.h>
 #include "util.h"
 #include "gpu_data.h"
 
 class Aes {
 private:
-  curandGenerator_t prng;
   uint8_t *encExpKey_d = nullptr;
   uint8_t *decExpKey_d = nullptr;
 

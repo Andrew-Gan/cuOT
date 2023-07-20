@@ -7,7 +7,8 @@
 void test_cuda();
 // void test_rsa();
 void test_aes();
-void test_cot(GPUvector<OTblock> &fullVector, GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector, GPUdata &delta);
+void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
+  GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector);
 void test_base_ot();
 void test_reduce();
 

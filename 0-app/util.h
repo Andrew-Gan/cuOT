@@ -10,6 +10,8 @@
 #define CUDA_CALL(e) if (e != cudaSuccess) \
   fprintf(stderr, "%s\n", cudaGetErrorString(e));
 
+enum Role { Sender, Recver };
+
 struct AES_ctx {
   uint8_t roundKey[176];
 };

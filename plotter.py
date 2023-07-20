@@ -7,6 +7,7 @@ OUTPUT_FOLDER = 'output/'
 hideEvents = []
 
 def extract_data(filename):
+  eventIdToStr = {}
   eventList = {}
   eventData = {}
   parseSection = 0
@@ -18,19 +19,19 @@ def extract_data(filename):
         eventID, eventString = newline.split()
         eventID = int(eventID)
         if eventString not in hideEvents:
-          eventList[eventID] = eventString
+          eventIdToStr[eventID] = eventString
           eventData[eventID] = []
-      elif parseSection == 2:
+      elif parseSection == 1:
         startStop, eventID, time = newline.split()
-        eventID = int(eventID)
-        if eventID not in eventList:
-          continue
-        time = float(time)
-        if startStop == 's':
-          eventData[eventID].append([time, 0])
-        elif startStop == 'e':
-          startTime = eventData[eventID][-1][0]
-          eventData[eventID][-1][1] = time - startTime
+        if startStop == 's' or startStop == 'e':
+          eventID = int(eventID)
+          eventList[eventID] = eventIdToStr[eventID]
+          time = float(time)
+          if startStop == 's':
+            eventData[eventID].append([time, 0])
+          elif startStop == 'e':
+            startTime = eventData[eventID][-1][0]
+            eventData[eventID][-1][1] = time - startTime
   eventDuration = {}
   for eventID in eventList:
     eventDuration[eventID] = 0
@@ -39,53 +40,50 @@ def extract_data(filename):
           eventDuration[eventID] += event[1]
   return eventList, eventData, eventDuration
 
-def plot_pipeline(runconfig, dataSend, dataRecv):
-  eventList, eventDataSend, eventDurationSend = dataSend
-  eventList, eventDataRecv, eventDurationRecv = dataRecv
-  logOT = runconfig.split('-')[1]
-  numTree = runconfig.split('-')[2]
+def plot_pipeline(runConfig, configData):
   plt.figure(figsize=(12, 6))
   plt.cla()
   colors=list(mcolors.TABLEAU_COLORS.keys()) # maximum 10 events
-  for i, eventData in enumerate([eventDataSend, eventDataRecv]):
+
+  for conf, data in zip(runConfig, configData):
+    eventList, eventData, eventDuration = data
+    logOT = conf.split('-')[2]
+    numTree = conf.split('-')[3]
+    yVal = 0
+    if 'send' in conf:
+      yVal += 1
+    if 'cpu' in conf:
+      yVal += 2
     for colorCode, [eventID, eventVal] in zip(colors, eventData.items()):
       widths = []
       starts = []
       for e in eventVal:
         starts.append(e[0])
         widths.append(e[1])
-      plt.barh(y=[i], width=widths, height=0.5, left=starts, color=colorCode)
+      plt.barh(y=[yVal], width=widths, height=0.5, left=starts, color=colorCode)
+
+    plt.table([[eventList[i], f"{eventDuration[i]:.3f}"] for i in eventList],
+    colWidths=[0.2, 0.15], colLabels=['Operation', 'Duration (ms)'],
+    cellLoc='left', bbox=[1.01, 0.25 * yVal, .25, .2])
+
   plt.title('Pipeline Graph over Time with n=%s and t=%s' % (logOT, numTree))
   plt.xlabel('Time (ms)')
-  plt.yticks([0, 1], ['Sender', 'Recver'])
-  plt.legend(eventList.values(), loc='lower left', bbox_to_anchor=(-.2, .25))
+  plt.yticks(range(4), ['GPU Recver', 'GPU Sender', 'CPU Recver', 'CPU Sender'])
+  plt.legend(eventList.values(), loc='lower left', bbox_to_anchor=(-.2, .4))
+  plt.savefig(OUTPUT_FOLDER + 'pipeline.png', bbox_inches='tight')
 
-  plt.table([[eventList[i], f"{eventDurationSend[i]:.3f}"] for i in eventList],
-    colWidths=[0.2, 0.15], colLabels=['Operation', 'Duration (ms)'],
-    cellLoc='left', bbox=[1.01, 0, .25, .5])
-
-  plt.table([[eventList[i], f"{eventDurationRecv[i]:.3f}"] for i in eventList],
-    colWidths=[0.2, 0.15], colLabels=['Operation', 'Duration (ms)'],
-    cellLoc='left', bbox=[1.01, .55, .25, .5])
-
-  plt.savefig(OUTPUT_FOLDER + runconfig, bbox_inches='tight')
-
-def plot_numtree_runtime(runconfig, eventList, eventDurationS, eventDurationR, eventID):
+def plot_numtree_runtime(runConfig, eventList, eventDuration, eventID):
   xVal = []
-  yValS = []
-  yValR = []
-  for run, durationSend, durationRecv in zip(runconfig, eventDurationS, eventDurationR):
-    numTree = run.split('-')[2].split('.')[0]
+  yVal = []
+  for run, durationSend in zip(runConfig, eventDuration):
+    numTree = run.split('-')[3]
     xVal.append(int(numTree))
-    yValS.append(durationSend[eventID])
-    yValR.append(durationRecv[eventID])
+    yVal.append(durationSend[eventID])
   plt.figure(figsize=(12, 6))
   plt.cla()
-  plt.plot(xVal, yValS)
-  # plt.plot(xVal, yValR)
+  plt.plot(xVal, yVal)
   plt.xscale('log', base=2)
-  plt.legend(['Sender', 'Recver'])
-  plt.title('Runtime of %s vs Number of PPRF Trees' % eventList[eventID])
+  plt.title('Runtime of Sender %s vs Number of PPRF Trees' % eventList[eventID])
   plt.savefig(OUTPUT_FOLDER + eventList[eventID], bbox_inches='tight')
 
 def plot_custom_graph():
@@ -110,26 +108,24 @@ def plot_custom_graph():
 if __name__ == '__main__':
   plot_custom_graph()
 
-  runconfig = []
-  eventDurationS = []
-  eventDurationR = []
-
+  runConfig = []
+  eventDuration = []
   for filename in os.listdir(OUTPUT_FOLDER):
-    if filename.endswith('send.txt'):
-      src = '-'.join(filename.split('-')[:3])
-      runconfig.append(src)
-  runconfig = sorted(runconfig)
+    if filename.endswith('.txt'):
+      src = filename.split('.')[0]
+      runConfig.append(src)
+  runConfig = sorted(runConfig)
 
   config24 = []
+  configData = []
 
-  for src in runconfig:
-    dataSend = extract_data(OUTPUT_FOLDER + src + '-send.txt')
-    dataRecv = extract_data(OUTPUT_FOLDER + src + '-recv.txt')
-    plot_pipeline(src, dataSend, dataRecv)
-    if 'log-024' in src:
+  for src in runConfig:
+    configData.append(extract_data(OUTPUT_FOLDER + src + '.txt'))
+    if 'log-024' in src and 'send' in src:
       config24.append(src)
-      eventDurationS.append(dataSend[2])
-      eventDurationR.append(dataRecv[2])
+      eventDuration.append(configData[-1][2])
 
-  eventList = dataSend[0]
-  plot_numtree_runtime(config24, eventList, eventDurationS, eventDurationR, 2)
+  plot_pipeline(runConfig, configData)
+
+  eventList = configData[0][0]
+  plot_numtree_runtime(config24, eventList, eventDuration, 2)

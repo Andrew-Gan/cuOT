@@ -6,24 +6,27 @@
 #include "unit_test.h"
 #include "silent_ot.h"
 
-uint64_t* gen_choices(int numTrees) {
-  uint64_t *choices = new uint64_t[numTrees];
-  for (int t = 0; t < numTrees; t++) {
-    choices[t] = ((uint64_t) rand() << 32) | rand();
+uint64_t* gen_choices(int depth) {
+  uint64_t *choices = new uint64_t[depth];
+  for (int d = 0; d < depth; d++) {
+    choices[d] = ((uint64_t) rand() << 32) | rand();
   }
   return choices;
 }
 
-static void sender_worker(int protocol, int logOT, int numTrees) {
+static std::pair<GPUvector<OTblock>, OTblock*> sender_worker(int protocol, int logOT, int numTrees) {
   SilentOTSender ot(0, logOT, numTrees);
   ot.run();
+  return ot.get();
 }
 
-static void recver_worker(int protocol, int logOT, int numTrees) {
-  uint64_t *choices = gen_choices(numTrees);
-  SilentOTRecver ot(0, logOT, numTrees, choices);
+static std::array<GPUvector<OTblock>, 2> recver_worker(int protocol, int logOT, int numTrees) {
+  uint64_t depth = logOT - log2((float) numTrees) + 1;
+  uint64_t *choices = gen_choices(depth);
+  SilentOTRecver ot(0, depth, numTrees, choices);
   ot.run();
   delete[] choices;
+  return ot.get();
 }
 
 int main(int argc, char** argv) {
@@ -38,9 +41,6 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  test_cuda();
-  cudaFree(0);
-
   int protocol = atoi(argv[1]);
   int logOT = atoi(argv[2]);
   int numTrees = atoi(argv[3]);
@@ -49,14 +49,29 @@ int main(int argc, char** argv) {
   // temporary measure while RDMA being set up to run two processes
   char filename[32];
   char filename2[32];
-  sprintf(filename, "output/log-%03d-%03d-send.txt", logOT, numTrees);
-  sprintf(filename2, "output/log-%03d-%03d-recv.txt", logOT, numTrees);
+  sprintf(filename, "output/gpu-log-%03d-%03d-send.txt", logOT, numTrees);
+  sprintf(filename2, "output/gpu-log-%03d-%03d-recv.txt", logOT, numTrees);
   Log::open(filename, filename2);
-  std::future<void> sender = std::async(sender_worker, protocol, logOT, numTrees);
-  std::future<void> recver = std::async(recver_worker, protocol, logOT, numTrees);
-  sender.get();
-  recver.get();
-  // test_cot(fullVector, puncVector, choiceVector, delta);
+
+  // initialise cuda, curand and cufft
+  Log::start(Sender, CudaInit);
+  Log::start(Recver, CudaInit);
+  test_cuda();
+  cudaFree(0);
+  curandGenerator_t prng;
+  curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
+  curandDestroyGenerator(prng);
+  cufftHandle initPlan;
+  cufftCreate(&initPlan);
+  cufftDestroy(initPlan);
+  Log::end(Sender, CudaInit);
+  Log::end(Recver, CudaInit);
+
+  std::future<std::pair<GPUvector<OTblock>, OTblock*>> sender = std::async(sender_worker, protocol, logOT, numTrees);
+  std::future<std::array<GPUvector<OTblock>, 2>> recver = std::async(recver_worker, protocol, logOT, numTrees);
+  auto [fullVector, delta] = sender.get();
+  auto [puncVector, choiceVector] = recver.get();
+  test_cot(fullVector, delta, puncVector, choiceVector);
   Log::close();
   return EXIT_SUCCESS;
 }

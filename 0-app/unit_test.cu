@@ -61,10 +61,10 @@ bool _cmp(OTblock &b0, OTblock &b1) {
 void test_base_ot() {
   const uint64_t choice = 0b1001;
   std::future sender = std::async([]() {
-    return SimplestOT(SimplestOT::Sender, 0, 4).send();
+    return SimplestOT(Sender, 0, 4).send();
   });
   std::future recver = std::async([]() {
-    return SimplestOT(SimplestOT::Recver, 0, 4).recv(choice);
+    return SimplestOT(Recver, 0, 4).recv(choice);
   });
 
   auto pair = sender.get();
@@ -88,27 +88,35 @@ void test_base_ot() {
   printf("test_base_ot passed!\n");
 }
 
-void test_cot(GPUvector<OTblock> &fullVector, GPUvector<OTblock> &puncVector,
-  GPUvector<OTblock> &choiceVector, OTblock *delta) {
+void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
+  GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector) {
 
   fullVector ^= puncVector;
   choiceVector &= delta;
 
-  // assert(fullVector == choiceVector);
-  printf("test_cot passed!\n");
+  assert(fullVector == choiceVector);
 }
 
 void test_reduce() {
-  // GPUdata data(16 * sizeof(OTblock));
-  // data.set(64);
-  // cudaStream_t s;
-  // cudaStreamCreate(&s);
-  // data.sum_async(data.nBytes, s);
-  // cudaDeviceSynchronize();
-  // cudaStreamDestroy(s);
+  GPUvector<OTblock> data(8);
+  data.clear();
+  OTblock buff;
+  memset(&buff, 0, sizeof(OTblock));
+  buff.data[0] = 0b1010;
+  data.set(1, buff);
+  buff.data[0] = 0b0101;
+  data.set(2, buff);
+  cudaStream_t s;
+  cudaStreamCreate(&s);
+  data.sum_async(1, 8, s);
+  cudaDeviceSynchronize();
+  cudaStreamDestroy(s);
 
-  // GPUdata data2(sizeof(OTblock));
-  // data2.set(64);
+  GPUvector<OTblock> data2(8);
+  data.clear();
+  buff.data[0] = 0b1110;
+  data2.set(0, buff);
 
-  // assert(data == data2);
+  assert(data == data2);
+  printf("test_reduce passed!\n");
 }
