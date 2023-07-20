@@ -88,15 +88,6 @@ void test_base_ot() {
   printf("test_base_ot passed!\n");
 }
 
-void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
-  GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector) {
-
-  fullVector ^= puncVector;
-  choiceVector &= delta;
-
-  assert(fullVector == choiceVector);
-}
-
 void test_reduce() {
   GPUvector<OTblock> data(8);
   data.clear();
@@ -119,4 +110,13 @@ void test_reduce() {
 
   assert(data == data2);
   printf("test_reduce passed!\n");
+}
+
+void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
+  GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector) {
+
+  fullVector ^= puncVector;
+  choiceVector &= delta;
+
+  assert(fullVector == choiceVector);
 }

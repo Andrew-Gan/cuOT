@@ -63,7 +63,9 @@ void GPUmatrix<T>::bit_transpose() {
 
 template<typename T>
 void GPUmatrix<T>::modp(uint64_t reducedTerms) {
-  poly_mod_gpu<<<reducedTerms / 1024, 1024>>>((uint64_t*) mPtr, mCols);
+  uint64_t block = std::min(reducedTerms, 1024lu);
+  uint64_t grid = reducedTerms < 1024 ? 1 : (reducedTerms + 1023) / 1024;
+  poly_mod_gpu<<<grid, block>>>((uint64_t*) mPtr, mCols);
   cudaDeviceSynchronize();
   mCols = reducedTerms;
 }

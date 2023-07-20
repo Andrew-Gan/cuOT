@@ -5,7 +5,6 @@
 #include "gpu_vector.h"
 
 void test_cuda();
-// void test_rsa();
 void test_aes();
 void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
   GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector);

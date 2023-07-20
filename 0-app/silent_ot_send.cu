@@ -7,6 +7,7 @@ std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
 SilentOTSender::SilentOTSender(int myid, int logOT, int numTrees) :
   SilentOT(myid, logOT, numTrees) {
 
+  buffer_init();
   silentOTSenders[id] = this;
   while(silentOTRecvers[id] == nullptr);
   other = silentOTRecvers[id];
@@ -18,11 +19,8 @@ void SilentOTSender::run() {
   Log::end(Sender, BaseOT);
 
   Log::start(Sender, Expand);
-  buffer_init();
   pprf_expand();
   Log::end(Sender, Expand);
-
-  // std::cout << fullVector << std::endl;
 
   Log::start(Sender, Compress);
   QuasiCyclic code(Sender, 2 * numOT, numOT);
@@ -32,7 +30,7 @@ void SilentOTSender::run() {
 
 void SilentOTSender::base_ot() {
   std::vector<std::future<std::array<GPUvector<OTblock>, 2>>> workers;
-  for (int d = 0; d < depth+1; d++) {
+  for (int d = 0; d <= depth; d++) {
     workers.push_back(std::async([d, this]() {
       return SimplestOT(Sender, d, nTree).send();
     }));
@@ -53,19 +51,24 @@ void SilentOTSender::buffer_init() {
   aesLeft.init(k0_blk);
   aesRight.init(k1_blk);
 
+  OTblock buff;
+
+  for (int i = 0; i < 4; i++) {
+    buff.data[i] = rand();
+  }
   cudaMalloc(&delta, sizeof(*delta));
-  // delta.set(123456);
+  cudaMemcpy(delta, &buff, sizeof(*delta), cudaMemcpyHostToDevice);
 
   bufferA.resize(2 * numOT);
   bufferB.resize(2 * numOT);
   leftNodes.resize(numOT);
   rightNodes.resize(numOT);
 
-  OTblock root;
   for (int t = 0; t < nTree; t++) {
-    root.data[0] = rand();
-    root.data[1] = rand();
-    bufferA.set(t, root);
+    for (int i = 0; i < 4; i++) {
+      buff.data[i] = rand();
+    }
+    bufferA.set(t, buff);
   }
 }
 
@@ -90,34 +93,11 @@ void SilentOTSender::pprf_expand() {
     cudaStreamSynchronize(stream[0]);
     cudaStreamSynchronize(stream[1]);
 
-    cudaDeviceSynchronize();
-    printf("expanded:\n");
-    print_gpu<<<1, 1>>>((uint8_t*) outPtr, 16);
-    cudaDeviceSynchronize();
-
     leftNodes.sum_async(nTree, width / 2, stream[2]);
     rightNodes.sum_async(nTree, width / 2, stream[3]);
 
-    cudaDeviceSynchronize();
-    printf("summed:\n");
-    print_gpu<<<1, 1>>>((uint8_t*) leftNodes.data(), 16);
-    cudaDeviceSynchronize();
-
-    cudaDeviceSynchronize();
-    printf("left hash:\n");
-    print_gpu<<<1, 1>>>((uint8_t*) leftHash.at(d-1).data(), 16);
-    cudaDeviceSynchronize();
-    printf("right hash:\n");
-    print_gpu<<<1, 1>>>((uint8_t*) rightHash.at(d-1).data(), 16);
-    cudaDeviceSynchronize();
-
     leftHash.at(d-1).xor_async(leftNodes, stream[2]);
     rightHash.at(d-1).xor_async(rightNodes, stream[3]);
-
-    printf("xored:\n");
-    print_gpu<<<1, 1>>>((uint8_t*) leftHash.at(d-1).data(), 16);
-    cudaDeviceSynchronize();
-    printf("\n");
 
     other->leftHash.at(d-1).copy_async(leftHash.at(d-1), stream[2]);
     other->rightHash.at(d-1).copy_async(rightHash.at(d-1), stream[3]);
@@ -136,10 +116,12 @@ void SilentOTSender::pprf_expand() {
     cudaEventRecord(other->expandEvents.at(d-1), stream[2]);
     cudaEventRecord(other->expandEvents.at(d-1), stream[3]);
   }
-  cudaDeviceSynchronize();
-  printf("\n\n");
+  cudaDeviceSynchronize();//test
   other->eventsRecorded = true;
+  cudaDeviceSynchronize();
   cudaStreamDestroy(stream[0]);
   cudaStreamDestroy(stream[1]);
+  cudaStreamDestroy(stream[2]);
+  cudaStreamDestroy(stream[3]);
   fullVector = *outBuffer;
 }

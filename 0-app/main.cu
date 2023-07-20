@@ -7,10 +7,13 @@
 #include "silent_ot.h"
 
 uint64_t* gen_choices(int depth) {
-  uint64_t *choices = new uint64_t[depth];
+  uint64_t *choices = new uint64_t[depth+1];
   for (int d = 0; d < depth; d++) {
-    choices[d] = ((uint64_t) rand() << 32) | rand();
+    choices[d] = 0b1;
+    // choices[d] = ((uint64_t) rand() << 32) | rand();
   }
+  // choice bit for y ^ delta must be invest of final layer
+  choices[depth] = ~choices[depth-1];
   return choices;
 }
 
@@ -23,7 +26,7 @@ static std::pair<GPUvector<OTblock>, OTblock*> sender_worker(int protocol, int l
 static std::array<GPUvector<OTblock>, 2> recver_worker(int protocol, int logOT, int numTrees) {
   uint64_t depth = logOT - log2((float) numTrees) + 1;
   uint64_t *choices = gen_choices(depth);
-  SilentOTRecver ot(0, depth, numTrees, choices);
+  SilentOTRecver ot(0, logOT, numTrees, choices);
   ot.run();
   delete[] choices;
   return ot.get();
