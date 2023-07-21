@@ -94,6 +94,7 @@ void xor_reduce_gpu(uint64_t *data) {
   uint64_t start = blockIdx.x * (blockDim.x * 2);
 
   sdata[tid] = data[start + tid] ^ data[start + tid + blockDim.x];
+  __syncthreads();
   if (blockDim.x >= 1024 && tid < 512) sdata[tid] ^= sdata[tid + 512];
   __syncthreads();
   if (blockDim.x >= 512 && tid < 256) sdata[tid] ^= sdata[tid + 256];

@@ -27,11 +27,6 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   cufftReal *a64_poly;
   curandGenerate(prng, (uint32_t*) a64.data(), 2 * n64);
 
-  // printf("mRole = %d\n", mRole);
-  // print_gpu<<<1, 1>>>((uint8_t*) a64.data(), 64);
-  // cudaDeviceSynchronize();
-  // printf("\n");
-
   cudaMalloc(&a64_poly, n64 * sizeof(cufftReal));
   cudaMalloc(&a64_fft, n64 * sizeof(cufftComplex));
 

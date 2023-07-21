@@ -67,3 +67,6 @@ plot:
 
 clean:
 	rm -rf $(EXE) $(OBJ)/app $(OBJ)/mod $(OBJ)/dev
+
+cleanall:
+	rm -rf $(OBJ)

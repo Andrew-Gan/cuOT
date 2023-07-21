@@ -151,13 +151,6 @@ void SilentOTRecver::pprf_expand() {
     leftNodes.sum_async(nTree, width / 2, stream[0]);
     rightNodes.sum_async(nTree, width / 2, stream[1]);
 
-    cudaDeviceSynchronize();
-    printf("recver: node val\n");
-    print_gpu<<<1, 1>>>((uint8_t*) rightNodes.data(), 16);
-    cudaDeviceSynchronize();
-
-    cudaDeviceSynchronize();
-
     // insert active node value obtained from sum into output
     for (uint64_t t = 0; t < nTree; t++) {
       choice = (choices[d-1] >> t) & 1;
@@ -172,11 +165,6 @@ void SilentOTRecver::pprf_expand() {
       activeParent.at(t) *= 2;
       activeParent.at(t) += 1 - choice;
     }
-
-    cudaDeviceSynchronize();
-    printf("recver: vector\n");
-    print_gpu<<<1, 1>>>((uint8_t*) outPtr, 64);
-    cudaDeviceSynchronize();
   }
   cudaDeviceSynchronize();
   eventsRecorded = false;
