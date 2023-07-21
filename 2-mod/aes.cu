@@ -33,37 +33,37 @@ void Aes::init(uint8_t *key) {
   cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
 }
 
-void Aes::decrypt(GPUBlock &msg) {
-  GPUBlock input(std::max(msg.nBytes, (uint64_t)1024));
+void Aes::decrypt(GPUdata &msg) {
+  GPUdata input(std::max(msg.size_bytes(), (uint64_t)1024));
   input.clear();
-  cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
-  if (msg.nBytes < 1024) {
-    msg = GPUBlock(1024);
+  cudaMemcpy(input.data(), msg.data(), msg.size_bytes(), cudaMemcpyDeviceToDevice);
+  if (msg.size_bytes() < 1024) {
+    msg = GPUdata(1024);
   }
-  dim3 grid(msg.nBytes / 4 / AES_BSIZE);
-  aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) msg.data_d, (uint32_t*) input.data_d);
+  dim3 grid(msg.size_bytes() / 4 / AES_BSIZE);
+  aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) msg.data(), (uint32_t*) input.data());
   cudaDeviceSynchronize();
 }
 
-void Aes::encrypt(GPUBlock &msg) {
-  GPUBlock input(std::max(msg.nBytes, (uint64_t)1024));
+void Aes::encrypt(GPUdata &msg) {
+  GPUdata input(std::max(msg.size_bytes(), (uint64_t)1024));
   input.clear();
-  cudaMemcpy(input.data_d, msg.data_d, msg.nBytes, cudaMemcpyDeviceToDevice);
-  if (msg.nBytes < 1024) {
-    msg = GPUBlock(1024);
+  cudaMemcpy(input.data(), msg.data(), msg.size_bytes(), cudaMemcpyDeviceToDevice);
+  if (msg.size_bytes() < 1024) {
+    msg = GPUdata(1024);
   }
-  dim3 grid(msg.nBytes / 4 / AES_BSIZE);
-  aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) msg.data_d, (uint32_t*) input.data_d);
+  dim3 grid(msg.size_bytes() / 4 / AES_BSIZE);
+  aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) msg.data(), (uint32_t*) input.data());
   cudaDeviceSynchronize();
 }
 
-void Aes::expand_async(OTBlock *interleaved, GPUBlock &separated, OTBlock *input_d, uint64_t width, int dir, cudaStream_t &s) {
+void Aes::expand_async(OTblock *interleaved, GPUdata &separated, OTblock *input_d, uint64_t width, int dir, cudaStream_t &s) {
   static int thread_per_aesblock = 4;
   uint64_t paddedBytes = (width / 2) * sizeof(*interleaved);
   if (paddedBytes % 1024 != 0)
     paddedBytes += 1024 - (paddedBytes % 1024);
   dim3 grid(paddedBytes * thread_per_aesblock / 16 / AES_BSIZE);
-  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) encExpKey_d, interleaved, (uint32_t*) separated.data_d, (uint32_t*) input_d, dir, width);
+  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) encExpKey_d, interleaved, (uint32_t*) separated.data(), (uint32_t*) input_d, dir, width);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {

@@ -2,12 +2,12 @@
 #define __UNIT_TEST_H__
 
 #include "util.h"
-#include "gpu_block.h"
+#include "gpu_vector.h"
 
 void test_cuda();
-// void test_rsa();
 void test_aes();
-void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, GPUBlock &choiceVector, GPUBlock &delta);
+void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
+  GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector);
 void test_base_ot();
 void test_reduce();
 

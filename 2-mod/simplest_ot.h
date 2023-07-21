@@ -1,24 +1,22 @@
 #ifndef __SIMPLEST_OT_H__
 #define __SIMPLEST_OT_H__
 
-#include <curand.h>
 #include <atomic>
 #include <vector>
-#include "gpu_block.h"
+#include "gpu_vector.h"
 #include <array>
-#include "cryptoTools/Crypto/SodiumCurve.h"
-#include "cryptoTools/Crypto/PRNG.h"
+#include "../1-lib/cryptoTools/Crypto/SodiumCurve.h"
+#include "../1-lib/cryptoTools/Crypto/PRNG.h"
 
 using Point = osuCrypto::Sodium::Rist25519;
 using Number = osuCrypto::Sodium::Prime25519;
 
 class SimplestOT {
 public:
-  enum Role { Sender, Recver };
   SimplestOT(Role role, int id, uint64_t count);
   virtual ~SimplestOT();
-  std::array<GPUBlock, 2> send();
-  GPUBlock recv(uint64_t choice);
+  std::array<GPUvector<OTblock>, 2> send();
+  GPUvector<OTblock> recv(uint64_t choice);
 
 private:
   Role mRole;

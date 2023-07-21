@@ -7,18 +7,17 @@
 #define AES_KEYLEN 16
 #define AES_BSIZE 256
 
+#define CUDA_CALL(e) if (e != cudaSuccess) \
+  fprintf(stderr, "%s\n", cudaGetErrorString(e));
+
+enum Role { Sender, Recver };
+
 struct AES_ctx {
   uint8_t roundKey[176];
 };
 
-struct OTBlock {
+struct OTblock {
   uint32_t data[4];
-};
-
-struct SparseVector {
-  uint64_t nBits = 0;
-  uint64_t *nonZeros;
-  uint64_t weight = 0;
 };
 
 union UByte4 {

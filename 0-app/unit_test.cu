@@ -3,7 +3,6 @@
 #include "unit_test.h"
 #include "aes.h"
 #include "simplest_ot.h"
-#include "basic_op.h"
 
 void test_cuda() {
   int deviceCount = 0;
@@ -34,24 +33,24 @@ void test_aes() {
   aes1.init(k0_blk);
   const char *sample = "this is a test";
 
-  GPUBlock buffer(1024);
+  GPUdata buffer(1024);
   buffer.clear();
-  buffer.set((const uint8_t*) sample, 16);
+  cudaMemcpy(buffer.data(), sample, 16, cudaMemcpyHostToDevice);
 
   aes0.encrypt(buffer);
   uint8_t encryptedData[16];
-  cudaMemcpy(encryptedData, buffer.data_d, 16, cudaMemcpyDeviceToHost);
+  cudaMemcpy(encryptedData, buffer.data(), 16, cudaMemcpyDeviceToHost);
   assert(memcmp(sample, encryptedData, 16) != 0);
 
   aes1.decrypt(buffer);
   uint8_t decryptedData[16];
-  cudaMemcpy(decryptedData, buffer.data_d, 16, cudaMemcpyDeviceToHost);
+  cudaMemcpy(decryptedData, buffer.data(), 16, cudaMemcpyDeviceToHost);
   assert(memcmp(sample, decryptedData, 16) == 0);
 
   printf("test_aes passed!\n");
 }
 
-bool _cmp(OTBlock &b0, OTBlock &b1) {
+bool _cmp(OTblock &b0, OTblock &b1) {
   for (int i = 0; i < 4; i++) {
     if (b0.data[i] != b1.data[i])
       return false;
@@ -62,21 +61,21 @@ bool _cmp(OTBlock &b0, OTBlock &b1) {
 void test_base_ot() {
   const uint64_t choice = 0b1001;
   std::future sender = std::async([]() {
-    return SimplestOT(SimplestOT::Sender, 0, 4).send();
+    return SimplestOT(Sender, 0, 4).send();
   });
   std::future recver = std::async([]() {
-    return SimplestOT(SimplestOT::Recver, 0, 4).recv(choice);
+    return SimplestOT(Recver, 0, 4).recv(choice);
   });
 
   auto pair = sender.get();
-  GPUBlock m0_d = pair[0];
-  GPUBlock m1_d = pair[1];
-  GPUBlock mb_d = recver.get();
+  GPUdata m0_d = pair[0];
+  GPUdata m1_d = pair[1];
+  GPUdata mb_d = recver.get();
 
-  OTBlock m0[4], m1[4], mb[4];
-  cudaMemcpy(m0, m0_d.data_d, 4 * sizeof(OTBlock), cudaMemcpyDeviceToHost);
-  cudaMemcpy(m1, m1_d.data_d, 4 * sizeof(OTBlock), cudaMemcpyDeviceToHost);
-  cudaMemcpy(mb, mb_d.data_d, 4 * sizeof(OTBlock), cudaMemcpyDeviceToHost);
+  OTblock m0[4], m1[4], mb[4];
+  cudaMemcpy(m0, m0_d.data(), 4 * sizeof(OTblock), cudaMemcpyDeviceToHost);
+  cudaMemcpy(m1, m1_d.data(), 4 * sizeof(OTblock), cudaMemcpyDeviceToHost);
+  cudaMemcpy(mb, mb_d.data(), 4 * sizeof(OTblock), cudaMemcpyDeviceToHost);
 
   for (int i = 0; i < 4; i++) {
     uint8_t c = choice & (1 << i);
@@ -89,27 +88,48 @@ void test_base_ot() {
   printf("test_base_ot passed!\n");
 }
 
-void test_cot(GPUBlock &fullVector, GPUBlock &puncVector, GPUBlock &choiceVector, GPUBlock &delta) {
-  fullVector ^= puncVector;
-  choiceVector *= delta;
+void test_reduce() {
+  GPUvector<OTblock> data(8);
+  data.clear();
+  OTblock buff;
+  memset(&buff, 0, sizeof(OTblock));
+  buff.data[0] = 0b1010;
+  data.set(1, buff);
+  buff.data[0] = 0b0101;
+  data.set(2, buff);
+  cudaStream_t s;
+  cudaStreamCreate(&s);
+  data.sum_async(1, 8, s);
+  cudaDeviceSynchronize();
+  cudaStreamDestroy(s);
 
-  // assert(fullVector == choiceVector);
-  printf("test_cot passed!\n");
+  GPUvector<OTblock> data2(8);
+  data.clear();
+  buff.data[0] = 0b1110;
+  data2.set(0, buff);
+
+  assert(data == data2);
+  printf("test_reduce passed!\n");
 }
 
-#include "basic_op.h"
+void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
+  GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector) {
 
-void test_reduce() {
-  // GPUBlock data(16 * sizeof(OTBlock));
-  // data.set(64);
-  // cudaStream_t s;
-  // cudaStreamCreate(&s);
-  // data.sum_async(data.nBytes, s);
-  // cudaDeviceSynchronize();
-  // cudaStreamDestroy(s);
+  printf("full\n");
+  print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 64);
+  cudaDeviceSynchronize();
+  printf("punc\n");
+  print_gpu<<<1, 1>>>((uint8_t*) puncVector.data(), 64);
+  cudaDeviceSynchronize();
+  printf("choice\n");
+  print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 64);
+  cudaDeviceSynchronize();
+  printf("delta\n");
+  print_gpu<<<1, 1>>>((uint8_t*) delta, 16);
+  cudaDeviceSynchronize();
 
-  // GPUBlock data2(sizeof(OTBlock));
-  // data2.set(64);
+  fullVector ^= puncVector;
+  choiceVector &= delta;
 
-  // assert(data == data2);
+  assert(fullVector == choiceVector);
 }
