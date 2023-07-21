@@ -1,6 +1,1002 @@
 ========= COMPUTE-SANITIZER
-ot: 0-app/unit_test.cu:121: void test_cot(GPUvector<OTblock>&, OTblock*, GPUvector<OTblock>&, GPUvector<OTblock>&): Assertion `fullVector == choiceVector' failed.
-log OTs: 12, Trees: 1
+log OTs: 24, Trees: 1
+sender l: vector
+ca ac 90 86 e e2 3d a6 a4 1c 12 3e cd f1 d9 3d 
+2e fa bb cf ea 51 f8 74 b2 d3 5a 46 d3 b8 d4 9b 
+2e fa bb cf ea 51 f8 74 b2 d3 5a 46 d3 b8 d4 9b 
+2e fa bb cf ea 51 f8 74 b2 d3 5a 46 d3 b8 d4 9b 
+sender r: vector
+3c 95 2b d8 d6 b5 a2 27 68 f4 64 f6 e6 5d bf 20 
+4a 74 b6 82 f9 18 ec 6b 16 e8 df 39 e3 11 b0 75 
+4a 74 b6 82 f9 18 ec 6b 16 e8 df 39 e3 11 b0 75 
+4a 74 b6 82 f9 18 ec 6b 16 e8 df 39 e3 11 b0 75 
+sender r: r sum
+3c 95 2b d8 d6 b5 a2 27 68 f4 64 f6 e6 5d bf 20 
+sender l: vector
+f3 5 8c 69 89 f6 16 8d b 11 b7 ee 19 29 64 7f 
+10 57 bb 8c 44 cd 30 cd 6d c3 a1 9 d 79 19 6c 
+2e fa bb cf ea 51 f8 74 b2 d3 5a 46 d3 b8 d4 9b 
+2e fa bb cf ea 51 f8 74 b2 d3 5a 46 d3 b8 d4 9b 
+sender r: vector
+a0 87 77 d0 71 4f c8 31 24 2d fc f0 a8 7a c 1e 
+9 c e9 38 a7 47 6c af 3e e5 8f a 69 fa f2 53 
+4a 74 b6 82 f9 18 ec 6b 16 e8 df 39 e3 11 b0 75 
+4a 74 b6 82 f9 18 ec 6b 16 e8 df 39 e3 11 b0 75 
+<<<1, 2>>>
+xor_reduce_gpu out
+e3 52 37 e5 cd 3b 26 40 66 d2 16 e7 14 50 7d 13 
+<<<1, 2>>>
+xor_reduce_gpu out
+a9 8b 9e e8 d6 8 a4 9e 1a c8 73 fa c1 80 fe 4d 
+sender r: r sum
+a9 8b 9e e8 d6 8 a4 9e 1a c8 73 fa c1 80 fe 4d 
+sender l: vector
+86 bc 6b 65 86 be fe 2f a2 e6 6e 29 99 d6 42 85 
+d3 f5 9a cc b6 25 a7 fc 31 94 5 15 ea e1 28 f5 
+ab fd 68 ab bb c7 6c d 85 7e 47 4 d2 a4 f6 24 
+b4 f5 1a 45 66 2f e5 e8 ff 45 3d 31 1 e2 ff c8 
+sender r: vector
+30 7a 3a 91 36 cf 17 25 d3 b1 a8 39 2f 88 92 6f 
+71 9 62 47 57 18 66 9e 25 2b 33 f2 f9 8c 70 59 
+cd c9 5 fb 74 9f e8 10 41 31 49 d4 3b b4 db dc 
+36 2a 2c de 9e e1 35 19 40 b3 11 7b 18 c 95 91 
+<<<1, 4>>>
+xor_reduce_gpu out
+4a 41 83 47 ed 73 d0 36 e9 49 11 9 a0 71 63 9c 
+<<<1, 4>>>
+xor_reduce_gpu out
+ba 90 71 f3 8b a9 ac b2 f7 18 c3 64 f5 bc ac 7b 
+sender r: r sum
+ba 90 71 f3 8b a9 ac b2 f7 18 c3 64 f5 bc ac 7b 
+sender l: vector
+15 f7 66 98 da 1b a5 58 fc db ea 1b 6d 53 ee 6a 
+70 89 c7 e9 58 24 c2 ce 9a 11 20 17 ce 2b b8 99 
+ce 95 b5 e9 6c 6 e4 ef 75 6d 33 34 fa 52 84 1f 
+88 9a 3 7c 4f e2 9b b2 9b 20 6d fa 44 ae 68 71 
+sender r: vector
+e1 91 98 fc c0 55 b8 9f f6 4e f 42 b3 c3 2a 66 
+2f 56 ea 69 e4 31 e6 d4 74 a c0 5 f4 85 cf 71 
+4 40 7f a6 76 d3 d7 b4 b6 b4 48 5a e3 41 8c aa 
+26 7e dc f1 d3 32 81 ff 8b 5f 83 9f 15 7e 18 d0 
+<<<1, 8>>>
+xor_reduce_gpu out
+7f 5a 31 c0 3d cb a9 9f d3 ad f8 3e b1 e8 6c 89 
+<<<1, 8>>>
+xor_reduce_gpu out
+af 5 d1 61 89 f a0 2b d5 66 a7 46 d2 b 73 51 
+sender r: r sum
+af 5 d1 61 89 f a0 2b d5 66 a7 46 d2 b 73 51 
+sender l: vector
+af 8d 23 12 90 b 14 f0 5 45 53 2f 96 9b 33 be 
+95 46 ed 83 de 58 81 19 70 91 8c 7e c7 6e 2c b5 
+b3 24 98 da eb ec 85 45 4d 44 97 a 1e c7 d3 ae 
+e c5 10 3d 1b c6 e8 25 cb 3c de 20 d4 c3 c6 e5 
+sender r: vector
+60 21 f9 45 c4 7 e0 df 69 56 2b 50 1c 4d 85 11 
+f5 3d a3 72 7 5a 3d 9 e3 a7 ad 87 e1 3b 10 92 
+64 bb 5a 6e f9 da 6a 95 d6 5f bd 1c 62 19 c6 b5 
+86 89 c5 ff 61 3e bf 8a c9 f1 4f 31 f 12 22 89 
+<<<1, 16>>>
+xor_reduce_gpu out
+c8 d6 97 7d 94 62 c9 ec 27 b5 4 21 b7 99 2 a8 
+<<<1, 16>>>
+xor_reduce_gpu out
+c 3f be e4 b9 51 64 b7 f6 c7 b0 5b 1a 72 a5 f7 
+sender r: r sum
+c 3f be e4 b9 51 64 b7 f6 c7 b0 5b 1a 72 a5 f7 
+sender l: vector
+ae 6a cf fa 81 7b c f d7 81 4d 87 3f 9 a2 b2 
+f8 4e 15 60 c 14 58 ed b2 77 cc 53 2a 2d 43 93 
+91 4e 6f c6 98 a6 a5 24 58 1e cc e6 6d d8 12 4a 
+1a 3b 67 f9 f9 d3 e2 fa 6f 0 a7 66 a1 d5 8a 13 
+sender r: vector
+4c 72 58 39 a5 2d 7c c8 7b 13 97 e8 67 61 2f 16 
+2d 14 67 3 71 a0 fb 7d 53 80 25 e3 2d f8 94 81 
+2d 53 bf 82 36 af 96 30 d3 fc 6a 39 7 6a 4c 9e 
+6a e4 43 a7 29 47 b0 fd fa 13 f9 86 7b 3f a1 dc 
+<<<1, 32>>>
+xor_reduce_gpu out
+b7 11 fd 9f 4b 5b f9 f6 6e 6f eb 83 be e0 aa 20 
+<<<1, 32>>>
+xor_reduce_gpu out
+6d 28 14 10 1f 54 8f 96 a0 fe 62 88 be b5 a2 eb 
+sender r: r sum
+6d 28 14 10 1f 54 8f 96 a0 fe 62 88 be b5 a2 eb 
+sender l: vector
+30 d 32 59 cc 6a 5 ec 2a b4 c5 1c c6 dc a7 5e 
+19 c5 f3 70 33 7c ad 2b c5 10 40 a8 11 f7 8a b6 
+4f 52 ac f6 54 cc a4 1e a9 65 41 f6 9a 99 ad eb 
+37 c1 69 61 a4 f7 91 74 d1 32 c f cb e6 c3 ff 
+sender r: vector
+9f 41 c bd 34 1d 4f 84 32 a0 da d0 2d 62 16 d1 
+52 45 7b a2 6b fa 96 10 cb 40 c0 b8 5b 88 26 6 
+6 5d 2c be bc f 97 65 33 49 cf 87 87 fd 35 f3 
+15 ec b1 38 2a 41 bd 5a 54 b7 ae 10 c8 52 c1 86 
+<<<1, 64>>>
+xor_reduce_gpu out
+d6 2 37 94 67 f b7 87 33 bd b2 62 5d ce 66 88 
+<<<1, 64>>>
+xor_reduce_gpu out
+b7 8c ef 2a 5d af 7d 85 d 36 6e 9e 33 63 ee 4 
+sender r: r sum
+b7 8c ef 2a 5d af 7d 85 d 36 6e 9e 33 63 ee 4 
+sender l: vector
+80 c0 8f 53 17 7e 87 d7 51 a9 7c 10 e1 ac ae ac 
+b0 6c 59 f9 43 f4 f 98 73 50 3 b0 a0 8d 69 5c 
+46 4b 42 38 c7 7 6c f5 ed 63 2a df b4 a2 69 e3 
+cc 0 1e bb 8a 72 35 9b 9f 2a a3 52 b1 b0 c0 35 
+sender r: vector
+63 fc 3b cb f 5b ad 60 fd 47 11 ff d2 e fa 3e 
+eb 2d d9 c8 c3 be 9e a6 1d c8 af 3a 4f 2 20 f0 
+84 e5 77 e6 d8 85 85 b8 38 98 f0 51 f2 5c be 40 
+7d d2 3e 7c 94 3f d0 83 dc 3d 35 c1 b7 a 2a 49 
+<<<1, 128>>>
+xor_reduce_gpu out
+69 6d f6 4b 31 5f 62 c0 f4 d9 b3 7a a 44 87 52 
+<<<1, 128>>>
+xor_reduce_gpu out
+41 2d 59 1c f6 6c 7c a1 b3 e8 45 36 2e 5f d5 77 
+sender r: r sum
+41 2d 59 1c f6 6c 7c a1 b3 e8 45 36 2e 5f d5 77 
+sender l: vector
+8e 3d d 95 90 0 d2 2 d3 27 55 53 32 b6 af 78 
+74 6d 98 c5 af 76 bf 85 13 84 27 bb d b2 41 f4 
+f e6 91 70 ad 32 12 4d ce 76 66 2 16 74 82 dd 
+e7 5e 11 9f 90 10 60 79 94 0 a2 46 13 ce 7d 7a 
+sender r: vector
+39 b5 c6 a8 d0 b1 e e5 6e b4 77 bb f0 7e 49 66 
+78 af 50 f1 8c 8d 4a 57 9a fd 6 26 6b 8b da d6 
+b d7 b4 6 82 39 a 1 de fd d3 e3 82 8e bd 64 
+4c 13 4e 2a 96 16 40 18 ae 93 da 76 fe da 11 39 
+<<<1, 256>>>
+xor_reduce_gpu out
+2f 8c e4 fd a0 9c ad 72 f0 47 3e db 5d 0 bf 41 
+<<<1, 256>>>
+xor_reduce_gpu out
+e 55 5e 89 9c 13 49 ef 2f 9c ef ee 5e d7 68 1c 
+sender r: r sum
+e 55 5e 89 9c 13 49 ef 2f 9c ef ee 5e d7 68 1c 
+sender l: vector
+d7 79 5d 48 48 20 59 ac 90 e3 fd 63 ca 80 a4 84 
+74 6a 96 b4 db 6d 7e e1 9c d8 25 b7 b5 94 d2 c2 
+34 f9 a0 dd 4c af 48 81 d5 92 6 99 2d 7a b 9 
+db 2 c8 fd b0 be 4e 2e f0 39 c5 b9 8e 6e b7 58 
+sender r: vector
+52 ae 13 d9 c8 21 f1 54 8 a1 b2 d3 c9 13 9f 10 
+9f d0 d5 1 2d 56 5e 82 c9 7b 29 24 cd cc ac 13 
+de b1 8b 78 c7 b7 ee a2 f3 e8 97 a7 72 ac 37 e9 
+50 a0 e3 6d 78 c2 ec 8a e6 ad 54 39 9a be 64 2a 
+<<<1, 512>>>
+xor_reduce_gpu out
+bb 47 d4 28 2e c4 73 a8 a2 d6 14 e2 e9 25 6d 45 
+<<<1, 512>>>
+xor_reduce_gpu out
+d6 60 64 f9 1a f5 39 95 c0 bd 56 be 1f ca 5a 7a 
+sender r: r sum
+d6 60 64 f9 1a f5 39 95 c0 bd 56 be 1f ca 5a 7a 
+sender l: vector
+c0 4e ec 8 c6 33 11 ec 64 44 61 df 2e a1 7b 98 
+3 3e fb a4 e0 55 20 9e 8f 5c 2f f5 8d 95 7b d5 
+6b f3 e1 a6 cd d2 8e 5b 7e 42 1d b0 c6 55 cb 94 
+1c 22 2b 7e ab 21 27 bf 6f 45 78 47 14 29 b6 a8 
+sender r: vector
+7 6a 55 2c a9 df 35 cf 15 27 c4 43 3e 95 c9 20 
+d4 19 c0 d 49 72 fd e 6d ad 54 2c 2b 3 95 2c 
+95 ef c 94 44 e0 34 85 2a 73 f2 f6 a5 4e e7 48 
+33 a7 58 44 2a fb d8 16 e3 79 cb c8 d5 11 f9 e0 
+<<<1, 1024>>>
+xor_reduce_gpu out
+a2 b9 23 b3 6a 46 5f 8b 97 21 31 35 1e 13 c8 97 
+<<<1, 1024>>>
+xor_reduce_gpu out
+29 33 31 fb e4 73 db af ff 97 f8 6c 2f 6d 4 26 
+sender r: r sum
+29 33 31 fb e4 73 db af ff 97 f8 6c 2f 6d 4 26 
+sender l: vector
+79 8a b8 16 ff cd 70 a7 fa 3f d d 78 51 99 dc 
+74 9f 61 67 2e 86 6 3c 3c 12 a 89 a2 3c 4f d8 
+a4 57 db 4f 66 7 df 51 fe bf a7 46 d5 31 78 2b 
+a 76 83 c6 a2 9d 8e 26 b5 60 37 36 1e f9 68 50 
+sender r: vector
+9b 18 65 3d e9 cb 4 cb 9d 89 81 2a af 81 dc 89 
+29 8b 7d b9 71 5b 22 8f a4 2e 82 2c 9f 8a d2 21 
+24 b5 e4 d4 2e 61 4d 14 9 c f4 c0 aa 23 e8 6c 
+af 32 6d 82 1 35 59 95 3e 55 11 8d 70 35 2e 47 
+<<<2, 1024>>>
+xor_reduce_gpu out
+10 3f 6f 47 84 0 a8 c4 e5 aa aa b5 78 e2 2a 5e 
+<<<1, 2>>>
+xor_reduce_gpu out
+b4 68 b4 8 e2 7 77 95 1b 15 d f3 ad d3 52 75 
+<<<2, 1024>>>
+xor_reduce_gpu out
+6f bc 4f 6d 60 e3 2a 97 73 29 63 9c 68 81 3b a1 
+<<<1, 2>>>
+xor_reduce_gpu out
+4b 9 ab b9 4e 82 67 83 7a 25 97 5c c2 a2 d3 cd 
+sender r: r sum
+4b 9 ab b9 4e 82 67 83 7a 25 97 5c c2 a2 d3 cd 
+sender l: vector
+df 62 b6 d fb 51 6 57 3e e2 62 99 84 c c4 75 
+9b 34 6 94 fe be 5c 8a 12 43 a ac b3 17 fb ef 
+26 44 6a 8f d8 48 4f da 3b 63 58 1a ad 43 1c 26 
+4e 8a 8 ef 56 e 48 4f 56 d4 c8 78 a9 f2 39 50 
+sender r: vector
+6d 4c 91 d9 32 e6 5c 46 4c c1 ef c6 a e2 24 db 
+e6 4 52 a7 96 e4 4a 75 9e 2f 99 ae 27 50 e6 1e 
+66 66 59 bf 8e 11 8e 59 19 2d 63 81 bc fa 77 bd 
+c0 a8 27 9e 3e 7 aa 4b eb 9a 20 2a ed 1c b7 b6 
+<<<4, 1024>>>
+xor_reduce_gpu out
+c8 ad 64 e2 a7 c0 5 82 12 15 73 69 fc b4 9f d7 
+<<<1, 4>>>
+xor_reduce_gpu out
+a0 77 8e d8 5f 7 72 e4 6 42 81 ed b 66 52 e0 
+<<<4, 1024>>>
+xor_reduce_gpu out
+c0 a6 eb e6 c 6f b6 6 cc 77 3e 60 b8 ed c8 ef 
+<<<1, 4>>>
+xor_reduce_gpu out
+76 5b 50 23 99 7d d1 df f1 de 9c d1 68 f5 cf d4 
+sender r: r sum
+76 5b 50 23 99 7d d1 df f1 de 9c d1 68 f5 cf d4 
+sender l: vector
+cd ab 35 ba c6 ce 9b 3f d6 de de 6 6b 8c a1 7f 
+b2 89 d3 c 3e 36 98 ab 0 c6 d0 55 29 d 20 9c 
+a9 c5 1e c6 45 39 12 53 11 f9 26 d8 c8 59 f8 59 
+4c 7a 46 66 26 c9 16 c1 73 7e 9b 64 1c e6 f1 cf 
+sender r: vector
+c7 fc 2b 23 7d 9d 65 27 fe 78 73 71 54 7f 6c ab 
+db f9 86 92 9c c6 bf 7e 8f 37 16 ab e9 72 a8 d8 
+39 f8 78 9a 82 63 bf 66 60 c8 70 b3 d9 49 e8 a0 
+64 56 0 67 6d f9 59 93 1 2c 13 b8 2c 77 5c 38 
+<<<8, 1024>>>
+xor_reduce_gpu out
+26 2 67 f6 de 99 77 b8 51 ff d9 7c fb 65 95 61 
+<<<1, 8>>>
+xor_reduce_gpu out
+74 68 86 ba 88 f8 55 f4 64 87 db 2 a6 ff 53 4d 
+<<<8, 1024>>>
+xor_reduce_gpu out
+2d 94 67 8b 19 9 29 91 81 b6 51 1a 5b e b6 a5 
+<<<1, 8>>>
+xor_reduce_gpu out
+fd 6e 51 ec e3 77 0 c 35 70 94 91 81 2d bd c7 
+sender r: r sum
+fd 6e 51 ec e3 77 0 c 35 70 94 91 81 2d bd c7 
+sender l: vector
+6e a7 63 a1 6e 43 da ef 46 6e e c7 a6 27 81 77 
+bc 6e a0 cf 51 1f eb 8 7e f 4f 2a bc 0 66 f6 
+2e 4d 17 72 9b fd 4d 1 b3 65 ad 75 3a 2f 69 18 
+5 11 19 78 5f 4d f9 16 20 3a e7 da b5 7e 33 28 
+sender r: vector
+19 2 85 c1 91 bb c7 50 7b 77 26 44 32 d9 1e ee 
+a 29 ae fd 17 c3 f0 d8 f4 38 1 2b 5f dd 2e 8b 
+e7 d9 5 b4 6b 3e 11 fe 2f b0 60 70 fd ba b9 f 
+62 17 4 cd 8f 67 f8 15 5c a4 fd 1a b5 ac 92 c0 
+<<<16, 1024>>>
+xor_reduce_gpu out
+0 8e 2b 91 fb a5 fd f7 d5 78 20 ff 21 c8 6a 3f 
+<<<1, 16>>>
+xor_reduce_gpu out
+2d 9f a9 4a 45 21 ae 2 89 fc 23 6f 5d c fa a1 
+<<<16, 1024>>>
+xor_reduce_gpu out
+ee c1 8b 45 de a1 3a 29 43 60 dd 77 e6 c8 8 48 
+<<<1, 16>>>
+xor_reduce_gpu out
+3 eb 32 15 d2 b 9 22 f6 63 69 d4 94 c5 25 ac 
+sender r: r sum
+3 eb 32 15 d2 b 9 22 f6 63 69 d4 94 c5 25 ac 
+sender l: vector
+99 ce 14 1a 54 aa 3 2 ab f4 15 7d e8 b5 4b fa 
+17 31 b4 51 a8 1a f9 6e 14 74 90 c2 55 c1 61 19 
+fa 9e 3 b1 d4 38 d7 3b 26 91 7b d9 cd ff 4d 8d 
+c2 98 4e fa d2 29 1f 3 d9 fd e5 e0 32 42 5d 3e 
+sender r: vector
+35 9 d6 43 49 27 7a 91 66 4f d0 42 48 2f 6d d7 
+21 85 43 bc 69 99 57 24 ff b4 1b e8 62 ad 5a 77 
+54 84 e3 12 cc 2f 3e ad 50 f7 19 15 43 bd 1d 7 
+f2 90 88 3e c 60 5 bf f7 26 e1 77 5e d6 30 f 
+<<<32, 1024>>>
+xor_reduce_gpu out
+48 95 2d 2 ee 14 25 3a f8 d2 71 7d 7b f9 32 9f 
+<<<1, 32>>>
+xor_reduce_gpu out
+e3 9d fc 45 3a b1 59 7c 22 dd 9e 36 31 9a 7d f5 
+<<<32, 1024>>>
+xor_reduce_gpu out
+34 30 22 b5 49 9b a2 84 f2 48 12 f9 49 6b 3e 34 
+<<<1, 32>>>
+xor_reduce_gpu out
+1 fe 66 74 e8 92 a8 8e 8e a4 93 76 c2 1c 85 d8 
+sender r: r sum
+1 fe 66 74 e8 92 a8 8e 8e a4 93 76 c2 1c 85 d8 
+sender l: vector
+2d f6 34 35 80 d6 8d 2d 65 f2 15 2b 9f 91 fb 66 
+60 d6 c2 bf 29 8e 3e 3b 97 7c e9 d6 64 8e 9b 7e 
+d6 b0 9d aa a5 91 80 d9 8f 7a 4a 1d a9 f1 2e 3 
+43 3f f4 bc e6 d4 35 ca 62 6a c6 2c 2c 19 eb bb 
+sender r: vector
+81 51 fb c 70 3c 33 58 64 2d b7 2f e1 2c 7d f5 
+16 23 75 74 94 4 1b fb f a2 95 5d 34 33 d1 ce 
+d9 7d 3 52 b5 b7 b7 e1 27 c5 1 ca 50 fb 5d 40 
+e4 43 e2 ed 62 72 3c 1 2c 1e 3c 1e a9 1c 5e 8c 
+<<<64, 1024>>>
+xor_reduce_gpu out
+76 d5 bb 32 de da 3c ed 39 c6 e3 2e fa d6 64 2 
+<<<1, 64>>>
+xor_reduce_gpu out
+2d b 2c c1 50 89 3 db 92 f2 7 9e 38 3f 52 f4 
+<<<64, 1024>>>
+xor_reduce_gpu out
+d 2f 31 8e b b3 ec 94 fa 2a 5 1a 7d 1d 62 5f 
+<<<1, 64>>>
+xor_reduce_gpu out
+25 d6 3a 3 62 9f 70 13 b9 d6 78 e9 e4 67 44 bd 
+sender r: r sum
+25 d6 3a 3 62 9f 70 13 b9 d6 78 e9 e4 67 44 bd 
+sender l: vector
+b4 bc b5 e5 a0 0 f7 74 c8 10 dc 28 77 58 f9 54 
+b5 3b 7 b9 c4 7f 7a 97 9 cb 45 75 62 59 92 d0 
+d8 d5 75 40 f1 d6 2d b0 1c 37 e7 fa 47 47 99 8a 
+93 c8 4a cf 27 be f9 22 eb 60 9d f1 97 34 b fe 
+sender r: vector
+bb 19 58 48 5f e7 69 73 4f 5c 83 ff 24 81 ec ce 
+e6 31 5f 9b c2 d9 c9 2f 37 23 25 6a 76 72 d2 f6 
+4e 17 db da cd 3e c0 bb 5e 56 72 4a 82 73 ad 20 
+2f 26 e8 66 4a 37 cc a 2a 45 b b0 36 40 3a 24 
+<<<128, 1024>>>
+xor_reduce_gpu out
+44 f 47 b6 d4 c8 0 fd ba 26 70 b8 f6 d2 7e 5b 
+<<<1, 128>>>
+xor_reduce_gpu out
+39 13 5f 3b 51 e2 d7 5 33 7d 30 25 e6 9d 31 e6 
+<<<128, 1024>>>
+xor_reduce_gpu out
+1c 50 3d 56 e6 11 b7 4e eb 6c 41 1b fd 4 11 c8 
+<<<1, 128>>>
+xor_reduce_gpu out
+d0 66 11 68 b3 cb 89 4c 9c c0 e2 6a b7 7c fa c1 
+sender r: r sum
+d0 66 11 68 b3 cb 89 4c 9c c0 e2 6a b7 7c fa c1 
+sender l: vector
+91 ec 76 fd d2 12 db 95 50 d3 80 e2 48 98 4f 80 
+18 97 1e 78 2e b2 b6 eb 24 9f 33 4 b4 d8 74 19 
+f0 f0 7f c2 5e 76 66 37 65 2b 84 40 3b 2c d7 52 
+7d 25 9b fc a0 30 5d d1 73 5c bf 3f 15 d1 65 50 
+sender r: vector
+d1 4e d8 b0 6f dc fd e1 c7 38 87 69 94 f9 f7 25 
+15 6a 57 a4 ca 76 6d e4 be 6c 96 7b 6c 74 bd 40 
+91 4e 25 50 6f c9 31 79 d5 eb a7 ed fe 92 4c 44 
+42 56 4 ae e1 fc 66 79 6e 46 88 5 5 f6 38 91 
+<<<256, 1024>>>
+xor_reduce_gpu out
+a6 fd c2 7c 43 ba 4c 14 7c f9 7b 53 81 5b 30 cc 
+<<<1, 256>>>
+xor_reduce_gpu out
+5b bf 8f 16 85 89 c0 b2 2e 96 2e 8 93 4a 5b f 
+<<<256, 1024>>>
+xor_reduce_gpu out
+f7 c9 23 29 7d 98 8a 6f 3d c7 e9 a7 25 74 91 38 
+<<<1, 256>>>
+xor_reduce_gpu out
+65 71 a3 d0 38 55 1b fd 1e 85 c7 a8 76 91 65 87 
+sender r: r sum
+65 71 a3 d0 38 55 1b fd 1e 85 c7 a8 76 91 65 87 
+sender l: vector
+ee f1 97 fc 15 47 98 33 a9 71 77 50 4 27 11 77 
+ac e1 1d bb 6 22 76 38 2f 53 2 c0 a5 23 95 43 
+3b 62 d7 41 19 5 df 2 a9 96 c6 cb 8f 2c 79 d4 
+88 81 17 cb 2b 1b c7 ed 9a 37 42 a 4d 2f 92 21 
+sender r: vector
+ae db 14 10 54 4 59 cc f1 d6 25 6 53 7f ee 76 
+bd d9 ff b0 25 c9 bc 81 81 dd 47 66 6c c3 53 bf 
+5d bb 92 16 e1 e1 8d bb e2 91 ae 86 65 aa b5 17 
+1c d ce 9c 5f 8e 66 6a 94 b3 6e 58 f8 d8 a6 92 
+<<<512, 1024>>>
+xor_reduce_gpu out
+75 b0 8b 7d 7d c5 d5 b9 11 e1 aa 11 6d 4 c2 77 
+<<<1, 512>>>
+xor_reduce_gpu out
+b ad 6a 71 13 97 9 dc 49 5 b0 e2 1f 8 7d 6e 
+<<<512, 1024>>>
+xor_reduce_gpu out
+36 d7 66 d7 88 59 10 9 2 55 cc ef c2 fd 2a ba 
+<<<1, 512>>>
+xor_reduce_gpu out
+e8 48 ed 28 8f 26 ad 33 88 24 9e 99 43 2 1f fb 
+sender r: r sum
+e8 48 ed 28 8f 26 ad 33 88 24 9e 99 43 2 1f fb 
+sender l: vector
+90 7b df c6 ed 49 2a d4 f2 d9 35 7e f6 8e 4b 9c 
+a8 cb 8d 49 13 bc ff 25 dc bc ee 33 ea dc 48 e6 
+5a 42 b2 97 75 f0 e6 36 db a2 91 7 3 85 6e 5c 
+23 91 87 1d 2f f4 1f 9b ac 6 33 9d bd 38 bc 4c 
+sender r: vector
+e7 6d f5 18 f2 a0 70 23 0 37 2f c9 74 b6 a 30 
+69 92 89 97 82 cc b6 73 49 f3 5c 38 e8 69 5d 96 
+41 8c ae a3 d5 7 12 7c d3 52 9d a2 f2 1 a2 aa 
+83 52 15 9f 57 75 87 51 1c 3c 7e 84 3f 94 dd ba 
+<<<1024, 1024>>>
+xor_reduce_gpu out
+a 67 e9 78 e9 e8 78 e2 b1 40 13 ee 9 e4 18 b0 
+<<<1, 1024>>>
+xor_reduce_gpu out
+68 f7 37 d1 18 15 1c 2 dd e1 e2 80 7 e4 0 7c 
+<<<1024, 1024>>>
+xor_reduce_gpu out
+ed 39 cd e a7 fd b 2b 22 5 83 6a 15 9 8b 5a 
+<<<1, 1024>>>
+xor_reduce_gpu out
+32 d2 2a 82 86 15 b3 d5 21 9c 37 60 db 30 ff 9d 
+sender r: r sum
+32 d2 2a 82 86 15 b3 d5 21 9c 37 60 db 30 ff 9d 
+sender l: vector
+c 2f af d3 6a 74 ed 71 89 86 d5 55 72 3d a3 f5 
+0 f3 7c 94 d4 43 3a 23 40 56 fb ac e8 28 57 bf 
+57 d8 79 a2 88 64 70 14 df 88 fa 32 82 52 d9 ff 
+91 5e d 93 e9 7c 93 45 b2 5b 61 5d 64 de 3f a8 
+sender r: vector
+e5 38 38 a4 7 cc 42 7a c1 d6 aa ad cb 48 5b 78 
+aa ae 80 d3 cd 48 fd a9 b2 d1 85 2b 56 d8 92 c0 
+78 7f b9 4f e1 39 76 c9 7b fe 71 20 23 6f f3 4f 
+a8 7f 66 b9 64 86 cb 31 27 e9 c7 8d a 1f 27 2b 
+<<<2048, 1024>>>
+xor_reduce_gpu out
+ba 97 12 ec db 1 e0 1c 9d b6 cf 48 d af 10 d 
+<<<2, 1024>>>
+xor_reduce_gpu out
+16 14 c6 ec f1 96 23 5 ff f5 8a 7a c9 91 cb a8 
+<<<1, 2>>>
+xor_reduce_gpu out
+1e 6b bb bc 16 fe fe 6b 78 e6 39 4f c0 3 c5 7d 
+<<<2048, 1024>>>
+xor_reduce_gpu out
+9c 12 22 b9 dd 65 a2 67 e8 56 52 f e4 56 64 d9 
+<<<2, 1024>>>
+xor_reduce_gpu out
+f5 3a 8b f7 a2 62 d0 ed 7 6d 47 3b 91 fe 10 2c 
+<<<1, 2>>>
+xor_reduce_gpu out
+b8 cb 33 c5 81 d3 49 1c b3 99 8b 65 ee 5b 42 63 
+sender r: r sum
+b8 cb 33 c5 81 d3 49 1c b3 99 8b 65 ee 5b 42 63 
+sender l: vector
+8d 59 c8 fa 97 5f 64 bb 97 b1 ac 18 cb c4 64 3a 
+50 3f 2f 31 18 25 d2 e9 45 1d aa 5f 30 fe dc 81 
+2e 45 a9 ce 1c 2b 96 4b e3 20 15 1b 6b 2d b9 c1 
+62 70 4 7d 92 e2 c8 12 ae e2 b1 be d5 f3 e0 c4 
+sender r: vector
+22 d4 3b c0 fb c8 81 7a 31 2b f0 cf b5 b4 8b 7e 
+80 db 35 28 2 b7 16 8d 5e f9 a8 b3 6d cb 4c 5d 
+a5 d3 d6 24 28 82 ec 9f 87 3e a8 74 18 11 86 69 
+6d 12 d0 59 4c 33 7c 5f 45 33 d 5c 44 9a 69 0 
+<<<4096, 1024>>>
+xor_reduce_gpu out
+2 c0 93 b3 3d e6 52 67 c 91 8 c3 84 83 45 98 
+<<<4, 1024>>>
+xor_reduce_gpu out
+3f b3 2e c7 1c f9 dd b8 8a 8 1e 1d b9 e9 cc 5c 
+<<<1, 4>>>
+xor_reduce_gpu out
+f8 53 e9 79 56 c9 e6 47 cd bc b9 5d 3a 2 33 6c 
+<<<4096, 1024>>>
+xor_reduce_gpu out
+ec 72 78 2d 9d 6e 87 6 d7 b6 50 1a da 34 e0 d8 
+<<<4, 1024>>>
+xor_reduce_gpu out
+9d fa 63 4b f1 57 5c 73 b9 b4 43 1e fa 98 e0 35 
+<<<1, 4>>>
+xor_reduce_gpu out
+3f b9 b9 1d 64 24 f0 aa 4 90 9b 6b 38 14 a4 7c 
+sender r: r sum
+3f b9 b9 1d 64 24 f0 aa 4 90 9b 6b 38 14 a4 7c 
+sender l: vector
+be 53 ae 5 7c 71 60 4b ae 9e 13 20 54 e0 ee 6a 
+26 49 b5 d4 cc c4 d6 39 ce ba 9a b0 cb 31 b3 d6 
+4f f0 8b f0 4c a b7 da 88 5a d9 82 7d bf db d8 
+d9 a6 84 24 65 e5 b6 1c 9d 48 4 46 93 89 ac d3 
+sender r: vector
+46 1a 2f c1 cd f8 86 9 5 7e fb 1d 50 79 50 77 
+fe a4 53 65 31 24 89 f2 8a b1 9d 73 43 90 1e a7 
+98 a0 4c df 62 4e 94 ef de 14 8b fe 52 a8 b be 
+18 dc 10 52 c9 c5 a0 26 95 1a 83 68 d9 21 ea 8f 
+<<<8192, 1024>>>
+xor_reduce_gpu out
+1c 80 4a 41 d3 b5 b1 b 4d ee 12 31 84 40 a ee 
+<<<8, 1024>>>
+xor_reduce_gpu out
+86 5f 35 1 c9 a9 1 9f b2 d1 70 b8 a3 a be 18 
+<<<1, 8>>>
+xor_reduce_gpu out
+14 32 90 13 d5 50 77 49 3d f7 f6 55 e0 7a 4b 89 
+<<<8192, 1024>>>
+xor_reduce_gpu out
+67 fd e b3 b4 34 36 61 de 96 2f d7 bc a9 19 47 
+<<<8, 1024>>>
+xor_reduce_gpu out
+80 c d7 58 96 7d 61 f1 dc b4 97 5 4c e8 3b 9f 
+<<<1, 8>>>
+xor_reduce_gpu out
+d6 7 97 c b1 3f a0 f6 b0 17 dc 43 c0 76 fb df 
+sender r: r sum
+d6 7 97 c b1 3f a0 f6 b0 17 dc 43 c0 76 fb df 
+sender l: vector
+b0 25 50 eb b2 a 5a 6b ff 18 af 58 4a 4b 85 40 
+b0 66 5e 96 2c 17 11 1b 57 1f 38 57 b f2 52 6c 
+89 ff e1 74 86 89 fb e8 34 b5 f7 a6 ac b9 7f 9 
+a0 15 8a 18 a 61 77 cd 8f 27 b ac 7c c6 63 e7 
+sender r: vector
+a 4a 95 2d 5e b0 e2 8e 71 a8 98 de 5f 94 64 65 
+e2 43 7d c9 28 7e 10 7d f2 ff f4 43 39 ef 3e 2a 
+17 c7 f8 fa 26 38 53 d 15 3a b8 b3 c4 f5 bb c8 
+43 8f 18 4e b 30 f2 32 ca dd 44 48 b2 6e f6 1e 
+<<<16384, 1024>>>
+xor_reduce_gpu out
+71 14 38 49 6c a2 c8 6b f3 37 3f d4 d5 b6 1a 7c 
+<<<16, 1024>>>
+xor_reduce_gpu out
+84 54 3c 7 d1 88 c 28 ef 21 fa f1 ba f6 52 7f 
+<<<1, 16>>>
+xor_reduce_gpu out
+7f 76 97 4 58 e7 8f 66 0 7e 59 d5 f0 8a 3c a 
+<<<16384, 1024>>>
+xor_reduce_gpu out
+48 a3 ad 3a 88 28 d2 da 16 ec 93 3d f3 74 3c 57 
+<<<16, 1024>>>
+xor_reduce_gpu out
+e4 3b c2 55 4d 6d b5 4e 20 c4 94 90 8e 91 a6 fd 
+<<<1, 16>>>
+xor_reduce_gpu out
+cc 2 4e a7 d1 cf d7 71 d4 fe 67 4d 60 c6 6c 65 
+sender r: r sum
+cc 2 4e a7 d1 cf d7 71 d4 fe 67 4d 60 c6 6c 65 
+recver: node val
+3c 95 2b d8 d6 b5 a2 27 68 f4 64 f6 e6 5d bf 20 
+recver: vector
+2e fa bb cf ea 51 f8 74 b2 d3 5a 46 d3 b8 d4 9b 
+3c 95 2b d8 d6 b5 a2 27 68 f4 64 f6 e6 5d bf 20 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+<<<1, 2>>>
+xor_reduce_gpu out
+fd 6b 7c 3c ad 1a 71 c6 87 cb 3f 9e 66 89 11 88 
+<<<1, 2>>>
+xor_reduce_gpu out
+a0 87 77 d0 71 4f c8 31 24 2d fc f0 a8 7a c 1e 
+recver: node val
+a0 87 77 d0 71 4f c8 31 24 2d fc f0 a8 7a c 1e 
+recver: vector
+ed 3c c7 b0 e9 d7 41 b ea 8 9e 97 6b f0 8 e4 
+a0 87 77 d0 71 4f c8 31 24 2d fc f0 a8 7a c 1e 
+10 57 bb 8c 44 cd 30 cd 6d c3 a1 9 d 79 19 6c 
+9 c e9 38 a7 47 6c af 3e e5 8f a 69 fa f2 53 
+<<<1, 4>>>
+xor_reduce_gpu out
+b3 c6 db 7d e5 f8 92 7b 58 b6 ae 92 76 38 58 7d 
+<<<1, 4>>>
+xor_reduce_gpu out
+30 7a 3a 91 36 cf 17 25 d3 b1 a8 39 2f 88 92 6f 
+recver: node val
+30 7a 3a 91 36 cf 17 25 d3 b1 a8 39 2f 88 92 6f 
+recver: vector
+7f 3b 33 5f 8e 35 bc 62 13 19 d1 b2 4f 9f 79 64 
+30 7a 3a 91 36 cf 17 25 d3 b1 a8 39 2f 88 92 6f 
+d3 f5 9a cc b6 25 a7 fc 31 94 5 15 ea e1 28 f5 
+71 9 62 47 57 18 66 9e 25 2b 33 f2 f9 8c 70 59 
+<<<1, 8>>>
+xor_reduce_gpu out
+f0 bd 7b ce 38 8 8 f4 9 46 e6 54 4c 12 4b b3 
+<<<1, 8>>>
+xor_reduce_gpu out
+e1 91 98 fc c0 55 b8 9f f6 4e f 42 b3 c3 2a 66 
+recver: node val
+e1 91 98 fc c0 55 b8 9f f6 4e f 42 b3 c3 2a 66 
+recver: vector
+9a 10 2c 96 df d8 4 33 26 30 f4 71 90 a9 c9 50 
+e1 91 98 fc c0 55 b8 9f f6 4e f 42 b3 c3 2a 66 
+70 89 c7 e9 58 24 c2 ce 9a 11 20 17 ce 2b b8 99 
+2f 56 ea 69 e4 31 e6 d4 74 a c0 5 f4 85 cf 71 
+<<<1, 16>>>
+xor_reduce_gpu out
+75 f6 d 5d b1 eb dc bd 5f 6 3e 38 7c cc 85 17 
+<<<1, 16>>>
+xor_reduce_gpu out
+60 21 f9 45 c4 7 e0 df 69 56 2b 50 1c 4d 85 11 
+recver: node val
+60 21 f9 45 c4 7 e0 df 69 56 2b 50 1c 4d 85 11 
+recver: vector
+12 ad b9 32 b5 82 1 a1 7d f6 69 36 5d ce b4 1 
+60 21 f9 45 c4 7 e0 df 69 56 2b 50 1c 4d 85 11 
+95 46 ed 83 de 58 81 19 70 91 8c 7e c7 6e 2c b5 
+f5 3d a3 72 7 5a 3d 9 e3 a7 ad 87 e1 3b 10 92 
+<<<1, 32>>>
+xor_reduce_gpu out
+b1 64 c4 87 73 db 86 65 f9 a9 3e 3f 8f f 3 58 
+<<<1, 32>>>
+xor_reduce_gpu out
+4c 72 58 39 a5 2d 7c c8 7b 13 97 e8 67 61 2f 16 
+recver: node val
+4c 72 58 39 a5 2d 7c c8 7b 13 97 e8 67 61 2f 16 
+recver: vector
+a8 1f f6 e2 b9 fb 73 9c 40 47 98 3b e e6 b ca 
+4c 72 58 39 a5 2d 7c c8 7b 13 97 e8 67 61 2f 16 
+f8 4e 15 60 c 14 58 ed b2 77 cc 53 2a 2d 43 93 
+2d 14 67 3 71 a0 fb 7d 53 80 25 e3 2d f8 94 81 
+<<<1, 64>>>
+xor_reduce_gpu out
+18 11 79 82 ab c0 7c dc 5e 7e 26 79 2a 95 e3 1b 
+<<<1, 64>>>
+xor_reduce_gpu out
+9f 41 c bd 34 1d 4f 84 32 a0 da d0 2d 62 16 d1 
+recver: node val
+9f 41 c bd 34 1d 4f 84 32 a0 da d0 2d 62 16 d1 
+recver: vector
+fe 1e 7c 4f 0 a5 ce b7 47 77 51 7 b1 87 22 cd 
+9f 41 c bd 34 1d 4f 84 32 a0 da d0 2d 62 16 d1 
+19 c5 f3 70 33 7c ad 2b c5 10 40 a8 11 f7 8a b6 
+52 45 7b a2 6b fa 96 10 cb 40 c0 b8 5b 88 26 6 
+<<<1, 128>>>
+xor_reduce_gpu out
+98 b4 26 d3 5e 7f 4d 5e 44 58 2a 13 a0 7a ae d9 
+<<<1, 128>>>
+xor_reduce_gpu out
+63 fc 3b cb f 5b ad 60 fd 47 11 ff d2 e fa 3e 
+recver: node val
+63 fc 3b cb f 5b ad 60 fd 47 11 ff d2 e fa 3e 
+recver: vector
+71 19 5f cb 78 5e a8 49 e1 28 e5 79 4b 92 87 27 
+63 fc 3b cb f 5b ad 60 fd 47 11 ff d2 e fa 3e 
+b0 6c 59 f9 43 f4 f 98 73 50 3 b0 a0 8d 69 5c 
+eb 2d d9 c8 c3 be 9e a6 1d c8 af 3a 4f 2 20 f0 
+<<<1, 256>>>
+xor_reduce_gpu out
+74 fb 4b 9 f 7a d4 97 98 a1 66 95 83 22 26 28 
+<<<1, 256>>>
+xor_reduce_gpu out
+39 b5 c6 a8 d0 b1 e e5 6e b4 77 bb f0 7e 49 66 
+recver: node val
+39 b5 c6 a8 d0 b1 e e5 6e b4 77 bb f0 7e 49 66 
+recver: vector
+d5 4a a2 61 3f e6 ab e7 bb c1 d 1d ec 94 36 11 
+39 b5 c6 a8 d0 b1 e e5 6e b4 77 bb f0 7e 49 66 
+74 6d 98 c5 af 76 bf 85 13 84 27 bb d b2 41 f4 
+78 af 50 f1 8c 8d 4a 57 9a fd 6 26 6b 8b da d6 
+<<<1, 512>>>
+xor_reduce_gpu out
+df 6 76 e eb 30 25 32 98 1e a7 2 5b 40 d7 73 
+<<<1, 512>>>
+xor_reduce_gpu out
+52 ae 13 d9 c8 21 f1 54 8 a1 b2 d3 c9 13 9f 10 
+recver: node val
+52 ae 13 d9 c8 21 f1 54 8 a1 b2 d3 c9 13 9f 10 
+recver: vector
+b3 38 ff 6e 8d d4 f 36 aa 2b 4e 83 78 e5 1e b2 
+52 ae 13 d9 c8 21 f1 54 8 a1 b2 d3 c9 13 9f 10 
+74 6a 96 b4 db 6d 7e e1 9c d8 25 b7 b5 94 d2 c2 
+9f d0 d5 1 2d 56 5e 82 c9 7b 29 24 cd cc ac 13 
+<<<1, 1024>>>
+xor_reduce_gpu out
+61 24 aa 65 a8 e3 66 97 51 5b 50 14 2e b 1f 7e 
+<<<1, 1024>>>
+xor_reduce_gpu out
+7 6a 55 2c a9 df 35 cf 15 27 c4 43 3e 95 c9 20 
+recver: node val
+7 6a 55 2c a9 df 35 cf 15 27 c4 43 3e 95 c9 20 
+recver: vector
+3 d3 65 de 4 96 28 f0 a2 3e 0 fe 1e b9 ac 71 
+7 6a 55 2c a9 df 35 cf 15 27 c4 43 3e 95 c9 20 
+3 3e fb a4 e0 55 20 9e 8f 5c 2f f5 8d 95 7b d5 
+d4 19 c0 d 49 72 fd e 6d ad 54 2c 2b 3 95 2c 
+<<<2, 1024>>>
+xor_reduce_gpu out
+30 8 cc 56 51 18 26 30 39 c d8 25 43 70 9a d3 
+<<<1, 2>>>
+xor_reduce_gpu out
+94 5f 17 19 37 1f f9 61 c7 b3 7f 63 96 41 e2 f8 
+<<<2, 1024>>>
+xor_reduce_gpu out
+bf ad 81 e9 c7 aa 49 df 94 85 75 ea 5 a2 34 e5 
+<<<1, 2>>>
+xor_reduce_gpu out
+9b 18 65 3d e9 cb 4 cb 9d 89 81 2a af 81 dc 89 
+recver: node val
+9b 18 65 3d e9 cb 4 cb 9d 89 81 2a af 81 dc 89 
+recver: vector
+59 bd 1b 7 2a d5 fe 53 26 99 7f 9d 43 c3 29 51 
+9b 18 65 3d e9 cb 4 cb 9d 89 81 2a af 81 dc 89 
+74 9f 61 67 2e 86 6 3c 3c 12 a 89 a2 3c 4f d8 
+29 8b 7d b9 71 5b 22 8f a4 2e 82 2c 9f 8a d2 21 
+<<<4, 1024>>>
+xor_reduce_gpu out
+b0 86 f4 51 a9 43 3d 50 2 9b b4 bf 82 45 37 69 
+<<<1, 4>>>
+xor_reduce_gpu out
+d8 5c 1e 6b 51 84 4a 36 16 cc 46 3b 75 97 fa 5e 
+<<<4, 1024>>>
+xor_reduce_gpu out
+db b1 2a 1c a7 f4 3b 9f 71 68 4d 77 da fa 23 e0 
+<<<1, 4>>>
+xor_reduce_gpu out
+6d 4c 91 d9 32 e6 5c 46 4c c1 ef c6 a e2 24 db 
+recver: node val
+6d 4c 91 d9 32 e6 5c 46 4c c1 ef c6 a e2 24 db 
+recver: vector
+a7 49 26 be f5 d2 3e 85 2e 6c a5 4f fa fd 6c cb 
+6d 4c 91 d9 32 e6 5c 46 4c c1 ef c6 a e2 24 db 
+9b 34 6 94 fe be 5c 8a 12 43 a ac b3 17 fb ef 
+e6 4 52 a7 96 e4 4a 75 9e 2f 99 ae 27 50 e6 1e 
+<<<8, 1024>>>
+xor_reduce_gpu out
+9d 8c 5d e5 42 30 7f a 91 4b 96 7d cd 3b b6 4a 
+<<<1, 8>>>
+xor_reduce_gpu out
+cf e6 bc a9 14 51 5d 46 a4 33 94 3 90 a1 70 66 
+<<<8, 1024>>>
+xor_reduce_gpu out
+17 6 1d 44 87 e3 4c ba 4a be b6 fa 8e 5c 67 c9 
+<<<1, 8>>>
+xor_reduce_gpu out
+c7 fc 2b 23 7d 9d 65 27 fe 78 73 71 54 7f 6c ab 
+recver: node val
+c7 fc 2b 23 7d 9d 65 27 fe 78 73 71 54 7f 6c ab 
+recver: vector
+76 25 f a9 5a 67 93 8d 16 6a 91 7 5d d2 82 54 
+c7 fc 2b 23 7d 9d 65 27 fe 78 73 71 54 7f 6c ab 
+b2 89 d3 c 3e 36 98 ab 0 c6 d0 55 29 d 20 9c 
+db f9 86 92 9c c6 bf 7e 8f 37 16 ab e9 72 a8 d8 
+<<<16, 1024>>>
+xor_reduce_gpu out
+d5 67 6a 6c fa b9 52 5b 7a 41 c0 82 54 b5 44 63 
+<<<1, 16>>>
+xor_reduce_gpu out
+f8 76 e8 b7 44 3d 1 ae 26 c5 c3 12 28 71 d4 fd 
+<<<16, 1024>>>
+xor_reduce_gpu out
+f4 28 3c 91 9d 11 f4 5b ce 74 92 e7 40 d4 33 a 
+<<<1, 16>>>
+xor_reduce_gpu out
+19 2 85 c1 91 bb c7 50 7b 77 26 44 32 d9 1e ee 
+recver: node val
+19 2 85 c1 91 bb c7 50 7b 77 26 44 32 d9 1e ee 
+recver: vector
+bb 4e 22 5c 6f 5f 75 43 e9 57 ee ba d3 5a af 2b 
+19 2 85 c1 91 bb c7 50 7b 77 26 44 32 d9 1e ee 
+bc 6e a0 cf 51 1f eb 8 7e f 4f 2a bc 0 66 f6 
+a 29 ae fd 17 c3 f0 d8 f4 38 1 2b 5f dd 2e 8b 
+<<<32, 1024>>>
+xor_reduce_gpu out
+3c 7d 3 15 c4 21 c4 8e 2d 44 57 85 3e f4 d d2 
+<<<1, 32>>>
+xor_reduce_gpu out
+97 75 d2 52 10 84 b8 c8 f7 4b b8 ce 74 97 42 b8 
+<<<32, 1024>>>
+xor_reduce_gpu out
+0 c7 92 82 e8 2e 70 9b 1a a3 51 cd c3 58 d6 3b 
+<<<1, 32>>>
+xor_reduce_gpu out
+35 9 d6 43 49 27 7a 91 66 4f d0 42 48 2f 6d d7 
+recver: node val
+35 9 d6 43 49 27 7a 91 66 4f d0 42 48 2f 6d d7 
+recver: vector
+ed 26 3a d 7e 9f e2 b6 7e 62 33 85 ad b8 74 b7 
+35 9 d6 43 49 27 7a 91 66 4f d0 42 48 2f 6d d7 
+17 31 b4 51 a8 1a f9 6e 14 74 90 c2 55 c1 61 19 
+21 85 43 bc 69 99 57 24 ff b4 1b e8 62 ad 5a 77 
+<<<64, 1024>>>
+xor_reduce_gpu out
+9f c1 94 9c dd 53 c1 fb 2f 8f bd 54 e6 5a 78 2c 
+<<<1, 64>>>
+xor_reduce_gpu out
+c4 1f 3 6f 53 0 fe cd 84 bb 59 e4 24 b3 4e da 
+<<<64, 1024>>>
+xor_reduce_gpu out
+a9 a8 f0 81 19 10 af df 27 d1 ca dc 78 56 5b 17 
+<<<1, 64>>>
+xor_reduce_gpu out
+56 7a b7 c9 62 b9 18 c0 14 7 36 3 d d5 f3 40 
+recver: node val
+56 7a b7 c9 62 b9 18 c0 14 7 36 3 d d5 f3 40 
+recver: vector
+c4 e2 1b 9b 83 5f 70 3b 73 bb 4b 51 83 1d e7 48 
+56 7a b7 c9 62 b9 18 c0 14 7 36 3 d d5 f3 40 
+60 d6 c2 bf 29 8e 3e 3b 97 7c e9 d6 64 8e 9b 7e 
+16 23 75 74 94 4 1b fb f a2 95 5d 34 33 d1 ce 
+<<<128, 1024>>>
+xor_reduce_gpu out
+e7 fe 27 d2 52 58 16 66 65 3a b4 cc a3 9f e6 46 
+<<<1, 128>>>
+xor_reduce_gpu out
+2c 64 ca df d5 81 74 99 c1 2b 4a e8 b8 6b 90 f1 
+<<<128, 1024>>>
+xor_reduce_gpu out
+25 b8 31 60 be 89 83 2a e4 45 d6 f8 3d 18 cb 37 
+<<<1, 128>>>
+xor_reduce_gpu out
+60 b6 aa e2 e9 c6 a3 74 74 be 91 e 64 38 86 6d 
+recver: node val
+60 b6 aa e2 e9 c6 a3 74 74 be 91 e 64 38 86 6d 
+recver: vector
+ec 81 f3 c7 91 18 ca 97 c1 5c 4 f4 b4 2d ab cf 
+60 b6 aa e2 e9 c6 a3 74 74 be 91 e 64 38 86 6d 
+4e f7 21 ff 73 f7 51 ef df 9b 59 dd f4 61 58 56 
+8b 90 ff d1 70 c4 8c 11 19 83 e5 9d 3a 7f f4 1f 
+<<<256, 1024>>>
+xor_reduce_gpu out
+cb 21 d6 5d ef 71 5d d3 f4 4d e8 5e 74 8b c8 8f 
+<<<1, 256>>>
+xor_reduce_gpu out
+60 d5 fc cb b3 2b d2 b4 98 b 90 8f 8 bd be 96 
+<<<256, 1024>>>
+xor_reduce_gpu out
+70 c0 e6 f 14 d3 f1 94 a5 c3 22 9b 56 e3 b0 ca 
+<<<1, 256>>>
+xor_reduce_gpu out
+2e 4e 1c 3f ed 97 39 cb 1a 6 f3 f7 f2 a0 d9 e8 
+recver: node val
+2e 4e 1c 3f ed 97 39 cb 1a 6 f3 f7 f2 a0 d9 e8 
+recver: vector
+2f d6 25 f2 5b 1e 16 a1 99 ae 4a 41 4a d 29 d3 
+2e 4e 1c 3f ed 97 39 cb 1a 6 f3 f7 f2 a0 d9 e8 
+f6 d7 4d e6 9b d4 86 fb 95 94 e3 dc 68 a8 3b 96 
+5e b3 18 d4 5c 1d 6 13 ea 2a fd 81 3 27 f9 f0 
+<<<512, 1024>>>
+xor_reduce_gpu out
+d2 55 88 79 5 5f 8 bf 70 c3 39 80 bb fc 3d ab 
+<<<1, 512>>>
+xor_reduce_gpu out
+6c 1 b1 24 e1 43 69 3c 6 fc a0 da ac 2f 9f 41 
+<<<512, 1024>>>
+xor_reduce_gpu out
+fa 2b a0 80 63 20 79 39 d9 4f 24 bb 39 d ae 2f 
+<<<1, 512>>>
+xor_reduce_gpu out
+9e 90 1b 6a 88 7d 7f 38 78 b2 a6 c7 5a d5 e1 f8 
+recver: node val
+9e 90 1b 6a 88 7d 7f 38 78 b2 a6 c7 5a d5 e1 f8 
+recver: vector
+df 4d 34 20 5b 75 27 bc c6 29 b3 1e f8 51 fc de 
+9e 90 1b 6a 88 7d 7f 38 78 b2 a6 c7 5a d5 e1 f8 
+ab fa 5c 6e 9e ce 90 89 21 e9 6a 84 81 c1 4e 85 
+15 3e a9 3c ab ce cd af b5 4b d 25 d9 1c 23 ae 
+<<<1024, 1024>>>
+xor_reduce_gpu out
+26 9a fd 16 81 f1 d8 4d e 9 39 67 a1 5c 54 af 
+<<<1, 1024>>>
+xor_reduce_gpu out
+7 b1 3 2c 6f 29 b4 38 e1 19 8b 74 8b 3a fe 5a 
+<<<1024, 1024>>>
+xor_reduce_gpu out
+87 5d 6b f8 71 f7 bd bf c4 bb 30 2b 4f c 72 be 
+<<<1, 1024>>>
+xor_reduce_gpu out
+a8 7c 2c a7 4d a6 ee b2 d7 d bd 7e e0 91 58 fe 
+recver: node val
+a8 7c 2c a7 4d a6 ee b2 d7 d bd 7e e0 91 58 fe 
+recver: vector
+38 5 66 cf e5 1d b1 3 2f 3d 87 99 2c db 8b f5 
+a8 7c 2c a7 4d a6 ee b2 d7 d bd 7e e0 91 58 fe 
+6e a5 6a 65 b 6b 51 7b 3e a0 f9 45 87 a4 fa d9 
+68 10 6c 2b 25 bb b ad 38 83 5b d5 3b 45 6a 8f 
+<<<2048, 1024>>>
+xor_reduce_gpu out
+18 a2 1f d8 42 a5 8d 1f e6 8c 5c 67 98 fe 87 bb 
+<<<2, 1024>>>
+xor_reduce_gpu out
+fb bd f4 50 a8 b 12 c6 ae b f6 2e 40 a1 1f 48 
+<<<1, 2>>>
+xor_reduce_gpu out
+f3 c2 89 0 4f 63 cf a8 29 18 45 1b 49 33 11 9d 
+<<<2048, 1024>>>
+xor_reduce_gpu out
+4 5c c8 fd 45 3d 10 e5 cd 6a b9 82 2 ab b9 bb 
+<<<2, 1024>>>
+xor_reduce_gpu out
+f5 fd 39 1c 4f a8 5e e4 d8 72 ca 36 41 b4 19 f7 
+<<<1, 2>>>
+xor_reduce_gpu out
+4b 48 37 ca b 89 cb 52 28 c fd 8d 96 b2 5f 20 
+recver: node val
+4b 48 37 ca b 89 cb 52 28 c fd 8d 96 b2 5f 20 
+recver: vector
+6c d0 97 5d 1c f e3 78 ea 30 a2 71 ec 17 36 98 
+4b 48 37 ca b 89 cb 52 28 c fd 8d 96 b2 5f 20 
+dc ee 87 7 5c aa 88 b9 eb 8 4c 88 ae e4 9c d5 
+c3 b5 28 de 13 35 58 f9 91 c6 28 6b e3 1e ab 51 
+<<<4096, 1024>>>
+xor_reduce_gpu out
+fb a5 d6 56 7d a3 d5 9 96 b4 3a 56 a2 51 18 61 
+<<<4, 1024>>>
+xor_reduce_gpu out
+d2 52 d2 6a 15 99 b2 da 2 9e b1 33 a8 e9 f8 17 
+<<<1, 4>>>
+xor_reduce_gpu out
+8a 3e e 3f cf 4d 20 29 cd 75 c1 c4 75 ea 23 96 
+<<<4096, 1024>>>
+xor_reduce_gpu out
+23 7 73 71 6e 59 64 1a c5 bd 9f 0 4c 15 fc a2 
+<<<4, 1024>>>
+xor_reduce_gpu out
+9d 32 8a 17 8d 22 f6 a7 6 91 c2 cf 2c 99 c2 24 
+<<<1, 4>>>
+xor_reduce_gpu out
+ca d4 cc 76 d6 fb fb a9 3 d8 fa 36 2d 74 5f 77 
+recver: node val
+ca d4 cc 76 d6 fb fb a9 3 d8 fa 36 2d 74 5f 77 
+recver: vector
+8f 9a c1 e2 5 fb 31 ea 61 29 9d 50 d5 80 8f ca 
+ca d4 cc 76 d6 fb fb a9 3 d8 fa 36 2d 74 5f 77 
+a3 53 b7 51 2e 6a 3f e4 79 25 c0 a1 f8 87 88 75 
+a6 80 9d 91 a6 a0 84 76 24 3 f5 41 8d dc 2d dc 
+<<<8192, 1024>>>
+xor_reduce_gpu out
+79 41 86 bb 8c b3 a9 68 6a 9a c3 42 e e2 9b 53 
+<<<8, 1024>>>
+xor_reduce_gpu out
+29 20 7e 13 ef 38 ec 6e 12 fa 1 9d 3 ed e2 3a 
+<<<1, 8>>>
+xor_reduce_gpu out
+7e 1d 79 7c 6 1a 1c e6 b7 c9 f7 7b 3b 43 91 33 
+<<<8192, 1024>>>
+xor_reduce_gpu out
+11 c6 a5 e1 6d 5 79 56 30 34 b1 ff b3 53 5d db 
+<<<8, 1024>>>
+xor_reduce_gpu out
+87 83 1 b6 a6 a8 41 cb 84 b4 d1 c2 76 6d 95 da 
+<<<1, 8>>>
+xor_reduce_gpu out
+29 f4 45 7f 7b 37 5b 49 b0 e8 c6 f2 5c bb 8f 87 
+recver: node val
+29 f4 45 7f 7b 37 5b 49 b0 e8 c6 f2 5c bb 8f 87 
+recver: vector
+6d a3 c a5 bf a6 54 cc 13 4e 31 4c 72 3c 5b e6 
+29 f4 45 7f 7b 37 5b 49 b0 e8 c6 f2 5c bb 8f 87 
+6a b4 96 9b 4e dc e1 48 e4 c4 1c 83 48 52 2 ff 
+c0 42 f3 1a 28 f7 e4 68 95 c6 57 b d8 ac ca 69 
+<<<16384, 1024>>>
+xor_reduce_gpu out
+ca b1 df 16 ac 5a 5d 6b a8 bc 74 fc 69 d a1 68 
+<<<16, 1024>>>
+xor_reduce_gpu out
+53 ae ee 11 d9 d6 70 16 23 e0 59 d8 cc 6a aa e5 
+<<<1, 16>>>
+xor_reduce_gpu out
+71 41 fc c0 40 31 e9 e2 66 48 5e fa 1c 86 15 4a 
+<<<16384, 1024>>>
+xor_reduce_gpu out
+24 98 a4 cf 35 1b c 14 54 cc ed dc 5f 86 d 91 
+<<<16, 1024>>>
+xor_reduce_gpu out
+30 41 42 ed c7 ab c0 69 46 c2 86 5f ee 6b 51 2f 
+<<<1, 16>>>
+xor_reduce_gpu out
+c9 59 84 2d 34 4c 93 a5 d2 c8 c4 bd c8 dc 4f 9d 
+recver: node val
+c9 59 84 2d 34 4c 93 a5 d2 c8 c4 bd c8 dc 4f 9d 
+recver: vector
+71 41 fc c0 40 31 e9 e2 66 48 5e fa 1c 86 15 4a 
+c9 59 84 2d 34 4c 93 a5 d2 c8 c4 bd c8 dc 4f 9d 
+58 38 72 7a bc 58 18 87 d9 63 9 97 3 f2 39 7c 
+54 c2 b5 95 ae b9 bd a9 4b 37 cd eb c6 68 f 80 
+full
+b0 25 50 eb b2 a 5a 6b ff 18 af 58 4a 4b 85 40 
+a 4a 95 2d 5e b0 e2 8e 71 a8 98 de 5f 94 64 65 
+b0 66 5e 96 2c 17 11 1b 57 1f 38 57 b f2 52 6c 
+e2 43 7d c9 28 7e 10 7d f2 ff f4 43 39 ef 3e 2a 
+punc
+71 41 fc c0 40 31 e9 e2 66 48 5e fa 1c 86 15 4a 
+c9 59 84 2d 34 4c 93 a5 d2 c8 c4 bd c8 dc 4f 9d 
+58 38 72 7a bc 58 18 87 d9 63 9 97 3 f2 39 7c 
+54 c2 b5 95 ae b9 bd a9 4b 37 cd eb c6 68 f 80 
+choice
+ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+delta
+67 45 8b 6b c6 23 7b 32 69 98 3c 64 73 48 33 66 
+ot: 0-app/unit_test.cu:134: void test_cot(GPUvector<OTblock>&, OTblock*, GPUvector<OTblock>&, GPUvector<OTblock>&): Assertion `fullVector == choiceVector' failed.
 ========= Error: process didn't terminate successfully
 ========= Target application returned an error
 ========= ERROR SUMMARY: 0 errors

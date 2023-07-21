@@ -88,12 +88,12 @@ void warp_reduce(volatile uint64_t *sdata, uint64_t tid) {
 }
 
 __global__
-void xor_reduce_gpu(uint64_t *g_data) {
+void xor_reduce_gpu(uint64_t *data) {
   extern __shared__ uint64_t sdata[];
   uint64_t tid = threadIdx.x;
-  uint64_t i = blockIdx.x * (blockDim.x * 2);
+  uint64_t start = blockIdx.x * (blockDim.x * 2);
 
-  sdata[tid] = g_data[tid + i] ^ g_data[tid + i + blockDim.x];
+  sdata[tid] = data[start + tid] ^ data[start + tid + blockDim.x];
   if (blockDim.x >= 1024 && tid < 512) sdata[tid] ^= sdata[tid + 512];
   __syncthreads();
   if (blockDim.x >= 512 && tid < 256) sdata[tid] ^= sdata[tid + 256];
@@ -103,7 +103,14 @@ void xor_reduce_gpu(uint64_t *g_data) {
   if (blockDim.x >= 128 && tid < 64) sdata[tid] ^= sdata[tid + 64];
   __syncthreads();
   if (tid < 32) warp_reduce(sdata, tid);
-  if (tid < 2) g_data[2 * blockIdx.x + tid] = sdata[tid];
+  if (tid < 2) data[start + tid] = sdata[tid];
+}
+
+__global__
+void xor_reduce_packer_gpu(uint64_t *data, uint64_t width) {
+  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  data[2 * tid] = data[tid * width];
+  data[2 * tid + 1] = data[tid * width + 1];
 }
 
 __global__

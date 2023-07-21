@@ -22,6 +22,8 @@ void SilentOTSender::run() {
   pprf_expand();
   Log::end(Sender, Expand);
 
+  return;
+
   Log::start(Sender, Compress);
   QuasiCyclic code(Sender, 2 * numOT, numOT);
   code.encode(fullVector);
@@ -66,7 +68,7 @@ void SilentOTSender::buffer_init() {
 
   for (int t = 0; t < nTree; t++) {
     for (int i = 0; i < 4; i++) {
-      buff.data[i] = rand();
+      buff.data[i] = i;
     }
     bufferA.set(t, buff);
   }
@@ -90,11 +92,23 @@ void SilentOTSender::pprf_expand() {
     aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
     aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
 
+    cudaDeviceSynchronize();
+    printf("sender l: vector\n");
+    print_gpu<<<1, 1>>>((uint8_t*) leftNodes.data(), 64);
+    cudaDeviceSynchronize();
+    printf("sender r: vector\n");
+    print_gpu<<<1, 1>>>((uint8_t*) rightNodes.data(), 64);
+    cudaDeviceSynchronize();
+
     cudaStreamSynchronize(stream[0]);
     cudaStreamSynchronize(stream[1]);
 
     leftNodes.sum_async(nTree, width / 2, stream[2]);
     rightNodes.sum_async(nTree, width / 2, stream[3]);
+
+    printf("sender r: r sum\n");
+    print_gpu<<<1, 1>>>((uint8_t*) rightNodes.data(), 16);
+    cudaDeviceSynchronize();
 
     leftHash.at(d-1).xor_async(leftNodes, stream[2]);
     rightHash.at(d-1).xor_async(rightNodes, stream[3]);
@@ -116,7 +130,7 @@ void SilentOTSender::pprf_expand() {
     cudaEventRecord(other->expandEvents.at(d-1), stream[2]);
     cudaEventRecord(other->expandEvents.at(d-1), stream[3]);
   }
-  cudaDeviceSynchronize();//test
+  cudaDeviceSynchronize();// test
   other->eventsRecorded = true;
   cudaDeviceSynchronize();
   cudaStreamDestroy(stream[0]);

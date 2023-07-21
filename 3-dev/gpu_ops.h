@@ -32,7 +32,10 @@ __global__
 void complex_dot_product(cufftComplex *c, cufftComplex *a, cufftComplex *b);
 
 __global__
-void xor_reduce_gpu(uint64_t *g_data);
+void xor_reduce_gpu(uint64_t *data);
+
+__global__
+void xor_reduce_packer_gpu(uint64_t *data, uint64_t width);
 
 __global__
 void print_gpu(uint8_t *data, uint64_t n);
