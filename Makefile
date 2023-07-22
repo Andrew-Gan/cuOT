@@ -12,6 +12,8 @@ LIB_SRC := $(shell find 1-lib -name '*.c*')
 MOD_SRC := $(shell find 2-mod -name '*.c*')
 DEV_SRC := $(shell find 3-dev -name '*.c*')
 
+ALL_HDR := $(shell find 0-app 1-lib 2-mod 3-dev -name '*.h*')
+
 OBJ 	:= obj
 APP_OBJ := $(patsubst %.cu, $(OBJ)/app/%.o, $(notdir $(APP_SRC)))
 
@@ -41,7 +43,7 @@ all: $(EXE)
 $(EXE): $(APP_OBJ) $(LIB_OBJ) $(MOD_OBJ) $(DEV_OBJ)
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $^ -o $(EXE)
 
-$(OBJ)/app/%.o: 0-app/%.cu
+$(OBJ)/app/%.o: 0-app/%.cu $(ALL_HDR)
 	@mkdir -p $(OBJ)/app
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
@@ -51,11 +53,11 @@ $(OBJ)/lib/%.o:
 	$(addprefix -I,$(shell find 1-lib -type d -print)) -c -o $@ \
 	$(call FILTER,/$(basename $(notdir $@)).,$(LIB_SRC))
 
-$(OBJ)/mod/%.o: 2-mod/%.cu
+$(OBJ)/mod/%.o: 2-mod/%.cu $(ALL_HDR)
 	@mkdir -p $(OBJ)/mod
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
-$(OBJ)/dev/%.o: 3-dev/%.cu
+$(OBJ)/dev/%.o: 3-dev/%.cu $(ALL_HDR)
 	@mkdir -p $(OBJ)/dev
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 

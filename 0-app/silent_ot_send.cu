@@ -22,8 +22,6 @@ void SilentOTSender::run() {
   pprf_expand();
   Log::end(Sender, Expand);
 
-  return;
-
   Log::start(Sender, Compress);
   QuasiCyclic code(Sender, 2 * numOT, numOT);
   code.encode(fullVector);
@@ -66,6 +64,9 @@ void SilentOTSender::buffer_init() {
   leftNodes.resize(numOT);
   rightNodes.resize(numOT);
 
+  leftSum.resize(nTree);
+  rightSum.resize(nTree);
+
   for (int t = 0; t < nTree; t++) {
     for (int i = 0; i < 4; i++) {
       buff.data[i] = i;
@@ -92,24 +93,29 @@ void SilentOTSender::pprf_expand() {
     aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
     aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
 
+    leftNodes.sum_async(nTree, width / 2, stream[0]);
+    rightNodes.sum_async(nTree, width / 2, stream[1]);
+
+    cudaMemcpyAsync(leftSum.data(), leftNodes.data(), nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[0]);
+    cudaMemcpyAsync(rightSum.data(), rightNodes.data(), nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1]);
+
     cudaStreamSynchronize(stream[0]);
     cudaStreamSynchronize(stream[1]);
 
-    leftNodes.sum_async(nTree, width / 2, stream[2]);
-    rightNodes.sum_async(nTree, width / 2, stream[3]);
+    leftHash.at(d-1).xor_async(leftSum, stream[2]);
+    rightHash.at(d-1).xor_async(rightSum, stream[3]);
 
-    leftHash.at(d-1).xor_async(leftNodes, stream[2]);
-    rightHash.at(d-1).xor_async(rightNodes, stream[3]);
+    if (d == depth) {
+      leftHash.at(d).xor_async(leftSum,stream[2]);
+      rightHash.at(d).xor_async(rightSum, stream[3]);
+    }
 
     other->leftHash.at(d-1).copy_async(leftHash.at(d-1), stream[2]);
     other->rightHash.at(d-1).copy_async(rightHash.at(d-1), stream[3]);
 
     if (d == depth) {
-      leftHash.at(d).xor_async(leftNodes, stream[2]);
-      rightHash.at(d).xor_async(rightNodes, stream[3]);
-
-      leftHash.at(d).xor_async(delta, stream[2]);
-      rightHash.at(d).xor_async(delta, stream[3]);
+      leftHash.at(d).xor_one_to_many_async(delta, stream[2]);
+      rightHash.at(d).xor_one_to_many_async(delta, stream[3]);
 
       other->leftHash.at(d).copy_async(leftHash.at(d), stream[2]);
       other->rightHash.at(d).copy_async(rightHash.at(d), stream[3]);
@@ -118,7 +124,6 @@ void SilentOTSender::pprf_expand() {
     cudaEventRecord(other->expandEvents.at(d-1), stream[2]);
     cudaEventRecord(other->expandEvents.at(d-1), stream[3]);
   }
-  cudaDeviceSynchronize();// test
   other->eventsRecorded = true;
   cudaDeviceSynchronize();
   cudaStreamDestroy(stream[0]);

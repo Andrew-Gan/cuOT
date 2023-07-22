@@ -46,6 +46,7 @@ private:
   GPUvector<OTblock> fullVector;
   OTblock *delta = nullptr;
   SilentOTRecver *other = nullptr;
+  GPUvector<OTblock> leftSum, rightSum;
   void base_ot();
   void buffer_init();
   void pprf_expand();

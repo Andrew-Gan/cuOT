@@ -38,6 +38,9 @@ __global__
 void xor_reduce_packer_gpu(uint64_t *data, uint64_t width);
 
 __global__
-void print_gpu(uint8_t *data, uint64_t n);
+void print_gpu(void *data, uint64_t n);
+
+__global__
+void print_gpu(void *data, uint64_t n, uint64_t stride);
 
 #endif

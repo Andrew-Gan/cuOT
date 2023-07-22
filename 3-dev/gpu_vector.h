@@ -19,7 +19,7 @@ public:
 // blkPerPart: number of OTblocks in a partition
 template<typename T>
 void GPUvector<T>::sum_async(uint64_t nPartition, uint64_t blkPerPart, cudaStream_t s) {
-  uint64_t blockSize, nBlocks, mem, u64PerPartition;
+  uint64_t blockSize, blockSize2, nBlocks, mem, u64PerPartition;
   for (uint64_t remBlocks = blkPerPart; remBlocks > 1; remBlocks /= 1024) {
     u64PerPartition = 2 * remBlocks;
     blockSize = u64PerPartition >= 2048 ? 1024 : u64PerPartition / 2;
@@ -28,9 +28,9 @@ void GPUvector<T>::sum_async(uint64_t nPartition, uint64_t blkPerPart, cudaStrea
     xor_reduce_gpu<<<nBlocks, blockSize, mem, s>>>((uint64_t*) this->mPtr);
     cudaDeviceSynchronize();
 
-    blockSize = std::min(1024lu, nBlocks);
+    blockSize2 = std::min(1024lu, nBlocks);
     nBlocks = nBlocks < 1024 ? 1 :( nBlocks + 1023) / 1024;
-    xor_reduce_packer_gpu<<<nBlocks, blockSize, 0, s>>>((uint64_t*) this->mPtr, 2 * blockSize);
+    xor_reduce_packer_gpu<<<nBlocks, blockSize2, 0, s>>>((uint64_t*) this->mPtr, 2 * blockSize);
     cudaDeviceSynchronize();
   }
 

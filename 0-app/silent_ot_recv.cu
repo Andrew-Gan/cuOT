@@ -29,8 +29,6 @@ void SilentOTRecver::run() {
   get_choice_vector();
   Log::end(Recver, Expand);
 
-  return;
-
   Log::start(Recver, Compress);
   QuasiCyclic code(Recver, 2 * numOT, numOT);
   code.encode(puncVector);
@@ -108,19 +106,18 @@ void SilentOTRecver::pprf_expand() {
   GPUvector<OTblock> *tmp0, *tmp1;
   uint8_t choice;
   uint64_t offsetInVec;
+  OTblock *inPtr, *outPtr;
 
   while(!eventsRecorded);
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
     outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
-    OTblock *inPtr = inBuffer->data();
-    OTblock *outPtr = outBuffer->data();
+    inPtr = inBuffer->data();
+    outPtr = outBuffer->data();
 
     uint64_t packedWidth = nTree * width;
     aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
     aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
-
-    cudaDeviceSynchronize();
 
     cudaStreamWaitEvent(stream[0], expandEvents.at(d-1));
     cudaStreamWaitEvent(stream[1], expandEvents.at(d-1));
@@ -135,7 +132,7 @@ void SilentOTRecver::pprf_expand() {
 
     for (uint64_t t = 0; t < nTree; t++) {
       // insert obtained sum into left side or right side
-      // and hash to retrieve active node value
+      // and sum together to retrieve active node value
       choice = (choices[d-1] >> t) & 1;
       tmp0 = choice == 0 ? &leftHash.at(d-1) : &rightHash.at(d-1);
       tmp1 = choice == 0 ? &leftNodes : &rightNodes;
@@ -157,6 +154,7 @@ void SilentOTRecver::pprf_expand() {
       tmp0 = choice == 0 ? &leftNodes : &rightNodes;
       offsetInVec = t * width + 2 * activeParent.at(t) + choice;
       cudaMemcpyAsync(outPtr + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[choice]);
+
       if (d == depth) {
         tmp0 = choice == 0 ? &rightNodes : &leftNodes;
         offsetInVec = t * width + 2 * activeParent.at(t) + (1-choice);
@@ -165,8 +163,8 @@ void SilentOTRecver::pprf_expand() {
       activeParent.at(t) *= 2;
       activeParent.at(t) += 1 - choice;
     }
+    cudaDeviceSynchronize();
   }
-  cudaDeviceSynchronize();
   eventsRecorded = false;
   cudaStreamDestroy(stream[0]);
   cudaStreamDestroy(stream[1]);

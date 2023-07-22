@@ -115,10 +115,21 @@ void xor_reduce_packer_gpu(uint64_t *data, uint64_t width) {
 }
 
 __global__
-void print_gpu(uint8_t *data, uint64_t n) {
+void print_gpu(void *data, uint64_t n) {
+  uint8_t *uData = (uint8_t*) data;
   for(int i = 0; i < n; i+= 16) {
     for (int j = i; j < n && j < i + 16; j++)
-      printf("%x ",  data[j]);
+      printf("%02x ", uData[j]);
+    printf("\n");
+  }
+}
+
+__global__
+void print_gpu(void *data, uint64_t n, uint64_t stride) {
+  uint8_t *uData = (uint8_t*) data;
+  for(int i = 0; i < n; i += 16) {
+    for (int j = i; j < n && j < i + 16; j++)
+      printf("%02x ", uData[j * stride]);
     printf("\n");
   }
 }

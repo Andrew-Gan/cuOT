@@ -8,7 +8,6 @@
 template<typename T>
 class GPUmatrix : public GPUdata {
 public:
-  using GPUdata::xor_async;
   GPUmatrix() {}
   GPUmatrix(uint64_t r, uint64_t c);
   uint64_t rows() { return mRows; }
@@ -18,7 +17,7 @@ public:
   void resize(uint64_t r, uint64_t c);
   void bit_transpose();
   void modp(uint64_t reducedTerms);
-  void xor_async(T *rhs, cudaStream_t s);
+  void xor_one_to_many_async(T *rhs, cudaStream_t s);
   GPUmatrix<T>& operator&=(T *rhs);
 
 protected:
@@ -71,7 +70,7 @@ void GPUmatrix<T>::modp(uint64_t reducedTerms) {
 }
 
 template<typename T>
-void GPUmatrix<T>::xor_async(T *rhs, cudaStream_t s) {
+void GPUmatrix<T>::xor_one_to_many_async(T *rhs, cudaStream_t s) {
   uint64_t nBlk = (mNBytes + 1023) / 1024;
   xor_single_gpu<<<nBlk, 1024, 0, s>>>(mPtr, (uint8_t*) rhs, sizeof(T), mNBytes);
   cudaDeviceSynchronize();

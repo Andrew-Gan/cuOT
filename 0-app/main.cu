@@ -9,7 +9,7 @@
 uint64_t* gen_choices(int depth) {
   uint64_t *choices = new uint64_t[depth+1];
   for (int d = 0; d < depth; d++) {
-    choices[d] = 0b1;
+    choices[d] = 0xffffffff;
     // choices[d] = ((uint64_t) rand() << 32) | rand();
   }
   // choice bit for y ^ delta must be invest of final layer
@@ -74,7 +74,9 @@ int main(int argc, char** argv) {
   std::future<std::array<GPUvector<OTblock>, 2>> recver = std::async(recver_worker, protocol, logOT, numTrees);
   auto [fullVector, delta] = sender.get();
   auto [puncVector, choiceVector] = recver.get();
-  test_cot(fullVector, delta, puncVector, choiceVector);
+
   Log::close();
+  
+  test_cot(fullVector, delta, puncVector, choiceVector);
   return EXIT_SUCCESS;
 }

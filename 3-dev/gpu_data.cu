@@ -92,8 +92,8 @@ void GPUdata::clear() {
 }
 
 void GPUdata::xor_async(GPUdata &rhs, cudaStream_t s) {
-  uint64_t nBlock = (mNBytes + 1023) / 1024;
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
+  uint64_t nBlock = (min + 1023) / 1024;
   xor_gpu<<<nBlock, 1024, 0, s>>>(mPtr, rhs.data(), min);
 }
 
