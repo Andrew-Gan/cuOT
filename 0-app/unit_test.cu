@@ -115,28 +115,28 @@ void test_reduce() {
 void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
   GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector) {
 
-  printf("full\n");
-  print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
-  printf("punc\n");
-  print_gpu<<<1, 1>>>((uint8_t*) puncVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
-  printf("choice\n");
-  print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
-  printf("delta\n");
-  print_gpu<<<1, 1>>>((uint8_t*) delta, 16);
-  cudaDeviceSynchronize();
+  // printf("full\n");
+  // print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 4, 16*512);
+  // cudaDeviceSynchronize();
+  // printf("punc\n");
+  // print_gpu<<<1, 1>>>((uint8_t*) puncVector.data(), 4, 16*512);
+  // cudaDeviceSynchronize();
+  // printf("choice\n");
+  // print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 4, 16*512);
+  // cudaDeviceSynchronize();
+  // printf("delta\n");
+  // print_gpu<<<1, 1>>>((uint8_t*) delta, 16);
+  // cudaDeviceSynchronize();
 
   fullVector ^= puncVector;
   choiceVector &= delta;
 
-  printf("lhs\n");
-  print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
-  printf("rhs\n");
-  print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
+  // printf("lhs\n");
+  // print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 4, 16*512);
+  // cudaDeviceSynchronize();
+  // printf("rhs\n");
+  // print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 4, 16*512);
+  // cudaDeviceSynchronize();
 
   assert(fullVector == choiceVector);
 }

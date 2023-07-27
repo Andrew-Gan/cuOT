@@ -22,10 +22,20 @@ void SilentOTSender::run() {
   pprf_expand();
   Log::end(Sender, Expand);
 
+  cudaDeviceSynchronize();
+  printf("fullVector before hash\n");
+  print_gpu<<<1, 1>>>(fullVector.data(), 64, 16);
+  cudaDeviceSynchronize();
+
   Log::start(Sender, Compress);
   QuasiCyclic code(Sender, 2 * numOT, numOT);
   code.encode(fullVector);
   Log::end(Sender, Compress);
+
+  cudaDeviceSynchronize();
+  printf("fullVector after hash\n");
+  print_gpu<<<1, 1>>>(fullVector.data(), 64, 16);
+  cudaDeviceSynchronize();
 }
 
 void SilentOTSender::base_ot() {

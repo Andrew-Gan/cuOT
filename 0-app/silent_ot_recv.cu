@@ -29,11 +29,29 @@ void SilentOTRecver::run() {
   get_choice_vector();
   Log::end(Recver, Expand);
 
+  return;
+
+  cudaDeviceSynchronize();
+  printf("puncVector before hash\n");
+  print_gpu<<<1, 1>>>(puncVector.data(), 64, 16);
+  cudaDeviceSynchronize();
+  printf("choiceVector before hash\n");
+  print_gpu<<<1, 1>>>(puncVector.data(), 64, 16);
+  cudaDeviceSynchronize();
+
   Log::start(Recver, Compress);
   QuasiCyclic code(Recver, 2 * numOT, numOT);
   code.encode(puncVector);
   code.encode(choiceVector);
   Log::end(Recver, Compress);
+
+  cudaDeviceSynchronize();
+  printf("puncVector after hash\n");
+  print_gpu<<<1, 1>>>(puncVector.data(), 64, 16);
+  cudaDeviceSynchronize();
+  printf("choiceVector after hash\n");
+  print_gpu<<<1, 1>>>(puncVector.data(), 64, 16);
+  cudaDeviceSynchronize();
 }
 
 void SilentOTRecver::base_ot() {

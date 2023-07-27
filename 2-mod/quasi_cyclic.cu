@@ -32,7 +32,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
 
   uint64_t blk = std::min(n64, 1024lu);
   uint64_t grid = n64 < 1024 ? 1 : n64 / 1024;
-  int_to_float<<<grid, blk>>>(a64_poly, (uint64_t*) a64.data());
+  cast<uint64_t, cufftReal><<<grid, blk>>>((uint64_t*) a64.data(), a64_poly);
   cudaDeviceSynchronize();
 
   cufftExecR2C(aPlan, a64_poly, a64_fft);
@@ -65,8 +65,9 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
 
   uint64_t blk = std::min(rows * n64, 1024lu);
   uint64_t grid = rows * n64 < 1024 ? 1 : rows * n64 / 1024;
-  int_to_float<<<grid, blk>>>(b64_poly, b64);
+  cast<uint64_t, cufftReal><<<grid, blk>>>(b64, b64_poly);
   cudaDeviceSynchronize();
+
   cufftExecR2C(bPlan, b64_poly, b64_fft);
   cudaFree(b64_poly);
   Log::end(mRole, CompressFFT);
@@ -74,8 +75,8 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   Log::start(mRole, CompressMult);
   cufftComplex *c64_fft;
   cufftReal *c64_poly;
-  cudaMalloc(&c64_poly, rows * n64 * sizeof(cufftReal));
-  cudaMalloc(&c64_fft, rows * n64 * sizeof(cufftComplex));
+  cudaMalloc(&c64_poly, rows * n64 * sizeof(*c64_poly));
+  cudaMalloc(&c64_fft, rows * n64 * sizeof(*c64_fft));
 
   blk = std::min(n64, 1024lu);
   dim3 blocks(n64 < 1024 ? 1 : n64 / 1024, rows);
@@ -89,14 +90,31 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   cudaFree(c64_fft);
   Log::end(mRole, CompressIFFT);
 
+  printf("c64 poly\n");
+  print_gpu<<<1, 1>>>(c64_poly, 64, 16);
+  cudaDeviceSynchronize();
+
   Log::start(mRole, CompressTP);
   GPUmatrix<OTblock> cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
-  float_to_int<<<rows * n64 / 1024, 1024>>>((uint64_t*) cModP1.data(), c64_poly);
+  cast<cufftReal, uint64_t><<<rows * n64 / 1024, 1024>>>(c64_poly, (uint64_t*) cModP1.data());
   cudaDeviceSynchronize();
   cudaFree(c64_poly);
 
+  printf("cModP1 post conversion\n");
+  print_gpu<<<1, 1>>>(cModP1.data(), 64, 16);
+  cudaDeviceSynchronize();
+
   cModP1.modp(nBlocks); // cModP1 = rows x nBlocks
+
+  printf("cModP1 post mod\n");
+  print_gpu<<<1, 1>>>(cModP1.data(), 64, 16);
+  cudaDeviceSynchronize();
+
   cModP1.bit_transpose(); // cModP1 = mOut x 1
+
+  printf("cModP1 post transpose\n");
+  print_gpu<<<1, 1>>>(cModP1.data(), 64, 16);
+  cudaDeviceSynchronize();
 
   xor_gpu<<<16 * mOut / 1024, 1024>>>((uint8_t*) vector.data(), (uint8_t*) cModP1.data(), 16 * mOut);
   cudaDeviceSynchronize();
