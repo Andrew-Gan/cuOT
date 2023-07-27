@@ -17,24 +17,35 @@ uint64_t* gen_choices(int depth) {
   return choices;
 }
 
-static std::pair<GPUvector<OTblock>, OTblock*> sender_worker(int protocol, int logOT, int numTrees) {
-  SilentOTSender ot(0, logOT, numTrees);
+static std::pair<GPUvector<OTblock>, OTblock*> sender_worker(SilentOTConfig config) {
+  SilentOTSender ot(config);
   ot.run();
   return ot.get();
 }
 
-static std::array<GPUvector<OTblock>, 2> recver_worker(int protocol, int logOT, int numTrees) {
-  uint64_t depth = logOT - log2((float) numTrees) + 1;
+static std::array<GPUvector<OTblock>, 2> recver_worker(SilentOTConfig config) {
+  uint64_t depth = config.logOT - log2((float) config.nTree) + 1;
   uint64_t *choices = gen_choices(depth);
-  SilentOTRecver ot(0, logOT, numTrees, choices);
+  config.choices = choices;
+  SilentOTRecver ot(config);
   ot.run();
   delete[] choices;
   return ot.get();
 }
 
+void cuda_init() {
+  test_cuda();
+  cudaFree(0);
+  curandGenerator_t prng;
+  curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
+  curandDestroyGenerator(prng);
+  cufftHandle initPlan;
+  cufftCreate(&initPlan);
+  cufftDestroy(initPlan);
+}
+
 int main(int argc, char** argv) {
   if (argc == 1) {
-    test_aes();
     test_base_ot();
     test_reduce();
     return 0;
@@ -59,19 +70,18 @@ int main(int argc, char** argv) {
   // initialise cuda, curand and cufft
   Log::start(Sender, CudaInit);
   Log::start(Recver, CudaInit);
-  test_cuda();
-  cudaFree(0);
-  curandGenerator_t prng;
-  curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
-  curandDestroyGenerator(prng);
-  cufftHandle initPlan;
-  cufftCreate(&initPlan);
-  cufftDestroy(initPlan);
+  cuda_init();
   Log::end(Sender, CudaInit);
   Log::end(Recver, CudaInit);
 
-  std::future<std::pair<GPUvector<OTblock>, OTblock*>> sender = std::async(sender_worker, protocol, logOT, numTrees);
-  std::future<std::array<GPUvector<OTblock>, 2>> recver = std::async(recver_worker, protocol, logOT, numTrees);
+  SilentOTConfig config = {
+    .id = 0, .logOT = logOT, .nTree = numTrees,
+    .baseOT = SimplestOT_t,
+    .expander = AesHash_t,
+    .compressor = QuasiCyclic_t,
+  };
+  std::future<std::pair<GPUvector<OTblock>, OTblock*>> sender = std::async(sender_worker, config);
+  std::future<std::array<GPUvector<OTblock>, 2>> recver = std::async(recver_worker, config);
   auto [fullVector, delta] = sender.get();
   auto [puncVector, choiceVector] = recver.get();
 

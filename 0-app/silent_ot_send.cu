@@ -1,16 +1,13 @@
-#include "simplest_ot.h"
 #include "silent_ot.h"
 #include <future>
 
 std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
 
-SilentOTSender::SilentOTSender(int myid, int logOT, int numTrees) :
-  SilentOT(myid, logOT, numTrees) {
-
+SilentOTSender::SilentOTSender(SilentOTConfig config) : SilentOT(config) {
   buffer_init();
-  silentOTSenders[id] = this;
-  while(silentOTRecvers[id] == nullptr);
-  other = silentOTRecvers[id];
+  silentOTSenders[config.id] = this;
+  while(silentOTRecvers[config.id] == nullptr);
+  other = silentOTRecvers[config.id];
 }
 
 void SilentOTSender::run() {
@@ -28,8 +25,12 @@ void SilentOTSender::run() {
   cudaDeviceSynchronize();
 
   Log::start(Sender, Compress);
-  QuasiCyclic code(Sender, 2 * numOT, numOT);
-  code.encode(fullVector);
+  switch (mConfig.compressor) {
+    case QuasiCyclic_t:
+      QuasiCyclic code(Sender, 2 * numOT, numOT);
+      code.encode(fullVector);
+    // case ExpandAccumulate:
+  }
   Log::end(Sender, Compress);
 
   cudaDeviceSynchronize();
@@ -42,9 +43,12 @@ void SilentOTSender::base_ot() {
   std::vector<std::future<std::array<GPUvector<OTblock>, 2>>> workers;
   for (int d = 0; d <= depth; d++) {
     workers.push_back(std::async([d, this]() {
-      return SimplestOT(Sender, d, nTree).send();
+      switch (mConfig.baseOT) {
+        case SimplestOT_t: return SimplestOT(Sender, d, mConfig.nTree).send();
+      }
     }));
   }
+  
   for (auto &worker : workers) {
     auto res = worker.get();
     leftHash.push_back(res[0]);
@@ -53,14 +57,6 @@ void SilentOTSender::base_ot() {
 }
 
 void SilentOTSender::buffer_init() {
-  uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k0_blk[16] = {0};
-  uint8_t k1_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
-  aesLeft.init(k0_blk);
-  aesRight.init(k1_blk);
-
   OTblock buff;
 
   for (int i = 0; i < 4; i++) {
@@ -74,10 +70,10 @@ void SilentOTSender::buffer_init() {
   leftNodes.resize(numOT);
   rightNodes.resize(numOT);
 
-  leftSum.resize(nTree);
-  rightSum.resize(nTree);
+  leftSum.resize(mConfig.nTree);
+  rightSum.resize(mConfig.nTree);
 
-  for (int t = 0; t < nTree; t++) {
+  for (int t = 0; t < mConfig.nTree; t++) {
     for (int i = 0; i < 4; i++) {
       buff.data[i] = i;
     }
@@ -86,6 +82,22 @@ void SilentOTSender::buffer_init() {
 }
 
 void SilentOTSender::pprf_expand() {
+  // init keys
+  uint64_t k0 = 3242342, k1 = 8993849;
+  uint8_t k0_blk[16] = {0};
+  uint8_t k1_blk[16] = {0};
+  memcpy(&k0_blk[8], &k0, sizeof(k0));
+  memcpy(&k1_blk[8], &k1, sizeof(k1));
+
+  Expander *expandLeft, *expandRight;
+  switch (mConfig.expander) {
+    case AesHash_t:
+      AesHash left(k0_blk);
+      AesHash right(k1_blk);
+      expandLeft = &left;
+      expandRight = &right;
+  }
+
   cudaStream_t stream[4];
   cudaStreamCreate(&stream[0]);
   cudaStreamCreate(&stream[1]);
@@ -99,15 +111,15 @@ void SilentOTSender::pprf_expand() {
     OTblock *inPtr = inBuffer->data();
     OTblock *outPtr = outBuffer->data();
 
-    uint64_t packedWidth = nTree * width;
-    aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
-    aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
+    uint64_t packedWidth = mConfig.nTree * width;
+    expandLeft->expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
+    expandRight->expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
 
-    leftNodes.sum_async(nTree, width / 2, stream[0]);
-    rightNodes.sum_async(nTree, width / 2, stream[1]);
+    leftNodes.sum_async(mConfig.nTree, width / 2, stream[0]);
+    rightNodes.sum_async(mConfig.nTree, width / 2, stream[1]);
 
-    cudaMemcpyAsync(leftSum.data(), leftNodes.data(), nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[0]);
-    cudaMemcpyAsync(rightSum.data(), rightNodes.data(), nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1]);
+    cudaMemcpyAsync(leftSum.data(), leftNodes.data(), mConfig.nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[0]);
+    cudaMemcpyAsync(rightSum.data(), rightNodes.data(), mConfig.nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1]);
 
     cudaStreamSynchronize(stream[0]);
     cudaStreamSynchronize(stream[1]);

@@ -6,19 +6,28 @@
 #include <atomic>
 #include "gpu_vector.h"
 #include "gpu_matrix.h"
-#include "quasi_cyclic.h"
-#include "aes.h"
+#include "base_ot.h"
+#include "expander.h"
+#include "compressor.h"
 
 #define CHUNK_SIDE (1<<18)
 
 class SilentOTSender;
 class SilentOTRecver;
 
+struct SilentOTConfig {
+  int id, logOT, nTree;
+  uint64_t *choices;
+  BaseOTType baseOT;
+  ExpanderType expander;
+  CompressType compressor;
+};
+
 class SilentOT {
 public:
-  SilentOT(int myid, int logOT, int numTrees) : id(myid), nTree(numTrees) {
-    depth = logOT - log2((float) nTree) + 1;
-    numOT = pow(2, logOT);
+  SilentOT(SilentOTConfig config) : mConfig(config) {
+    depth = mConfig.logOT - log2((float) mConfig.nTree) + 1;
+    numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, depth);
   }
   virtual void run() = 0;
@@ -28,17 +37,17 @@ public:
   std::vector<GPUvector<OTblock>> rightHash;
 
 protected:
-  Aes aesLeft, aesRight;
+  SilentOTConfig mConfig;
   GPUvector<OTblock> bufferA, bufferB;
   GPUvector<OTblock> leftNodes, rightNodes;
-  uint64_t id, depth, nTree, numOT, numLeaves;
+  uint64_t depth, numOT, numLeaves;
   virtual void base_ot() = 0;
   virtual void pprf_expand() = 0;
 };
 
 class SilentOTSender : public SilentOT {
 public:
-  SilentOTSender(int myid, int logOT, int numTrees);
+  SilentOTSender(SilentOTConfig config);
   void run();
   std::pair<GPUvector<OTblock>, OTblock*> get() { return {fullVector, delta}; }
 
@@ -56,13 +65,12 @@ class SilentOTRecver : public SilentOT {
 public:
   std::vector<cudaEvent_t> expandEvents;
   std::atomic<bool> eventsRecorded = false;
-  SilentOTRecver(int myid, int logOT, int numTrees, uint64_t *mychoices);
+  SilentOTRecver(SilentOTConfig config);
   void run();
   std::array<GPUvector<OTblock>, 2> get() { return {puncVector, choiceVector}; }
 
 private:
   GPUvector<OTblock> puncVector, choiceVector;
-  uint64_t *choices;
   SilentOTSender *other = nullptr;
   std::vector<GPUvector<OTblock>> choiceHash;
   void base_ot();

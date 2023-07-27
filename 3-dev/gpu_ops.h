@@ -26,6 +26,7 @@ template<typename S, typename T>
 __global__
 void cast(S *input, T *output) {
   uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (tid == 0) printf("convert %f to %lu\n", (float)input[tid], (uint64_t)output[tid]);
   output[tid] = (T) input[tid];
 }
 
@@ -39,9 +40,6 @@ __global__
 void xor_reduce_packer_gpu(uint64_t *data, uint64_t width);
 
 __global__
-void print_gpu(void *data, uint64_t n);
-
-__global__
-void print_gpu(void *data, uint64_t n, uint64_t stride);
+void print_gpu(void *data, uint64_t n, uint64_t stride = 1);
 
 #endif

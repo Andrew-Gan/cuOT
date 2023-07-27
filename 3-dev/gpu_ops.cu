@@ -65,7 +65,12 @@ void clmul_128(uint64_t a, uint64_t b, uint64_t c[2]) {
 
 __device__
 void shuffle_128(uint64_t a[2], uint8_t control, uint64_t b[2]) {
-  uint32_t src[4] = { a[0] & 0xffffffff, a[0] >> 32, a[1] & 0xffffffff, a[1] >> 32 };
+  uint32_t src[4] = {
+    (uint32_t) a[0],
+    (uint32_t) (a[0] >> 32),
+    (uint32_t) a[1],
+    (uint32_t) (a[1] >> 32),
+  };
   uint32_t des[4];
   for (int i = 0; i < 4; i++) {
     uint8_t pos = (control >> (i * 2)) & 0b11;
@@ -79,12 +84,12 @@ __global__
 void complex_dot_product(cufftComplex *c_out, cufftComplex *a_in, cufftComplex *b_in) {
   uint64_t row = blockIdx.y;
   uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t width = gridDim.x * blockDim.x;
-  uint64_t offset = row * width + tid;
+  uint64_t width = 2 * gridDim.x * blockDim.x;
+  uint64_t offset = row * width + 2 * tid;
 
   // KARATSUBA MULT
-  uint64_t a[2] = { (uint64_t) a_in[tid * 2].x, (uint64_t) a_in[tid * 2 + 1].x };
-  uint64_t b[2] = { (uint64_t) b_in[tid * 2].x, (uint64_t) b_in[tid * 2 + 1].x };
+  uint64_t a[2] = { (uint64_t) (a_in[tid * 2].x), (uint64_t) (a_in[tid * 2 + 1].x) };
+  uint64_t b[2] = { (uint64_t) (b_in[offset].x), (uint64_t) (b_in[offset + 1].x) };
   uint64_t c0[2];
   uint64_t c1[2];
 
@@ -116,8 +121,10 @@ void complex_dot_product(cufftComplex *c_out, cufftComplex *a_in, cufftComplex *
   c0[0] ^= out[0];
   c0[1] ^= out[1];
 
-  c_out[tid * 2].x = (float) c0[0];
-  c_out[tid * 2 + 1].x = (float) c0[1];
+  c_out[offset].x = (float) c0[0];
+  c_out[offset].y = 0;
+  c_out[offset + 1].x = (float) c0[1];
+  c_out[offset + 1].y = 0;
 }
 
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
@@ -157,16 +164,6 @@ void xor_reduce_packer_gpu(uint64_t *data, uint64_t width) {
   uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   data[2 * tid] = data[tid * width];
   data[2 * tid + 1] = data[tid * width + 1];
-}
-
-__global__
-void print_gpu(void *data, uint64_t n) {
-  uint8_t *uData = (uint8_t*) data;
-  for(int i = 0; i < n; i+= 16) {
-    for (int j = i; j < n && j < i + 16; j++)
-      printf("%02x ", uData[j]);
-    printf("\n");
-  }
 }
 
 __global__

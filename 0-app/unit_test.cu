@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <future>
 #include "unit_test.h"
-#include "aes.h"
-#include "simplest_ot.h"
+#include "expander.h"
+#include "base_ot.h"
 
 void test_cuda() {
   int deviceCount = 0;
@@ -22,32 +22,6 @@ void test_cuda() {
     cudaSetDevice(dev);
   assert(deviceCount > 0);
   assert(dev < deviceCount);
-}
-
-void test_aes() {
-  uint64_t k0 = 3242342;
-  uint8_t k0_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  Aes aes0, aes1;
-  aes0.init(k0_blk);
-  aes1.init(k0_blk);
-  const char *sample = "this is a test";
-
-  GPUdata buffer(1024);
-  buffer.clear();
-  cudaMemcpy(buffer.data(), sample, 16, cudaMemcpyHostToDevice);
-
-  aes0.encrypt(buffer);
-  uint8_t encryptedData[16];
-  cudaMemcpy(encryptedData, buffer.data(), 16, cudaMemcpyDeviceToHost);
-  assert(memcmp(sample, encryptedData, 16) != 0);
-
-  aes1.decrypt(buffer);
-  uint8_t decryptedData[16];
-  cudaMemcpy(decryptedData, buffer.data(), 16, cudaMemcpyDeviceToHost);
-  assert(memcmp(sample, decryptedData, 16) == 0);
-
-  printf("test_aes passed!\n");
 }
 
 bool _cmp(OTblock &b0, OTblock &b1) {
