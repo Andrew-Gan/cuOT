@@ -7,7 +7,6 @@
 template<typename T>
 class GPUvector : public GPUmatrix<T> {
 public:
-  GPUvector() {}
   GPUvector(uint64_t len) : GPUmatrix<T>(1, len) {}
   uint64_t size() { return this->mCols; }
   void set(uint64_t i, T &val) { GPUmatrix<T>::set(0, i, val); }

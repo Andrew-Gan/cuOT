@@ -9,8 +9,7 @@
 uint64_t* gen_choices(int depth) {
   uint64_t *choices = new uint64_t[depth+1];
   for (int d = 0; d < depth; d++) {
-    choices[d] = 0xffffffff;
-    // choices[d] = ((uint64_t) rand() << 32) | rand();
+    choices[d] = ((uint64_t) rand() << 32) | rand();
   }
   // choice bit for y ^ delta must be invest of final layer
   choices[depth] = ~choices[depth-1];
@@ -46,7 +45,6 @@ void cuda_init() {
 
 int main(int argc, char** argv) {
   if (argc == 1) {
-    test_base_ot();
     test_reduce();
     return 0;
   }

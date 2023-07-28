@@ -5,7 +5,6 @@
 
 class GPUdata {
 public:
-  GPUdata() {}
   GPUdata(uint64_t n);
   GPUdata(const GPUdata &blk);
   virtual ~GPUdata();

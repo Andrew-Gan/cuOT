@@ -4,12 +4,14 @@
 
 std::array<std::atomic<SilentOTRecver*>, 100> silentOTRecvers;
 
-SilentOTRecver::SilentOTRecver(SilentOTConfig config) : SilentOT(config) {
+SilentOTRecver::SilentOTRecver(SilentOTConfig config) :
+  SilentOT(config), puncVector(2 * numOT), choiceVector(2 * numOT),
+  leftBuffer(std::vector<GPUvector<OTblock>>(depth+1, GPUvector<OTblock>(mConfig.nTree))),
+  rightBuffer(std::vector<GPUvector<OTblock>>(depth+1, GPUvector<OTblock>(mConfig.nTree))) {
   expandEvents.resize(depth);
   for (auto &event : expandEvents) {
     cudaEventCreate(&event);
   }
-  buffer_init();
   silentOTRecvers[mConfig.id] = this;
   while(silentOTSenders[mConfig.id] == nullptr);
   other = silentOTSenders[mConfig.id];
@@ -25,31 +27,11 @@ void SilentOTRecver::run() {
   get_choice_vector();
   Log::end(Recver, Expand);
 
-  cudaDeviceSynchronize();
-  printf("puncVector before hash\n");
-  print_gpu<<<1, 1>>>(puncVector.data(), 64, 16);
-  cudaDeviceSynchronize();
-  printf("choiceVector before hash\n");
-  print_gpu<<<1, 1>>>(puncVector.data(), 64, 16);
-  cudaDeviceSynchronize();
+  return;
 
   Log::start(Recver, Compress);
-  switch (mConfig.compressor) {
-    case QuasiCyclic_t:
-      QuasiCyclic code(Recver, 2 * numOT, numOT);
-      code.encode(puncVector);
-      code.encode(choiceVector);
-    // case ExpandAccumulate:
-  }
+  mult_compress();
   Log::end(Recver, Compress);
-
-  cudaDeviceSynchronize();
-  printf("puncVector after hash\n");
-  print_gpu<<<1, 1>>>(puncVector.data(), 64, 16);
-  cudaDeviceSynchronize();
-  printf("choiceVector after hash\n");
-  print_gpu<<<1, 1>>>(puncVector.data(), 64, 16);
-  cudaDeviceSynchronize();
 }
 
 void SilentOTRecver::base_ot() {
@@ -65,24 +47,6 @@ void SilentOTRecver::base_ot() {
     auto res = worker.get();
     choiceHash.push_back(res);
   }
-}
-
-void SilentOTRecver::buffer_init() {
-  puncVector.resize(2 * numOT);
-
-  uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k0_blk[16] = {0};
-  uint8_t k1_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
-
-  bufferA.resize(2 * numOT);
-  bufferB.resize(2 * numOT);
-
-  leftHash.resize(depth+1);
-  rightHash.resize(depth+1);
-  leftNodes.resize(numOT);
-  rightNodes.resize(numOT);
 }
 
 __global__
@@ -104,7 +68,6 @@ void pathToChoice(OTblock *choiceVec, uint64_t depth, uint64_t numLeaves, uint64
 
 void SilentOTRecver::get_choice_vector() {
   uint64_t *choices_d;
-  choiceVector.resize(2 * numOT);
   choiceVector.clear();
   cudaMalloc(&choices_d, depth * sizeof(*choices_d));
   cudaMemcpy(choices_d, mConfig.choices, depth * sizeof(*choices_d), cudaMemcpyHostToDevice);
@@ -123,12 +86,14 @@ void SilentOTRecver::pprf_expand() {
   Expander *expandLeft, *expandRight;
   switch (mConfig.expander) {
     case AesHash_t:
-      AesHash left(k0_blk);
-      AesHash right(k1_blk);
-      expandLeft = &left;
-      expandRight = &right;
+      expandLeft = new AesHash(k0_blk);
+      expandRight = new AesHash(k1_blk);
   }
-  
+
+  // init buffers
+  GPUvector<OTblock> bufferA(2 * numOT), bufferB(2 * numOT);
+  GPUvector<OTblock> leftNodes(numOT), rightNodes(numOT);
+
   std::vector<uint64_t> activeParent(mConfig.nTree, 0);
   cudaStream_t stream[2];
   cudaStreamCreate(&stream[0]);
@@ -154,24 +119,24 @@ void SilentOTRecver::pprf_expand() {
     cudaStreamWaitEvent(stream[0], expandEvents.at(d-1));
     cudaStreamWaitEvent(stream[1], expandEvents.at(d-1));
 
-    leftHash.at(d-1).xor_async(choiceHash.at(d-1), stream[0]);
-    rightHash.at(d-1).xor_async(choiceHash.at(d-1), stream[1]);
+    leftBuffer.at(d-1).xor_async(choiceHash.at(d-1), stream[0]);
+    rightBuffer.at(d-1).xor_async(choiceHash.at(d-1), stream[1]);
 
     if (d == depth) {
-      leftHash.at(d).xor_async(choiceHash.at(d), stream[0]);
-      rightHash.at(d).xor_async(choiceHash.at(d), stream[1]);
+      leftBuffer.at(d).xor_async(choiceHash.at(d), stream[0]);
+      rightBuffer.at(d).xor_async(choiceHash.at(d), stream[1]);
     }
 
     for (uint64_t t = 0; t < mConfig.nTree; t++) {
       // insert obtained sum into left side or right side
       // and sum together to retrieve active node value
       choice = (mConfig.choices[d-1] >> t) & 1;
-      tmp0 = choice == 0 ? &leftHash.at(d-1) : &rightHash.at(d-1);
+      tmp0 = choice == 0 ? &leftBuffer.at(d-1) : &rightBuffer.at(d-1);
       tmp1 = choice == 0 ? &leftNodes : &rightNodes;
       offsetInVec = t * width / 2 + activeParent.at(t);
       cudaMemcpyAsync(tmp1->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[choice]);
       if (d == depth) {
-        tmp0 = choice == 0 ? &rightHash.at(d) : &leftHash.at(d);
+        tmp0 = choice == 0 ? &rightBuffer.at(d) : &leftBuffer.at(d);
         tmp1 = choice == 0 ? &rightNodes : &leftNodes;
         cudaMemcpyAsync(tmp1->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1-choice]);
       }
@@ -201,4 +166,17 @@ void SilentOTRecver::pprf_expand() {
   cudaStreamDestroy(stream[0]);
   cudaStreamDestroy(stream[1]);
   puncVector = *outBuffer;
+
+  delete expandLeft;
+  delete expandRight;
+}
+
+void SilentOTRecver::mult_compress() {
+  switch (mConfig.compressor) {
+    case QuasiCyclic_t:
+      QuasiCyclic code(Recver, 2 * numOT, numOT);
+      code.encode(puncVector);
+      code.encode(choiceVector);
+    // case ExpandAccumulate:
+  }
 }

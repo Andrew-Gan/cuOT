@@ -8,7 +8,6 @@
 template<typename T>
 class GPUmatrix : public GPUdata {
 public:
-  GPUmatrix() {}
   GPUmatrix(uint64_t r, uint64_t c);
   uint64_t rows() { return mRows; }
   uint64_t cols() { return mCols; }

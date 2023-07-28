@@ -32,51 +32,60 @@ public:
   }
   virtual void run() = 0;
 
-  // network
-  std::vector<GPUvector<OTblock>> leftHash;
-  std::vector<GPUvector<OTblock>> rightHash;
-
 protected:
   SilentOTConfig mConfig;
-  GPUvector<OTblock> bufferA, bufferB;
-  GPUvector<OTblock> leftNodes, rightNodes;
   uint64_t depth, numOT, numLeaves;
   virtual void base_ot() = 0;
   virtual void pprf_expand() = 0;
+  virtual void mult_compress() = 0;
 };
 
 class SilentOTSender : public SilentOT {
 public:
   SilentOTSender(SilentOTConfig config);
   void run();
-  std::pair<GPUvector<OTblock>, OTblock*> get() { return {fullVector, delta}; }
+  std::pair<GPUvector<OTblock>, OTblock*> get() {
+    return {fullVector, delta};
+  }
 
 private:
+  SilentOTRecver *other = nullptr;
+
+  std::vector<GPUvector<OTblock>> leftHash;
+  std::vector<GPUvector<OTblock>> rightHash;
+  virtual void base_ot();
+
   GPUvector<OTblock> fullVector;
   OTblock *delta = nullptr;
-  SilentOTRecver *other = nullptr;
-  GPUvector<OTblock> leftSum, rightSum;
-  void base_ot();
-  void buffer_init();
-  void pprf_expand();
+  virtual void pprf_expand();
+  virtual void mult_compress();
 };
 
 class SilentOTRecver : public SilentOT {
 public:
+  // receive from sender
+  std::vector<GPUvector<OTblock>> leftBuffer;
+  std::vector<GPUvector<OTblock>> rightBuffer;
+
   std::vector<cudaEvent_t> expandEvents;
   std::atomic<bool> eventsRecorded = false;
+
   SilentOTRecver(SilentOTConfig config);
   void run();
-  std::array<GPUvector<OTblock>, 2> get() { return {puncVector, choiceVector}; }
+  std::array<GPUvector<OTblock>, 2> get() {
+    return {puncVector, choiceVector};
+  }
 
 private:
-  GPUvector<OTblock> puncVector, choiceVector;
   SilentOTSender *other = nullptr;
+
   std::vector<GPUvector<OTblock>> choiceHash;
-  void base_ot();
-  void buffer_init();
-  void pprf_expand();
-  void get_choice_vector();
+  virtual void base_ot();
+
+  GPUvector<OTblock> puncVector, choiceVector;
+  virtual void pprf_expand();
+  virtual void mult_compress();
+  virtual void get_choice_vector();
 };
 
 extern std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;

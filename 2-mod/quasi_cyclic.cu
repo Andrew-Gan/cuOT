@@ -90,9 +90,9 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   cudaFree(c64_fft);
   Log::end(mRole, CompressIFFT);
 
-  printf("c64 poly\n");
-  print_gpu<<<1, 1>>>(c64_poly, 64, 16);
-  cudaDeviceSynchronize();
+  // printf("c64 poly\n");
+  // print_gpu<<<1, 1>>>(c64_poly, 64, 16);
+  // cudaDeviceSynchronize();
 
   Log::start(mRole, CompressTP);
   GPUmatrix<OTblock> cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
@@ -100,21 +100,21 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   cudaDeviceSynchronize();
   cudaFree(c64_poly);
 
-  printf("cModP1 post conversion\n");
-  print_gpu<<<1, 1>>>(cModP1.data(), 64);
-  cudaDeviceSynchronize();
+  // printf("cModP1 post conversion\n");
+  // print_gpu<<<1, 1>>>(cModP1.data(), 64);
+  // cudaDeviceSynchronize();
 
   cModP1.modp(nBlocks); // cModP1 = rows x nBlocks
 
-  printf("cModP1 post mod\n");
-  print_gpu<<<1, 1>>>(cModP1.data(), 64);
-  cudaDeviceSynchronize();
+  // printf("cModP1 post mod\n");
+  // print_gpu<<<1, 1>>>(cModP1.data(), 64);
+  // cudaDeviceSynchronize();
 
   cModP1.bit_transpose(); // cModP1 = mOut x 1
 
-  printf("cModP1 post transpose\n");
-  print_gpu<<<1, 1>>>(cModP1.data(), 64);
-  cudaDeviceSynchronize();
+  // printf("cModP1 post transpose\n");
+  // print_gpu<<<1, 1>>>(cModP1.data(), 64);
+  // cudaDeviceSynchronize();
 
   xor_gpu<<<16 * mOut / 1024, 1024>>>((uint8_t*) vector.data(), (uint8_t*) cModP1.data(), 16 * mOut);
   cudaDeviceSynchronize();

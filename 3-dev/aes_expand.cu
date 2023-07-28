@@ -38,9 +38,9 @@ void aesExpand128(uint32_t *aesKey, OTblock *interleaved, uint32_t *separated,
 	uint32_t *inData, int expandDir, uint64_t width) {
 	uint32_t bx		= blockIdx.x;
     uint32_t tx		= threadIdx.x;
-    uint32_t mod4tx = tx%4;
-    uint32_t int4tx = tx/4;
-    uint32_t idx2	= int4tx*4;
+    uint32_t mod4tx = tx % 4;
+    uint32_t int4tx = tx / 4;
+    uint32_t idx2	= int4tx * 4;
 	int x;
 
     __shared__ UByte4 stageBlock1[AES_BSIZE];
@@ -52,14 +52,13 @@ void aesExpand128(uint32_t *aesKey, OTblock *interleaved, uint32_t *separated,
 	__shared__ UByte4 tBox3Block[256];
 
 	// input caricati in memoria
-	stageBlock1[tx].uival	= inData[AES_BSIZE * bx + tx ];
+	stageBlock1[tx].uival	= inData[blockDim.x * bx + tx];
 
-	uint32_t elemPerThread = 256/AES_BSIZE;
-	for (uint32_t cnt=0; cnt<elemPerThread; cnt++) {
-		tBox0Block[tx*elemPerThread + cnt].uival	= TBox0[tx*elemPerThread + cnt];
-		tBox1Block[tx*elemPerThread + cnt].uival	= TBox1[tx*elemPerThread + cnt];
-		tBox2Block[tx*elemPerThread + cnt].uival	= TBox2[tx*elemPerThread + cnt];
-		tBox3Block[tx*elemPerThread + cnt].uival	= TBox3[tx*elemPerThread + cnt];
+	if (tx < 256) {
+		tBox0Block[tx].uival	= TBox0[tx];
+		tBox1Block[tx].uival	= TBox1[tx];
+		tBox2Block[tx].uival	= TBox2[tx];
+		tBox3Block[tx].uival	= TBox3[tx];
 	}
 
 	__syncthreads();

@@ -34,9 +34,10 @@ AesHash::~AesHash() {
 void AesHash::expand_async(OTblock *interleaved, GPUdata &separated, OTblock *input_d, uint64_t width, int dir, cudaStream_t &s) {
   static int thread_per_aesblock = 4;
   uint64_t paddedBytes = (width / 2) * sizeof(*interleaved);
-  if (paddedBytes % 1024 != 0)
-    paddedBytes += 1024 - (paddedBytes % 1024);
-  dim3 grid(paddedBytes * thread_per_aesblock / 16 / AES_BSIZE);
+  if (paddedBytes % AES_PADDING != 0)
+    paddedBytes += AES_PADDING - (paddedBytes % AES_PADDING);
+  uint64_t numAesBlocks = paddedBytes / 16;
+  uint64_t grid = numAesBlocks * thread_per_aesblock / AES_BSIZE;
   aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) encExpKey_d, interleaved, (uint32_t*) separated.data(), (uint32_t*) input_d, dir, width);
 }
 
