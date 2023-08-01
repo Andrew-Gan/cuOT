@@ -76,18 +76,14 @@ void SilentOTRecver::get_choice_vector() {
 }
 
 void SilentOTRecver::pprf_expand() {
-  // init keys
-  uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k0_blk[16] = {0};
-  uint8_t k1_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
+  // init hash keys
+  uint32_t k0_blk[4] = {3242342};
+  uint32_t k1_blk[4] = {8993849};
 
-  Expander *expandLeft, *expandRight;
+  Expander *expander;
   switch (mConfig.expander) {
     case AesHash_t:
-      expandLeft = new AesHash(k0_blk);
-      expandRight = new AesHash(k1_blk);
+      expander = new AesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
   }
 
   // init buffers
@@ -113,9 +109,9 @@ void SilentOTRecver::pprf_expand() {
     outPtr = outBuffer->data();
 
     uint64_t packedWidth = mConfig.nTree * width;
-    expandLeft->expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
-    expandRight->expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
+    expander->expand_async(outPtr, leftNodes, rightNodes, inPtr, packedWidth, stream[0]);
 
+    cudaStreamSynchronize(stream[0]);
     cudaStreamWaitEvent(stream[0], expandEvents.at(d-1));
     cudaStreamWaitEvent(stream[1], expandEvents.at(d-1));
 
@@ -167,8 +163,7 @@ void SilentOTRecver::pprf_expand() {
   cudaStreamDestroy(stream[1]);
   puncVector = *outBuffer;
 
-  delete expandLeft;
-  delete expandRight;
+  delete expander;
 }
 
 void SilentOTRecver::mult_compress() {

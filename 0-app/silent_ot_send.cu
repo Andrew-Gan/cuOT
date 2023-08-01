@@ -45,17 +45,13 @@ void SilentOTSender::base_ot() {
 
 void SilentOTSender::pprf_expand() {
   // init hash keys
-  uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k0_blk[16] = {0};
-  uint8_t k1_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
+  uint32_t k0_blk[4] = {3242342};
+  uint32_t k1_blk[4] = {8993849};
 
-  Expander *expandLeft, *expandRight;
+  Expander *expander;
   switch (mConfig.expander) {
     case AesHash_t:
-      expandLeft = new AesHash(k0_blk);
-      expandRight = new AesHash(k1_blk);
+      expander = new AesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
   }
 
   // init buffers
@@ -91,8 +87,7 @@ void SilentOTSender::pprf_expand() {
     OTblock *outPtr = outBuffer->data();
 
     uint64_t packedWidth = mConfig.nTree * width;
-    expandLeft->expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
-    expandRight->expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
+    expander->expand_async(outPtr, leftNodes, rightNodes, inPtr, packedWidth, stream[0]);
 
     leftNodes.sum_async(mConfig.nTree, width / 2, stream[0]);
     rightNodes.sum_async(mConfig.nTree, width / 2, stream[1]);
@@ -103,7 +98,7 @@ void SilentOTSender::pprf_expand() {
     cudaStreamSynchronize(stream[0]);
     cudaStreamSynchronize(stream[1]);
 
-    leftHash.at(d-1).xor_async(leftSum, stream[2]);
+    leftHash.at(d-1).xor_async(leftSum, streamidth, s[2]);
     rightHash.at(d-1).xor_async(rightSum, stream[3]);
 
     if (d == depth) {
@@ -122,7 +117,7 @@ void SilentOTSender::pprf_expand() {
       other->rightBuffer.at(d).copy_async(rightHash.at(d), stream[3]);
     }
 
-    cudaEventRecord(other->expandEvents.at(d-1), stream[2]);
+    cudaEventRecord(other->expandEvents.at(d-1idth, s), stream[2]);
     cudaEventRecord(other->expandEvents.at(d-1), stream[3]);
   }
 
@@ -136,8 +131,7 @@ void SilentOTSender::pprf_expand() {
 
   fullVector = *outBuffer;
 
-  delete expandLeft;
-  delete expandRight;
+  delete expander;
 }
 
 void SilentOTSender::mult_compress() {

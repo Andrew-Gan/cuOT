@@ -11,34 +11,31 @@
 // state - array holding the intermediate results during decryption.
 typedef uint8_t state_t[4][4];
 
-AesHash::AesHash(uint8_t *key) {
-  AES_ctx encExpKey;
-  AES_ctx decExpKey;
-  AesHash::expand_encKey(encExpKey.roundKey, key);
-  AesHash::expand_decKey(decExpKey.roundKey, key);
-  cudaError_t err = cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
-  if (err != cudaSuccess)
-    fprintf(stderr, "Aes() enc: %s\n", cudaGetErrorString(err));
-  cudaMemcpy(encExpKey_d, encExpKey.roundKey, sizeof(encExpKey.roundKey), cudaMemcpyHostToDevice);
-  err = cudaMalloc(&decExpKey_d, sizeof(decExpKey.roundKey));
-  if (err != cudaSuccess)
-    fprintf(stderr, "Aes() dec: %s\n", cudaGetErrorString(err));
-  cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
+AesHash::AesHash(uint8_t *newLeft, uint8_t *newRight) {
+  AES_ctx leftExpKey, rightExpKey;
+
+  AesHash::expand_encKey(leftExpKey.roundKey, newLeft);
+  cudaMalloc(&keyLeft_d, sizeof(leftExpKey.roundKey));
+  cudaMemcpy(keyLeft_d, leftExpKey.roundKey, sizeof(leftExpKey.roundKey), cudaMemcpyHostToDevice);
+
+  AesHash::expand_encKey(rightExpKey.roundKey, newRight);
+  cudaMalloc(&keyRight_d, sizeof(rightExpKey.roundKey));
+  cudaMemcpy(keyRight_d, rightExpKey.roundKey, sizeof(rightExpKey.roundKey), cudaMemcpyHostToDevice);
 }
 
 AesHash::~AesHash() {
-  if (encExpKey_d) cudaFree(encExpKey_d);
-  if (decExpKey_d) cudaFree(decExpKey_d);
+  if (keyLeft_d) cudaFree(keyLeft_d);
+  if (keyRight_d) cudaFree(keyRight_d);
 }
 
-void AesHash::expand_async(OTblock *interleaved, GPUdata &separated, OTblock *input_d, uint64_t width, int dir, cudaStream_t &s) {
+void AesHash::expand_async(OTblock *inter, GPUdata &left, GPUdata &right, OTblock *input_d, uint64_t width, cudaStream_t &s) {
   static int thread_per_aesblock = 4;
-  uint64_t paddedBytes = (width / 2) * sizeof(*interleaved);
+  uint64_t paddedBytes = (width / 2) * sizeof(*inter);
   if (paddedBytes % AES_PADDING != 0)
     paddedBytes += AES_PADDING - (paddedBytes % AES_PADDING);
   uint64_t numAesBlocks = paddedBytes / 16;
-  uint64_t grid = numAesBlocks * thread_per_aesblock / AES_BSIZE;
-  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) encExpKey_d, interleaved, (uint32_t*) separated.data(), (uint32_t*) input_d, dir, width);
+  dim3 grid(numAesBlocks * thread_per_aesblock / AES_BSIZE, 2);
+  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, inter, (uint32_t*) left.data(), (uint32_t*) right.data(), (uint32_t*) input_d, width);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {

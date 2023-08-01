@@ -34,14 +34,17 @@
 #include "aes_expand.h"
 
 __global__
-void aesExpand128(uint32_t *aesKey, OTblock *interleaved, uint32_t *separated,
-	uint32_t *inData, int expandDir, uint64_t width) {
+void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *inter, uint32_t *left, uint32_t *right,
+	unsigned *inData, uint64_t width) {
+		
 	uint32_t bx		= blockIdx.x;
     uint32_t tx		= threadIdx.x;
     uint32_t mod4tx = tx % 4;
     uint32_t int4tx = tx / 4;
     uint32_t idx2	= int4tx * 4;
 	int x;
+	int expandDir = blockIdx.y;
+	uint32_t *aesKey = expandDir == 0 ? keyLeft : keyRight;
 
     __shared__ UByte4 stageBlock1[AES_BSIZE];
 	__shared__ UByte4 stageBlock2[AES_BSIZE];
@@ -294,10 +297,9 @@ void aesExpand128(uint32_t *aesKey, OTblock *interleaved, uint32_t *separated,
 	uint64_t pairId =  (bx * AES_BSIZE + tx) / elemPerNode;
 	uint64_t leavesId = 2 * pairId + expandDir;
 	if (leavesId < width) {
-		interleaved[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
+		inter[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
-	if (separated != nullptr) {
-		uint64_t offset = (pairId*sizeof(OTblock)+4*(tx%elemPerNode)) / sizeof(*separated);
-		separated[offset] = stageBlock2[tx].uival;
-	}
+	uint32_t *separated = expandDir == 0 ? left : right;
+	uint64_t offset = (pairId*sizeof(OTblock)+4*(tx%elemPerNode)) / sizeof(*separated);
+	separated[offset] = stageBlock2[tx].uival;
 }
