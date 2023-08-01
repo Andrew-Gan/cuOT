@@ -4,7 +4,7 @@
 #include "util.h"
 
 __global__
-void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *inter, uint32_t *left, uint32_t *right,
-	unsigned *inData, uint64_t width);
+void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
+	OTblock *left, OTblock *right, OTblock *inData, uint64_t width);
 
 #endif

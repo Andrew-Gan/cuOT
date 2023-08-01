@@ -72,7 +72,6 @@ template<typename T>
 void GPUmatrix<T>::xor_one_to_many_async(T *rhs, cudaStream_t s) {
   uint64_t nBlk = (mNBytes + 1023) / 1024;
   xor_single_gpu<<<nBlk, 1024, 0, s>>>(mPtr, (uint8_t*) rhs, sizeof(T), mNBytes);
-  cudaDeviceSynchronize();
 }
 
 template<typename T>

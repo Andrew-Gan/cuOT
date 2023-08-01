@@ -34,8 +34,8 @@
 #include "aes_expand.h"
 
 __global__
-void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *inter, uint32_t *left, uint32_t *right,
-	unsigned *inData, uint64_t width) {
+void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
+	OTblock *left, OTblock *right, OTblock *inData, uint64_t width) {
 		
 	uint32_t bx		= blockIdx.x;
     uint32_t tx		= threadIdx.x;
@@ -46,6 +46,10 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *inter, uint32_
 	int expandDir = blockIdx.y;
 	uint32_t *aesKey = expandDir == 0 ? keyLeft : keyRight;
 
+	int elemPerNode = sizeof(OTblock) / 4;
+	uint64_t parentId =  (bx * AES_BSIZE + tx) / elemPerNode;
+	uint64_t childId = 2 * parentId + expandDir;
+
     __shared__ UByte4 stageBlock1[AES_BSIZE];
 	__shared__ UByte4 stageBlock2[AES_BSIZE];
 
@@ -55,7 +59,7 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *inter, uint32_
 	__shared__ UByte4 tBox3Block[256];
 
 	// input caricati in memoria
-	stageBlock1[tx].uival	= inData[blockDim.x * bx + tx];
+	stageBlock1[tx].uival	= inData[(blockDim.x * bx + tx) / 4].data[mod4tx];
 
 	if (tx < 256) {
 		tBox0Block[tx].uival	= TBox0[tx];
@@ -291,15 +295,11 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *inter, uint32_
 
 	__syncthreads();
 
-	//-------------------------------- end of 15th stage --------------------------------
+	//-------------------------------- end of 11th stage --------------------------------
 
-	int elemPerNode = sizeof(OTblock) / 4;
-	uint64_t pairId =  (bx * AES_BSIZE + tx) / elemPerNode;
-	uint64_t leavesId = 2 * pairId + expandDir;
-	if (leavesId < width) {
-		inter[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
+	if (childId < width) {
+		interleaved[childId].data[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
-	uint32_t *separated = expandDir == 0 ? left : right;
-	uint64_t offset = (pairId*sizeof(OTblock)+4*(tx%elemPerNode)) / sizeof(*separated);
-	separated[offset] = stageBlock2[tx].uival;
+	OTblock *separated = expandDir == 0 ? left : right;
+	separated[parentId].data[mod4tx] = stageBlock2[tx].uival;
 }

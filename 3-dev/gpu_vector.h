@@ -25,12 +25,10 @@ void GPUvector<T>::sum_async(uint64_t nPartition, uint64_t blkPerPart, cudaStrea
     nBlocks = nPartition * u64PerPartition / (2 * blockSize);
     mem = blockSize * sizeof(uint64_t);
     xor_reduce_gpu<<<nBlocks, blockSize, mem, s>>>((uint64_t*) this->mPtr);
-    cudaDeviceSynchronize();
 
     blockSize2 = std::min(1024lu, nBlocks);
     nBlocks = nBlocks < 1024 ? 1 :( nBlocks + 1023) / 1024;
     xor_reduce_packer_gpu<<<nBlocks, blockSize2, 0, s>>>((uint64_t*) this->mPtr, 2 * blockSize);
-    cudaDeviceSynchronize();
   }
 
 }

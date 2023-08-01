@@ -13,7 +13,7 @@ typedef uint8_t state_t[4][4];
 
 AesHash::AesHash(uint8_t *newLeft, uint8_t *newRight) {
   AES_ctx leftExpKey, rightExpKey;
-
+  
   AesHash::expand_encKey(leftExpKey.roundKey, newLeft);
   cudaMalloc(&keyLeft_d, sizeof(leftExpKey.roundKey));
   cudaMemcpy(keyLeft_d, leftExpKey.roundKey, sizeof(leftExpKey.roundKey), cudaMemcpyHostToDevice);
@@ -28,14 +28,16 @@ AesHash::~AesHash() {
   if (keyRight_d) cudaFree(keyRight_d);
 }
 
-void AesHash::expand_async(OTblock *inter, GPUdata &left, GPUdata &right, OTblock *input_d, uint64_t width, cudaStream_t &s) {
+void AesHash::expand_async(GPUvector<OTblock> &interleaved, GPUvector<OTblock> &left,
+	GPUvector<OTblock> &right, GPUvector<OTblock> &input, uint64_t width, cudaStream_t &s) {
+  
   static int thread_per_aesblock = 4;
-  uint64_t paddedBytes = (width / 2) * sizeof(*inter);
+  uint64_t paddedBytes = (width / 2) * sizeof(OTblock);
   if (paddedBytes % AES_PADDING != 0)
     paddedBytes += AES_PADDING - (paddedBytes % AES_PADDING);
   uint64_t numAesBlocks = paddedBytes / 16;
   dim3 grid(numAesBlocks * thread_per_aesblock / AES_BSIZE, 2);
-  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, inter, (uint32_t*) left.data(), (uint32_t*) right.data(), (uint32_t*) input_d, width);
+  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved.data(), left.data(), right.data(), input.data(), width);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {

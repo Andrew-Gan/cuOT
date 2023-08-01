@@ -59,76 +59,62 @@ void SilentOTSender::pprf_expand() {
   GPUvector<OTblock> leftNodes(numOT), rightNodes(numOT);
   GPUvector<OTblock> leftSum(mConfig.nTree), rightSum(mConfig.nTree);
 
-  // init root
+  // init delta
   OTblock buff;
   for (int i = 0; i < 4; i++) {
     buff.data[i] = rand();
   }
   cudaMalloc(&delta, sizeof(*delta));
   cudaMemcpy(delta, &buff, sizeof(*delta), cudaMemcpyHostToDevice);
+
+  // init root
   for (int t = 0; t < mConfig.nTree; t++) {
     for (int i = 0; i < 4; i++) {
-      buff.data[i] = i;
+      buff.data[i] = rand();
     }
     bufferA.set(t, buff);
   }
 
-  cudaStream_t stream[4];
-  cudaStreamCreate(&stream[0]);
-  cudaStreamCreate(&stream[1]);
-  cudaStreamCreate(&stream[2]);
-  cudaStreamCreate(&stream[3]);
+  cudaStream_t s;
+  cudaStreamCreate(&s);
   GPUvector<OTblock> *inBuffer, *outBuffer;
 
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
     outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
-    OTblock *inPtr = inBuffer->data();
-    OTblock *outPtr = outBuffer->data();
 
     uint64_t packedWidth = mConfig.nTree * width;
-    expander->expand_async(outPtr, leftNodes, rightNodes, inPtr, packedWidth, stream[0]);
+    expander->expand_async(*outBuffer, leftNodes, rightNodes, *inBuffer, packedWidth, s);
 
-    leftNodes.sum_async(mConfig.nTree, width / 2, stream[0]);
-    rightNodes.sum_async(mConfig.nTree, width / 2, stream[1]);
+    leftNodes.sum_async(mConfig.nTree, width / 2, s);
+    rightNodes.sum_async(mConfig.nTree, width / 2, s);
 
-    cudaMemcpyAsync(leftSum.data(), leftNodes.data(), mConfig.nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[0]);
-    cudaMemcpyAsync(rightSum.data(), rightNodes.data(), mConfig.nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1]);
-
-    cudaStreamSynchronize(stream[0]);
-    cudaStreamSynchronize(stream[1]);
-
-    leftHash.at(d-1).xor_async(leftSum, streamidth, s[2]);
-    rightHash.at(d-1).xor_async(rightSum, stream[3]);
+    leftHash.at(d-1).xor_async(leftNodes, s);
+    rightHash.at(d-1).xor_async(rightNodes, s);
 
     if (d == depth) {
-      leftHash.at(d).xor_async(leftSum,stream[2]);
-      rightHash.at(d).xor_async(rightSum, stream[3]);
+      leftHash.at(d).xor_async(leftNodes,s);
+      rightHash.at(d).xor_async(rightNodes, s);
     }
 
-    other->leftBuffer.at(d-1).copy_async(leftHash.at(d-1), stream[2]);
-    other->rightBuffer.at(d-1).copy_async(rightHash.at(d-1), stream[3]);
+    other->leftBuffer.at(d-1).copy_async(leftHash.at(d-1), s);
+    other->rightBuffer.at(d-1).copy_async(rightHash.at(d-1), s);
 
     if (d == depth) {
-      leftHash.at(d).xor_one_to_many_async(delta, stream[2]);
-      rightHash.at(d).xor_one_to_many_async(delta, stream[3]);
+      leftHash.at(d).xor_one_to_many_async(delta, s);
+      rightHash.at(d).xor_one_to_many_async(delta, s);
 
-      other->leftBuffer.at(d).copy_async(leftHash.at(d), stream[2]);
-      other->rightBuffer.at(d).copy_async(rightHash.at(d), stream[3]);
+      other->leftBuffer.at(d).copy_async(leftHash.at(d), s);
+      other->rightBuffer.at(d).copy_async(rightHash.at(d), s);
     }
 
-    cudaEventRecord(other->expandEvents.at(d-1idth, s), stream[2]);
-    cudaEventRecord(other->expandEvents.at(d-1), stream[3]);
+    cudaEventRecord(other->expandEvents.at(d-1), s);
+    cudaEventRecord(other->expandEvents.at(d-1), s);
   }
 
   other->eventsRecorded = true;
   cudaDeviceSynchronize();
-
-  cudaStreamDestroy(stream[0]);
-  cudaStreamDestroy(stream[1]);
-  cudaStreamDestroy(stream[2]);
-  cudaStreamDestroy(stream[3]);
-
+  cudaStreamDestroy(s);
   fullVector = *outBuffer;
 
   delete expander;

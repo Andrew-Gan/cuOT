@@ -91,36 +91,33 @@ void SilentOTRecver::pprf_expand() {
   GPUvector<OTblock> leftNodes(numOT), rightNodes(numOT);
 
   std::vector<uint64_t> activeParent(mConfig.nTree, 0);
-  cudaStream_t stream[2];
-  cudaStreamCreate(&stream[0]);
-  cudaStreamCreate(&stream[1]);
+  cudaStream_t s;
+  cudaStreamCreate(&s);
   GPUvector<OTblock> *inBuffer, *outBuffer;
   GPUvector<OTblock> recvSums(mConfig.nTree);
   GPUvector<OTblock> *tmp0, *tmp1;
   uint8_t choice;
   uint64_t offsetInVec;
-  OTblock *inPtr, *outPtr;
 
+  Log::end(Recver, Expand);
   while(!eventsRecorded);
+  Log::start(Recver, Expand);
+
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
     outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
-    inPtr = inBuffer->data();
-    outPtr = outBuffer->data();
 
     uint64_t packedWidth = mConfig.nTree * width;
-    expander->expand_async(outPtr, leftNodes, rightNodes, inPtr, packedWidth, stream[0]);
+    expander->expand_async(*outBuffer, leftNodes, rightNodes, *inBuffer, packedWidth, s);
 
-    cudaStreamSynchronize(stream[0]);
-    cudaStreamWaitEvent(stream[0], expandEvents.at(d-1));
-    cudaStreamWaitEvent(stream[1], expandEvents.at(d-1));
+    cudaStreamWaitEvent(s, expandEvents.at(d-1));
 
-    leftBuffer.at(d-1).xor_async(choiceHash.at(d-1), stream[0]);
-    rightBuffer.at(d-1).xor_async(choiceHash.at(d-1), stream[1]);
+    leftBuffer.at(d-1).xor_async(choiceHash.at(d-1), s);
+    rightBuffer.at(d-1).xor_async(choiceHash.at(d-1), s);
 
     if (d == depth) {
-      leftBuffer.at(d).xor_async(choiceHash.at(d), stream[0]);
-      rightBuffer.at(d).xor_async(choiceHash.at(d), stream[1]);
+      leftBuffer.at(d).xor_async(choiceHash.at(d), s);
+      rightBuffer.at(d).xor_async(choiceHash.at(d), s);
     }
 
     for (uint64_t t = 0; t < mConfig.nTree; t++) {
@@ -130,37 +127,37 @@ void SilentOTRecver::pprf_expand() {
       tmp0 = choice == 0 ? &leftBuffer.at(d-1) : &rightBuffer.at(d-1);
       tmp1 = choice == 0 ? &leftNodes : &rightNodes;
       offsetInVec = t * width / 2 + activeParent.at(t);
-      cudaMemcpyAsync(tmp1->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[choice]);
+      cudaMemcpyAsync(tmp1->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, s);
       if (d == depth) {
         tmp0 = choice == 0 ? &rightBuffer.at(d) : &leftBuffer.at(d);
         tmp1 = choice == 0 ? &rightNodes : &leftNodes;
-        cudaMemcpyAsync(tmp1->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1-choice]);
+        cudaMemcpyAsync(tmp1->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, s);
       }
     }
 
-    leftNodes.sum_async(mConfig.nTree, width / 2, stream[0]);
-    rightNodes.sum_async(mConfig.nTree, width / 2, stream[1]);
+    leftNodes.sum_async(mConfig.nTree, width / 2, s);
+    rightNodes.sum_async(mConfig.nTree, width / 2, s);
 
     // insert active node value obtained from sum into output
     for (uint64_t t = 0; t < mConfig.nTree; t++) {
       choice = (mConfig.choices[d-1] >> t) & 1;
       tmp0 = choice == 0 ? &leftNodes : &rightNodes;
       offsetInVec = t * width + 2 * activeParent.at(t) + choice;
-      cudaMemcpyAsync(outPtr + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[choice]);
+      cudaMemcpyAsync(outBuffer->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, s);
 
       if (d == depth) {
         tmp0 = choice == 0 ? &rightNodes : &leftNodes;
         offsetInVec = t * width + 2 * activeParent.at(t) + (1-choice);
-        cudaMemcpyAsync(outPtr + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1-choice]);
+        cudaMemcpyAsync(outBuffer->data() + offsetInVec, tmp0->data() + t, sizeof(OTblock), cudaMemcpyDeviceToDevice, s);
       }
       activeParent.at(t) *= 2;
       activeParent.at(t) += 1 - choice;
     }
-    cudaDeviceSynchronize();
   }
+  
   eventsRecorded = false;
-  cudaStreamDestroy(stream[0]);
-  cudaStreamDestroy(stream[1]);
+  cudaDeviceSynchronize();
+  cudaStreamDestroy(s);
   puncVector = *outBuffer;
 
   delete expander;
