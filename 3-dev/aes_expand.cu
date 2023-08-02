@@ -35,8 +35,8 @@
 
 __global__
 void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
-	OTblock *left, OTblock *right, OTblock *inData, uint64_t width) {
-		
+	OTblock *separated, OTblock *inData, uint64_t width) {
+
 	uint32_t bx		= blockIdx.x;
     uint32_t tx		= threadIdx.x;
     uint32_t mod4tx = tx % 4;
@@ -46,8 +46,7 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	int expandDir = blockIdx.y;
 	uint32_t *aesKey = expandDir == 0 ? keyLeft : keyRight;
 
-	int elemPerNode = sizeof(OTblock) / 4;
-	uint64_t parentId =  (bx * AES_BSIZE + tx) / elemPerNode;
+	uint64_t parentId =  (bx * AES_BSIZE + tx) / 4;
 	uint64_t childId = 2 * parentId + expandDir;
 
     __shared__ UByte4 stageBlock1[AES_BSIZE];
@@ -61,12 +60,12 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	// input caricati in memoria
 	stageBlock1[tx].uival	= inData[(blockDim.x * bx + tx) / 4].data[mod4tx];
 
-	if (tx < 256) {
-		tBox0Block[tx].uival	= TBox0[tx];
-		tBox1Block[tx].uival	= TBox1[tx];
-		tBox2Block[tx].uival	= TBox2[tx];
-		tBox3Block[tx].uival	= TBox3[tx];
-	}
+	tBox0Block[tx].uival	= TBox0[tx];
+	tBox1Block[tx].uival	= TBox1[tx];
+	tBox2Block[tx].uival	= TBox2[tx];
+	tBox3Block[tx].uival	= TBox3[tx];
+
+	if (childId >= width) return;
 
 	__syncthreads();
 
@@ -88,17 +87,15 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	uint32_t op4 = stageBlock2[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+4;
-	 stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
+	stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
+
 
 	//-------------------------------- end of 2nd stage --------------------------------
 
@@ -110,17 +107,15 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	op4 = stageBlock1[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+8;
-	 stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
+	stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
+
 
 	//-------------------------------- end of 3th stage --------------------------------
 
@@ -132,17 +127,15 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	op4 = stageBlock2[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+12;
-	 stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
+	stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
+
 
 	//-------------------------------- end of 4th stage --------------------------------
 
@@ -154,17 +147,15 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	op4 = stageBlock1[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+16;
-	 stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
+	stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
+
 
 	//-------------------------------- end of 5th stage --------------------------------
 
@@ -176,17 +167,15 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	op4 = stageBlock2[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+20;
-	 stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
+	stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
+
 
 	//-------------------------------- end of 6th stage --------------------------------
 
@@ -198,17 +187,15 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	op4 = stageBlock1[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+24;
 	stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
+
 
 	//-------------------------------- end of 7th stage --------------------------------
 
@@ -220,17 +207,15 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	op4 = stageBlock2[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+28;
 	stageBlock1[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
+
 
 	//-------------------------------- end of 8th stage --------------------------------
 
@@ -242,17 +227,15 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	op4 = stageBlock1[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+32;
 	stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
 	__syncthreads();
+
 
 	//-------------------------------- end of 9th stage --------------------------------
 
@@ -264,11 +247,8 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 	op4 = stageBlock2[posIdx_E[mod4tx*4+3] + idx2].ubval[3];
 
 	op1 = tBox0Block[op1].uival;
-
     op2 = tBox1Block[op2].uival;
-
     op3 = tBox2Block[op3].uival;
-
     op4 = tBox3Block[op4].uival;
 
 	x = mod4tx+36;
@@ -287,7 +267,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 
 	x = mod4tx+40;
 
-
 	stageBlock2[tx].ubval[3] = tBox1Block[op4].ubval[3]^( aesKey[x]>>24);
 	stageBlock2[tx].ubval[2] = tBox1Block[op3].ubval[3]^( (aesKey[x]>>16) & 0x000000FF);
 	stageBlock2[tx].ubval[1] = tBox1Block[op2].ubval[3]^( (aesKey[x]>>8)  & 0x000000FF);
@@ -297,9 +276,7 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 
 	//-------------------------------- end of 11th stage --------------------------------
 
-	if (childId < width) {
-		interleaved[childId].data[tx % elemPerNode] = stageBlock2[tx].uival;
-	}
-	OTblock *separated = expandDir == 0 ? left : right;
-	separated[parentId].data[mod4tx] = stageBlock2[tx].uival;
+	interleaved[childId].data[mod4tx] = stageBlock2[tx].uival;
+	uint64_t offs = expandDir * (width / 2);
+	separated[parentId + offs].data[mod4tx] = stageBlock2[tx].uival;
 }

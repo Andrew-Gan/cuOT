@@ -35,7 +35,7 @@ void SilentOTSender::base_ot() {
       }
     }));
   }
-  
+
   for (auto &worker : workers) {
     auto res = worker.get();
     leftHash.push_back(res[0]);
@@ -56,7 +56,7 @@ void SilentOTSender::pprf_expand() {
 
   // init buffers
   GPUvector<OTblock> bufferA(2 * numOT), bufferB(2 * numOT);
-  GPUvector<OTblock> leftNodes(numOT), rightNodes(numOT);
+  GPUvector<OTblock> separated(2 * numOT);
   GPUvector<OTblock> leftSum(mConfig.nTree), rightSum(mConfig.nTree);
 
   // init delta
@@ -84,23 +84,20 @@ void SilentOTSender::pprf_expand() {
     outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
 
     uint64_t packedWidth = mConfig.nTree * width;
-    expander->expand_async(*outBuffer, leftNodes, rightNodes, *inBuffer, packedWidth, s);
+    expander->expand_async(*outBuffer, separated, *inBuffer, packedWidth, s);
 
-    leftNodes.sum_async(mConfig.nTree, width / 2, s);
-    rightNodes.sum_async(mConfig.nTree, width / 2, s);
+    separated.sum_async(2 * mConfig.nTree, width / 2, s);
 
-    leftHash.at(d-1).xor_async(leftNodes, s);
-    rightHash.at(d-1).xor_async(rightNodes, s);
-
-    if (d == depth) {
-      leftHash.at(d).xor_async(leftNodes,s);
-      rightHash.at(d).xor_async(rightNodes, s);
-    }
+    leftHash.at(d-1).xor_async(separated, 0, s);
+    rightHash.at(d-1).xor_async(separated, mConfig.nTree, s);
 
     other->leftBuffer.at(d-1).copy_async(leftHash.at(d-1), s);
     other->rightBuffer.at(d-1).copy_async(rightHash.at(d-1), s);
 
     if (d == depth) {
+      leftHash.at(d).xor_async(separated, 0, s);
+      rightHash.at(d).xor_async(separated, mConfig.nTree, s);
+
       leftHash.at(d).xor_one_to_many_async(delta, s);
       rightHash.at(d).xor_one_to_many_async(delta, s);
 
@@ -108,7 +105,6 @@ void SilentOTSender::pprf_expand() {
       other->rightBuffer.at(d).copy_async(rightHash.at(d), s);
     }
 
-    cudaEventRecord(other->expandEvents.at(d-1), s);
     cudaEventRecord(other->expandEvents.at(d-1), s);
   }
 

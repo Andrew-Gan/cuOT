@@ -9,7 +9,7 @@
 uint64_t* gen_choices(int depth) {
   uint64_t *choices = new uint64_t[depth+1];
   for (int d = 0; d < depth; d++) {
-    choices[d] = ((uint64_t) rand() << 32) | rand();
+    choices[d] = ~0x0; // ((uint64_t) rand() << 32) | rand();
   }
   // choice bit for y ^ delta must be invest of final layer
   choices[depth] = ~choices[depth-1];
@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
   auto [puncVector, choiceVector] = recver.get();
 
   Log::close();
-  
+
   test_cot(fullVector, delta, puncVector, choiceVector);
   return EXIT_SUCCESS;
 }

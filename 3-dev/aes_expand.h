@@ -5,6 +5,6 @@
 
 __global__
 void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
-	OTblock *left, OTblock *right, OTblock *inData, uint64_t width);
+	OTblock *separated, OTblock *inData, uint64_t width);
 
 #endif

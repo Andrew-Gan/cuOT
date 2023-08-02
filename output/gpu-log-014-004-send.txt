@@ -1,0 +1,39 @@
+0 CudaInit
+1 BaseOT
+2 Expand
+3 Compress
+4 Hash
+5 ExpandInit
+6 ExpandHash
+7 ExpandSum
+8 ExpandXor
+9 ExpandSend
+10 ExpandRecv
+11 CompressInit
+12 CompressTP
+13 CompressFFT
+14 CompressMult
+15 CompressIFFT
+--------------------
+s 0 0.000101
+e 0 255.926
+s 1 257.207
+e 1 283.886
+s 2 283.897
+e 2 287.653
+t 0 255.926
+t 1 26.6798
+t 2 3.75626
+t 3 0
+t 4 0
+t 5 0
+t 6 0
+t 7 0
+t 8 0
+t 9 0
+t 10 0
+t 11 0
+t 12 0
+t 13 0
+t 14 0
+t 15 0

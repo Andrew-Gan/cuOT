@@ -8,8 +8,8 @@ enum ExpanderType { AesHash_t };
 
 class Expander {
 public:
-  virtual void expand_async(GPUvector<OTblock> &interleaved, GPUvector<OTblock> &left,
-	GPUvector<OTblock> &right, GPUvector<OTblock> &input, uint64_t width, cudaStream_t &s) = 0;
+  virtual void expand_async(GPUvector<OTblock> &interleaved, GPUvector<OTblock> &separated,
+	GPUvector<OTblock> &input, uint64_t width, cudaStream_t &s) = 0;
 };
 
 class AesHash : public Expander {
@@ -22,8 +22,8 @@ private:
 public:
   AesHash(uint8_t *newleft, uint8_t *newRight);
   virtual ~AesHash();
-  virtual void expand_async(GPUvector<OTblock> &interleaved, GPUvector<OTblock> &left,
-	GPUvector<OTblock> &right, GPUvector<OTblock> &input, uint64_t width, cudaStream_t &s);
+  virtual void expand_async(GPUvector<OTblock> &interleaved, GPUvector<OTblock> &separated,
+	GPUvector<OTblock> &input, uint64_t width, cudaStream_t &s);
   
   // void decrypt(GPUdata &msg);
   // void encrypt(GPUdata &msg);
