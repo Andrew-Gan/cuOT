@@ -30,7 +30,7 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 
 QUEUE=standby #zghodsi-b
 CPU_PER_NODE=16
-GPU_PER_NODE=1
+GPU_PER_NODE=2
 NUM_NODE=1
 CLUSTER=K
 
@@ -71,4 +71,4 @@ clean:
 	rm -rf $(EXE) $(OBJ)/app $(OBJ)/mod $(OBJ)/dev
 
 cleanall:
-	rm -rf $(EXE) $(OBJ)
+	rm -rf $(EXE) $(OBJ) prof

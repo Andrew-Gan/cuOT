@@ -24,7 +24,7 @@ void GPUvector<T>::sum_async(uint64_t nPartition, uint64_t blkPerPart, cudaStrea
   uint64_t blockSize, nBlocks, mem, u64PerPartition;
 
   uint8_t *buffer;
-  cudaMalloc(&buffer, this->mNBytes);
+  cudaMallocAsync(&buffer, this->mNBytes / std::min((uint64_t) 1024, blkPerPart), s);
 
   uint64_t *in = (uint64_t*) buffer;
   uint64_t *out = (uint64_t*) this->mPtr;
@@ -40,10 +40,10 @@ void GPUvector<T>::sum_async(uint64_t nPartition, uint64_t blkPerPart, cudaStrea
   }
 
   if (out != (uint64_t*) this->mPtr) {
-    cudaMemcpy(this->mPtr, out, this->mNBytes, cudaMemcpyDeviceToDevice);
+    cudaMemcpyAsync(this->mPtr, out, nPartition * sizeof(T), cudaMemcpyDeviceToDevice, s);
   }
 
-  cudaFree(buffer);
+  cudaFreeAsync(buffer, s);
 }
 
 template<typename T>

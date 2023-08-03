@@ -17,10 +17,10 @@ class SilentOTRecver;
 
 struct SilentOTConfig {
   int id, logOT, nTree;
-  uint64_t *choices;
   BaseOTType baseOT;
   ExpanderType expander;
   CompressType compressor;
+  uint64_t *choices;
 };
 
 class SilentOT {
@@ -42,11 +42,11 @@ protected:
 
 class SilentOTSender : public SilentOT {
 public:
+  GPUvector<OTblock> fullVector;
+  OTblock *delta = nullptr;
+
   SilentOTSender(SilentOTConfig config);
   void run();
-  std::pair<GPUvector<OTblock>, OTblock*> get() {
-    return {fullVector, delta};
-  }
 
 private:
   SilentOTRecver *other = nullptr;
@@ -55,8 +55,6 @@ private:
   std::vector<GPUvector<OTblock>> rightHash;
   virtual void base_ot();
 
-  GPUvector<OTblock> fullVector;
-  OTblock *delta = nullptr;
   virtual void pprf_expand();
   virtual void mult_compress();
 };
@@ -70,11 +68,10 @@ public:
   std::vector<cudaEvent_t> expandEvents;
   std::atomic<bool> eventsRecorded = false;
 
+  GPUvector<OTblock> puncVector, choiceVector;
+
   SilentOTRecver(SilentOTConfig config);
   void run();
-  std::array<GPUvector<OTblock>, 2> get() {
-    return {puncVector, choiceVector};
-  }
 
 private:
   SilentOTSender *other = nullptr;
@@ -82,7 +79,6 @@ private:
   std::vector<GPUvector<OTblock>> choiceHash;
   virtual void base_ot();
 
-  GPUvector<OTblock> puncVector, choiceVector;
   virtual void pprf_expand();
   virtual void mult_compress();
   virtual void get_choice_vector();

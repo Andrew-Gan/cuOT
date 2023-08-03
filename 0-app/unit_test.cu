@@ -7,8 +7,8 @@
 void test_cuda() {
   int deviceCount = 0;
   cudaGetDeviceCount(&deviceCount);
-  if (deviceCount == 0)
-    fprintf(stderr, "There is no device.\n");
+  assert(deviceCount >= 2);
+
   int dev;
   for (dev = 0; dev < deviceCount; ++dev) {
     cudaDeviceProp deviceProp;
@@ -18,9 +18,6 @@ void test_cuda() {
   }
   if (dev == deviceCount)
     fprintf(stderr, "There is no device supporting CUDA.\n");
-  else
-    cudaSetDevice(dev);
-  assert(deviceCount > 0);
   assert(dev < deviceCount);
 }
 
@@ -56,31 +53,17 @@ void test_reduce() {
   printf("test_reduce passed!\n");
 }
 
-void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
-  GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector) {
+void test_cot(SilentOTSender &sender, SilentOTRecver &recver) {
+  GPUvector<OTblock> lhs(recver.puncVector.size());
+  cudaMemcpyPeer(lhs.data(), 0, recver.puncVector.data(), 1, recver.puncVector.size_bytes());
 
-  printf("full\n");
-  print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 16, 16);
-  cudaDeviceSynchronize();
-  printf("punc\n");
-  print_gpu<<<1, 1>>>((uint8_t*) puncVector.data(), 16, 16);
-  cudaDeviceSynchronize();
-  printf("choice\n");
-  print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 16, 16);
-  cudaDeviceSynchronize();
-  printf("delta\n");
-  print_gpu<<<1, 1>>>((uint8_t*) delta, 16);
-  cudaDeviceSynchronize();
+  GPUvector<OTblock> rhs(recver.choiceVector.size());
+  cudaMemcpyPeer(rhs.data(), 0, recver.choiceVector.data(), 1, recver.choiceVector.size_bytes());
 
-  fullVector ^= puncVector;
-  choiceVector &= delta;
+  lhs ^= sender.fullVector;
+  rhs &= sender.delta;
 
-  printf("lhs\n");
-  print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 16, 16);
-  cudaDeviceSynchronize();
-  printf("rhs\n");
-  print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 16, 16);
-  cudaDeviceSynchronize();
+  assert(lhs == rhs);
 
-  assert(fullVector == choiceVector);
+  printf("correlation test passed!\n");
 }

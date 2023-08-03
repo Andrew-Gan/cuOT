@@ -22,10 +22,8 @@ void SilentOTRecver::run() {
   base_ot();
   Log::end(Recver, BaseOT);
 
-  Log::start(Recver, Expand);
   pprf_expand();
   get_choice_vector();
-  Log::end(Recver, Expand);
 
   return;
 
@@ -87,7 +85,7 @@ void SilentOTRecver::pprf_expand() {
   }
 
   // init buffers
-  GPUvector<OTblock> bufferA(2 * numOT), bufferB(2 * numOT);
+  GPUvector<OTblock> interleaved(2 * numOT);
   GPUvector<OTblock> separated(2 * numOT);
 
   std::vector<uint64_t> activeParent(mConfig.nTree, 0);
@@ -100,10 +98,11 @@ void SilentOTRecver::pprf_expand() {
   uint64_t offset;
 
   while(!eventsRecorded);
+  Log::start(Recver, Expand);
 
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
-    outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
+    inBuffer = (d % 2 == 1) ? &interleaved : &puncVector;
+    outBuffer = (d % 2 == 1) ? &puncVector : &interleaved;
 
     uint64_t packedWidth = mConfig.nTree * width;
     expander->expand_async(*outBuffer, separated, *inBuffer, packedWidth, s);
@@ -150,11 +149,15 @@ void SilentOTRecver::pprf_expand() {
   }
 
   eventsRecorded = false;
-  cudaDeviceSynchronize();
+  cudaStreamSynchronize(s);
   cudaStreamDestroy(s);
-  puncVector = *outBuffer;
+
+  if (outBuffer != &puncVector)
+    puncVector = *outBuffer;
 
   delete expander;
+
+  Log::end(Recver, Expand);
 }
 
 void SilentOTRecver::mult_compress() {

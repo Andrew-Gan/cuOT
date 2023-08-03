@@ -55,7 +55,7 @@ void SilentOTSender::pprf_expand() {
   }
 
   // init buffers
-  GPUvector<OTblock> bufferA(2 * numOT), bufferB(2 * numOT);
+  GPUvector<OTblock> interleaved(2 * numOT);
   GPUvector<OTblock> separated(2 * numOT);
   GPUvector<OTblock> leftSum(mConfig.nTree), rightSum(mConfig.nTree);
 
@@ -72,7 +72,7 @@ void SilentOTSender::pprf_expand() {
     for (int i = 0; i < 4; i++) {
       buff.data[i] = rand();
     }
-    bufferA.set(t, buff);
+    interleaved.set(t, buff);
   }
 
   cudaStream_t s;
@@ -80,8 +80,8 @@ void SilentOTSender::pprf_expand() {
   GPUvector<OTblock> *inBuffer, *outBuffer;
 
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
-    outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
+    inBuffer = (d % 2 == 1) ? &interleaved : &fullVector;
+    outBuffer = (d % 2 == 1) ? &fullVector : &interleaved;
 
     uint64_t packedWidth = mConfig.nTree * width;
     expander->expand_async(*outBuffer, separated, *inBuffer, packedWidth, s);
@@ -109,9 +109,11 @@ void SilentOTSender::pprf_expand() {
   }
 
   other->eventsRecorded = true;
-  cudaDeviceSynchronize();
+  cudaStreamSynchronize(s);
   cudaStreamDestroy(s);
-  fullVector = *outBuffer;
+
+  if (outBuffer != &fullVector)
+    fullVector = *outBuffer;
 
   delete expander;
 }
