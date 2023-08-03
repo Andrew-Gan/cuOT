@@ -87,6 +87,18 @@ void GPUdata::load(const uint8_t *data) {
   cudaMemcpy(mPtr, data, mNBytes, cudaMemcpyDeviceToDevice);
 }
 
+void GPUdata::load(const char *filename) {
+  std::ifstream ifs(filename, std::ios::binary);
+  ifs.read((char*)mPtr, mNBytes);
+  ifs.close();
+}
+
+void GPUdata::save(const char *filename) {
+  std::ofstream ofs(filename, std::ios::binary);
+  ofs.write((char*)mPtr, mNBytes);
+  ofs.close();
+}
+
 void GPUdata::clear() {
   cudaMemset(mPtr, 0, mNBytes);
 }

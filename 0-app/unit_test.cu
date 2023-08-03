@@ -60,6 +60,18 @@ void test_cot(SilentOTSender &sender, SilentOTRecver &recver) {
   GPUvector<OTblock> rhs(recver.choiceVector.size());
   cudaMemcpyPeer(rhs.data(), 0, recver.choiceVector.data(), 1, recver.choiceVector.size_bytes());
 
+  printf("fullVector\n");
+  print_gpu<<<1, 1>>>(sender.fullVector.data(), 64, 16);
+  cudaDeviceSynchronize();
+
+  printf("puncVector\n");
+  print_gpu<<<1, 1>>>(lhs.data(), 64, 16);
+  cudaDeviceSynchronize();
+
+  printf("choiceVector\n");
+  print_gpu<<<1, 1>>>(rhs.data(), 64, 16);
+  cudaDeviceSynchronize();
+
   lhs ^= sender.fullVector;
   rhs &= sender.delta;
 

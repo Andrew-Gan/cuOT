@@ -19,8 +19,6 @@ void SilentOTSender::run() {
   pprf_expand();
   Log::end(Sender, Expand);
 
-  return;
-
   Log::start(Sender, Compress);
   mult_compress();
   Log::end(Sender, Compress);

@@ -23,9 +23,11 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   Log::end(mRole, CompressInit);
 
   Log::start(mRole, CompressFFT);
-  GPUvector<OTblock> a64(n64);
+  GPUvector<uint64_t> a64(n64);
   cufftReal *a64_poly;
   curandGenerate(prng, (uint32_t*) a64.data(), 2 * n64);
+
+  a64.load("input/a64.bin");
 
   cudaMalloc(&a64_poly, n64 * sizeof(cufftReal));
   cudaMalloc(&a64_fft, n64 * sizeof(cufftComplex));
@@ -55,6 +57,8 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   XT.load((uint8_t*) vector.data());
   XT.bit_transpose(); // XT = rows x n2blocks
   Log::end(mRole, CompressTP);
+
+  // XT.load("input/XT.bin");
 
   Log::start(mRole, CompressFFT);
   uint64_t *b64 = (uint64_t*) XT.data();
