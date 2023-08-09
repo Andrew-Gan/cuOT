@@ -31,7 +31,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Usage: ./ot protocol logOT numTrees\n");
     return EXIT_FAILURE;
   }
-
   test_cuda();
 
   int protocol = atoi(argv[1]);
@@ -40,11 +39,9 @@ int main(int argc, char** argv) {
   printf("log OTs: %lu, Trees: %d\n", logOT, numTrees);
 
   // temporary measure while RDMA being set up to run two processes
-  char filename[32];
-  char filename2[32];
-  sprintf(filename, "output/gpu-log-%03d-%03d-send.txt", logOT, numTrees);
-  sprintf(filename2, "output/gpu-log-%03d-%03d-recv.txt", logOT, numTrees);
-  Log::open(filename, filename2);
+  char filenameS[32], filenameR[32];
+  sprintf(filenameS, "output/gpu-log-%03d-%03d-send.txt", logOT, numTrees);
+  sprintf(filenameR, "output/gpu-log-%03d-%03d-recv.txt", logOT, numTrees);
 
   uint64_t depth = logOT - log2((float) numTrees) + 1;
 
@@ -59,30 +56,33 @@ int main(int argc, char** argv) {
   SilentOTSender *sender;
   SilentOTRecver *recver;
 
-  std::future<void> senderWorker = std::async([&sender, &config]() {
-    Log::start(Sender, CudaInit);
+  std::future<void> senderWorker = std::async([&sender, &config, filenameS]() {
+    // Log::start(Sender, CudaInit);
     cudaSetDevice(0);
     cuda_init();
-    Log::end(Sender, CudaInit);
+    // Log::end(Sender, CudaInit);
+    Log::open(Sender, filenameS);
     sender = new SilentOTSender(config);
     sender->run();
+    Log::close(Sender);
   });
 
-  std::future<void> recverWorker = std::async([&recver, &config]() {
-    Log::start(Recver, CudaInit);
+  std::future<void> recverWorker = std::async([&recver, &config, filenameR]() {
+    // Log::start(Recver, CudaInit);
     cudaSetDevice(1);
     cuda_init();
-    Log::end(Recver, CudaInit);
+    // Log::end(Recver, CudaInit);
+    Log::open(Recver, filenameR);
     recver = new SilentOTRecver(config);
     recver->run();
+    Log::close(Recver);
   });
 
   senderWorker.get();
   recverWorker.get();
 
-  Log::close();
   // comment out when profiling
-  test_cot(*sender, *recver);
+  // test_cot(*sender, *recver);
 
   delete[] config.choices;
   delete sender;

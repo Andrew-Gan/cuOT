@@ -54,23 +54,6 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
   return !(*this == rhs);
 }
 
-std::ostream& operator<<(std::ostream &os, const GPUdata &obj) {
-  static std::mutex mtx;
-  mtx.lock();
-  uint8_t *nodes = new uint8_t[obj.size_bytes()];
-  cudaMemcpy(nodes, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
-  for (int i = 0; i < obj.size_bytes(); i += 64) {
-    for (int j = i; j < obj.size_bytes() && j < i + 64; j++) {
-      os << std::hex << +nodes[j] << " ";
-    }
-    os << std::endl;
-  }
-  delete[] nodes;
-  mtx.unlock();
-
-  return os;
-}
-
 void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
   uint8_t *newData;
@@ -88,15 +71,21 @@ void GPUdata::load(const uint8_t *data) {
 }
 
 void GPUdata::load(const char *filename) {
-  std::ifstream ifs(filename, std::ios::binary);
-  ifs.read((char*)mPtr, mNBytes);
+  std::ifstream ifs(filename, std::ios::in | std::ios::binary);
+  char *buffer = new char[mNBytes];
+  ifs.read(buffer, mNBytes);
+  cudaMemcpy(mPtr, buffer, mNBytes, cudaMemcpyHostToDevice);
   ifs.close();
+  delete[] buffer;
 }
 
 void GPUdata::save(const char *filename) {
-  std::ofstream ofs(filename, std::ios::binary);
-  ofs.write((char*)mPtr, mNBytes);
+  std::ofstream ofs(filename, std::ios::out | std::ios::binary);
+  char *buffer = new char[mNBytes];
+  cudaMemcpy(buffer, mPtr, mNBytes, cudaMemcpyDeviceToHost);
+  ofs.write(buffer, mNBytes);
   ofs.close();
+  delete[] buffer;
 }
 
 void GPUdata::clear() {

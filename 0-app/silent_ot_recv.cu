@@ -159,9 +159,9 @@ void SilentOTRecver::pprf_expand() {
 }
 
 void SilentOTRecver::mult_compress() {
-  printf("pre-compress choicevec\n");
-  print_gpu<<<1, 1>>>(choiceVector.data(), 64, 16);
-  cudaDeviceSynchronize();
+  // printf("pre-compress choicevec\n");
+  // print_gpu<<<1, 1>>>(choiceVector.data(), 64, 16);
+  // cudaDeviceSynchronize();
 
   switch (mConfig.compressor) {
     case QuasiCyclic_t:
@@ -171,7 +171,7 @@ void SilentOTRecver::mult_compress() {
     // case ExpandAccumulate:
   }
 
-  printf("post-compress choicevec\n");
-  print_gpu<<<1, 1>>>(choiceVector.data(), 64, 16);
-  cudaDeviceSynchronize();
+  // printf("post-compress choicevec\n");
+  // print_gpu<<<1, 1>>>(choiceVector.data(), 64, 16);
+  // cudaDeviceSynchronize();
 }

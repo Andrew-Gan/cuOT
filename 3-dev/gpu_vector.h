@@ -53,4 +53,15 @@ void GPUvector<T>::xor_async(GPUvector<T> &rhs, uint64_t offs, cudaStream_t s) {
   xor_gpu<<<nBlock, 1024, 0, s>>>(this->mPtr, (uint8_t*) (rhs.data() + offs), min);
 }
 
+template<typename T>
+std::ostream& operator<<(std::ostream &os, const GPUvector<T> &obj) {
+  T *nodes = new T[obj.cols()];
+  cudaMemcpy(nodes, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
+  for (uint64_t i = 0; i < obj.cols(); i++) {
+    os << nodes[i] << std::endl;
+  }
+  delete[] nodes;
+  return os;
+}
+
 #endif

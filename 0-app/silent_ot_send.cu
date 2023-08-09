@@ -45,18 +45,15 @@ void SilentOTSender::pprf_expand() {
   // init hash keys
   uint32_t k0_blk[4] = {3242342};
   uint32_t k1_blk[4] = {8993849};
-
   Expander *expander;
   switch (mConfig.expander) {
     case AesHash_t:
       expander = new AesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
   }
-
   // init buffers
   GPUvector<OTblock> interleaved(2 * numOT);
   GPUvector<OTblock> separated(2 * numOT);
   GPUvector<OTblock> leftSum(mConfig.nTree), rightSum(mConfig.nTree);
-
   // init delta
   OTblock buff;
   for (int i = 0; i < 4; i++) {
@@ -64,7 +61,6 @@ void SilentOTSender::pprf_expand() {
   }
   cudaMalloc(&delta, sizeof(*delta));
   cudaMemcpy(delta, &buff, sizeof(*delta), cudaMemcpyHostToDevice);
-
   // init root
   for (int t = 0; t < mConfig.nTree; t++) {
     for (int i = 0; i < 4; i++) {

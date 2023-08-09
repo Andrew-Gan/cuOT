@@ -27,7 +27,14 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   cufftReal *a64_poly;
   curandGenerate(prng, (uint32_t*) a64.data(), 2 * n64);
 
-  a64.load("input/a64.bin");
+  // // take in next prime
+  // a64.resize(16386);
+  // a64.load("input/a64_poly.bin");
+  // a64.save("output/a64_poly.bin");
+
+  // std::ofstream ofs("output/a64_poly.txt");
+  // ofs << a64 << std::endl;
+  // ofs.close();
 
   cudaMalloc(&a64_poly, n64 * sizeof(cufftReal));
   cudaMalloc(&a64_fft, n64 * sizeof(cufftComplex));
@@ -40,6 +47,15 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   cufftExecR2C(aPlan, a64_poly, a64_fft);
   cudaFree(a64_poly);
   Log::end(mRole, CompressFFT);
+
+  // cufftComplex *buffer = new cufftComplex[n64];
+  // cudaMemcpy(buffer, a64_fft, n64 * sizeof(cufftComplex), cudaMemcpyDeviceToHost);
+  // ofs.open("output/a64_fft.txt");
+  // for (int i = 0; i < n64; i++) {
+  //   ofs << buffer[i].x << std::endl;
+  // }
+  // ofs.close();
+  // delete[] buffer;
 }
 
 QuasiCyclic::~QuasiCyclic() {

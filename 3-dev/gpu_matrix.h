@@ -9,9 +9,9 @@ template<typename T>
 class GPUmatrix : public GPUdata {
 public:
   GPUmatrix(uint64_t r, uint64_t c);
-  uint64_t rows() { return mRows; }
-  uint64_t cols() { return mCols; }
-  T* data() { return (T*) mPtr; }
+  uint64_t rows() const { return mRows; }
+  uint64_t cols() const { return mCols; }
+  T* data() const { return (T*) mPtr; }
   void set(uint64_t r, uint64_t c, T &val);
   void resize(uint64_t r, uint64_t c);
   void bit_transpose();
@@ -82,17 +82,17 @@ GPUmatrix<T>& GPUmatrix<T>::operator&=(T *rhs) {
 }
 
 template<typename T>
-std::ostream& operator<<(std::ostream &os, GPUmatrix<T> &mat) {
-  uint64_t colU64 = mat.cols() * sizeof(T) / sizeof(colU64);
-  uint64_t *data = new uint64_t[mat.size_bytes() / sizeof(*data)];
-  cudaMemcpy(data, mat.data(), mat.size_bytes(), cudaMemcpyDeviceToHost);
-  for (uint64_t r = 0; r < mat.rows(); r++) {
-    for (uint64_t c = 0; c < colU64; c++) {
-      os << std::bitset<64>(data[r * colU64 + c]);
+std::ostream& operator<<(std::ostream &os, const GPUmatrix<T> &obj) {
+  T *nodes = new T[obj.rows() * obj.cols()];
+  cudaMemcpy(nodes, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
+  for (uint64_t r = 0; r < obj.rows(); r++) {
+    for (uint64_t c = 0; c < obj.cols(); c++) {
+      uint64_t offs = r * obj.cols() + c;
+      os << nodes[offs] << " ";
     }
     os << std::endl;
   }
-  delete[] data;
+  delete[] nodes;
   return os;
 }
 
