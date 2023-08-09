@@ -11,12 +11,20 @@
 using Point = osuCrypto::Sodium::Rist25519;
 using Number = osuCrypto::Sodium::Prime25519;
 
-class SimplestOT {
+enum BaseOTType { SimplestOT_t };
+
+class OT {
+public:
+  virtual std::array<GPUvector<OTblock>, 2> send() = 0;
+  virtual GPUvector<OTblock> recv(uint64_t choice) = 0;
+};
+
+class SimplestOT : public OT {
 public:
   SimplestOT(Role role, int id, uint64_t count);
   virtual ~SimplestOT();
-  std::array<GPUvector<OTblock>, 2> send();
-  GPUvector<OTblock> recv(uint64_t choice);
+  virtual std::array<GPUvector<OTblock>, 2> send();
+  virtual GPUvector<OTblock> recv(uint64_t choice);
 
 private:
   Role mRole;
@@ -35,7 +43,7 @@ private:
   void toOtherBuffer(uint8_t *s, uint64_t nBytes);
 };
 
-extern std::array<std::atomic<SimplestOT*>, 100> simplestOTSenders;
-extern std::array<std::atomic<SimplestOT*>, 100> simplestOTRecvers;
+extern std::array<std::atomic<OT*>, 100> baseOTSenders;
+extern std::array<std::atomic<OT*>, 100> baseOTRecvers;
 
 #endif

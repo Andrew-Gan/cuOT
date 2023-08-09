@@ -1,4 +1,4 @@
-#include "quasi_cyclic.h"
+#include "compressor.h"
 #include <cmath>
 #include "gpu_vector.h"
 #include "gpu_ops.h"
@@ -23,21 +23,39 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   Log::end(mRole, CompressInit);
 
   Log::start(mRole, CompressFFT);
-  GPUvector<OTblock> a64(n64);
+  GPUvector<uint64_t> a64(n64);
   cufftReal *a64_poly;
   curandGenerate(prng, (uint32_t*) a64.data(), 2 * n64);
+
+  // // take in next prime
+  // a64.resize(16386);
+  // a64.load("input/a64_poly.bin");
+  // a64.save("output/a64_poly.bin");
+
+  // std::ofstream ofs("output/a64_poly.txt");
+  // ofs << a64 << std::endl;
+  // ofs.close();
 
   cudaMalloc(&a64_poly, n64 * sizeof(cufftReal));
   cudaMalloc(&a64_fft, n64 * sizeof(cufftComplex));
 
   uint64_t blk = std::min(n64, 1024lu);
   uint64_t grid = n64 < 1024 ? 1 : n64 / 1024;
-  int_to_float<<<grid, blk>>>(a64_poly, (uint64_t*) a64.data());
+  cast<uint64_t, cufftReal><<<grid, blk>>>((uint64_t*) a64.data(), a64_poly);
   cudaDeviceSynchronize();
 
   cufftExecR2C(aPlan, a64_poly, a64_fft);
   cudaFree(a64_poly);
   Log::end(mRole, CompressFFT);
+
+  // cufftComplex *buffer = new cufftComplex[n64];
+  // cudaMemcpy(buffer, a64_fft, n64 * sizeof(cufftComplex), cudaMemcpyDeviceToHost);
+  // ofs.open("output/a64_fft.txt");
+  // for (int i = 0; i < n64; i++) {
+  //   ofs << buffer[i].x << std::endl;
+  // }
+  // ofs.close();
+  // delete[] buffer;
 }
 
 QuasiCyclic::~QuasiCyclic() {
@@ -56,6 +74,8 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   XT.bit_transpose(); // XT = rows x n2blocks
   Log::end(mRole, CompressTP);
 
+  // XT.load("input/XT.bin");
+
   Log::start(mRole, CompressFFT);
   uint64_t *b64 = (uint64_t*) XT.data();
   cufftReal *b64_poly;
@@ -65,8 +85,9 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
 
   uint64_t blk = std::min(rows * n64, 1024lu);
   uint64_t grid = rows * n64 < 1024 ? 1 : rows * n64 / 1024;
-  int_to_float<<<grid, blk>>>(b64_poly, b64);
+  cast<uint64_t, cufftReal><<<grid, blk>>>(b64, b64_poly);
   cudaDeviceSynchronize();
+
   cufftExecR2C(bPlan, b64_poly, b64_fft);
   cudaFree(b64_poly);
   Log::end(mRole, CompressFFT);
@@ -77,8 +98,8 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   cudaMalloc(&c64_poly, rows * n64 * sizeof(cufftReal));
   cudaMalloc(&c64_fft, rows * n64 * sizeof(cufftComplex));
 
-  blk = std::min(n64, 1024lu);
-  dim3 blocks(n64 < 1024 ? 1 : n64 / 1024, rows);
+  blk = std::min(n64 / 2, 1024lu);
+  dim3 blocks(n64 / 2 < 1024 ? 1 : n64 / 2 / 1024, rows);
   complex_dot_product<<<blocks, blk>>>(c64_fft, a64_fft, b64_fft);
   cudaDeviceSynchronize();
   cudaFree(b64_fft);
@@ -91,7 +112,7 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
 
   Log::start(mRole, CompressTP);
   GPUmatrix<OTblock> cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
-  float_to_int<<<rows * n64 / 1024, 1024>>>((uint64_t*) cModP1.data(), c64_poly);
+  cast<cufftReal, uint64_t><<<rows * n64 / 1024, 1024>>>(c64_poly, (uint64_t*) cModP1.data());
   cudaDeviceSynchronize();
   cudaFree(c64_poly);
 

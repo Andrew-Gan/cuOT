@@ -1,14 +1,14 @@
 #include <assert.h>
 #include <future>
 #include "unit_test.h"
-#include "aes.h"
-#include "simplest_ot.h"
+#include "expander.h"
+#include "base_ot.h"
 
 void test_cuda() {
   int deviceCount = 0;
   cudaGetDeviceCount(&deviceCount);
-  if (deviceCount == 0)
-    fprintf(stderr, "There is no device.\n");
+  assert(deviceCount >= 2);
+
   int dev;
   for (dev = 0; dev < deviceCount; ++dev) {
     cudaDeviceProp deviceProp;
@@ -18,36 +18,7 @@ void test_cuda() {
   }
   if (dev == deviceCount)
     fprintf(stderr, "There is no device supporting CUDA.\n");
-  else
-    cudaSetDevice(dev);
-  assert(deviceCount > 0);
   assert(dev < deviceCount);
-}
-
-void test_aes() {
-  uint64_t k0 = 3242342;
-  uint8_t k0_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  Aes aes0, aes1;
-  aes0.init(k0_blk);
-  aes1.init(k0_blk);
-  const char *sample = "this is a test";
-
-  GPUdata buffer(1024);
-  buffer.clear();
-  cudaMemcpy(buffer.data(), sample, 16, cudaMemcpyHostToDevice);
-
-  aes0.encrypt(buffer);
-  uint8_t encryptedData[16];
-  cudaMemcpy(encryptedData, buffer.data(), 16, cudaMemcpyDeviceToHost);
-  assert(memcmp(sample, encryptedData, 16) != 0);
-
-  aes1.decrypt(buffer);
-  uint8_t decryptedData[16];
-  cudaMemcpy(decryptedData, buffer.data(), 16, cudaMemcpyDeviceToHost);
-  assert(memcmp(sample, decryptedData, 16) == 0);
-
-  printf("test_aes passed!\n");
 }
 
 bool _cmp(OTblock &b0, OTblock &b1) {
@@ -56,36 +27,6 @@ bool _cmp(OTblock &b0, OTblock &b1) {
       return false;
   }
   return true;
-}
-
-void test_base_ot() {
-  const uint64_t choice = 0b1001;
-  std::future sender = std::async([]() {
-    return SimplestOT(Sender, 0, 4).send();
-  });
-  std::future recver = std::async([]() {
-    return SimplestOT(Recver, 0, 4).recv(choice);
-  });
-
-  auto pair = sender.get();
-  GPUdata m0_d = pair[0];
-  GPUdata m1_d = pair[1];
-  GPUdata mb_d = recver.get();
-
-  OTblock m0[4], m1[4], mb[4];
-  cudaMemcpy(m0, m0_d.data(), 4 * sizeof(OTblock), cudaMemcpyDeviceToHost);
-  cudaMemcpy(m1, m1_d.data(), 4 * sizeof(OTblock), cudaMemcpyDeviceToHost);
-  cudaMemcpy(mb, mb_d.data(), 4 * sizeof(OTblock), cudaMemcpyDeviceToHost);
-
-  for (int i = 0; i < 4; i++) {
-    uint8_t c = choice & (1 << i);
-    if (c == 0)
-      assert(_cmp(mb[i], m0[i]));
-    else
-      assert(_cmp(mb[i], m1[i]));
-  }
-
-  printf("test_base_ot passed!\n");
 }
 
 void test_reduce() {
@@ -112,31 +53,29 @@ void test_reduce() {
   printf("test_reduce passed!\n");
 }
 
-void test_cot(GPUvector<OTblock> &fullVector, OTblock *delta,
-  GPUvector<OTblock> &puncVector, GPUvector<OTblock> &choiceVector) {
+void test_cot(SilentOTSender &sender, SilentOTRecver &recver) {
+  GPUvector<OTblock> lhs(recver.puncVector.size());
+  cudaMemcpyPeer(lhs.data(), 0, recver.puncVector.data(), 1, recver.puncVector.size_bytes());
 
-  printf("full\n");
-  print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
-  printf("punc\n");
-  print_gpu<<<1, 1>>>((uint8_t*) puncVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
-  printf("choice\n");
-  print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
-  printf("delta\n");
-  print_gpu<<<1, 1>>>((uint8_t*) delta, 16);
+  GPUvector<OTblock> rhs(recver.choiceVector.size());
+  cudaMemcpyPeer(rhs.data(), 0, recver.choiceVector.data(), 1, recver.choiceVector.size_bytes());
+
+  printf("fullVector\n");
+  print_gpu<<<1, 1>>>(sender.fullVector.data(), 64, 16);
   cudaDeviceSynchronize();
 
-  fullVector ^= puncVector;
-  choiceVector &= delta;
-
-  printf("lhs\n");
-  print_gpu<<<1, 1>>>((uint8_t*) fullVector.data(), 4, 16*512);
-  cudaDeviceSynchronize();
-  printf("rhs\n");
-  print_gpu<<<1, 1>>>((uint8_t*) choiceVector.data(), 4, 16*512);
+  printf("puncVector\n");
+  print_gpu<<<1, 1>>>(lhs.data(), 64, 16);
   cudaDeviceSynchronize();
 
-  assert(fullVector == choiceVector);
+  printf("choiceVector\n");
+  print_gpu<<<1, 1>>>(rhs.data(), 64, 16);
+  cudaDeviceSynchronize();
+
+  lhs ^= sender.fullVector;
+  rhs &= sender.delta;
+
+  assert(lhs == rhs);
+
+  printf("correlation test passed!\n");
 }

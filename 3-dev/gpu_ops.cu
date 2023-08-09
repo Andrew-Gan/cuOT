@@ -53,26 +53,78 @@ void bit_transposer(uint64_t *out, uint64_t *in) {
   out[rowOut * colsU64Out + colOut] = res;
 }
 
-__global__
-void int_to_float(float *o, uint64_t *i) {
-  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  o[tid] = (float) i[tid];
+__device__
+void clmul_128(uint64_t a, uint64_t b, uint64_t c[2]) {
+  for (int i = 0; i < 64; i++) {
+    if (a & (1 << i)) {
+      c[0] ^= b << i;
+      c[1] ^= b >> (64-i);
+    }
+  }
+}
+
+__device__
+void shuffle_128(uint64_t a[2], uint8_t control, uint64_t b[2]) {
+  uint32_t src[4] = {
+    (uint32_t) a[0],
+    (uint32_t) (a[0] >> 32),
+    (uint32_t) a[1],
+    (uint32_t) (a[1] >> 32),
+  };
+  uint32_t des[4];
+  for (int i = 0; i < 4; i++) {
+    uint8_t pos = (control >> (i * 2)) & 0b11;
+    des[pos] = src[i];
+  }
+  b[0] = (uint64_t) des[1] << 32 | des[0];
+  b[1] = (uint64_t) des[3] << 32 | des[2];
 }
 
 __global__
-void float_to_int(uint64_t *o, float *i) {
-  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  o[tid] = (uint64_t) i[tid];
-}
-
-__global__
-void complex_dot_product(cufftComplex *c, cufftComplex *a, cufftComplex *b) {
+void complex_dot_product(cufftComplex *c_out, cufftComplex *a_in, cufftComplex *b_in) {
   uint64_t row = blockIdx.y;
   uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t width = gridDim.x * blockDim.x;
-  uint64_t offset = row * width + tid;
-  c[offset].x = a[tid].x * b[offset].x + a[tid].y * b[offset].y;
-  c[offset].y = a[tid].x * b[offset].y + a[tid].y * b[offset].x;
+  uint64_t width = 2 * gridDim.x * blockDim.x;
+  uint64_t offset = row * width + 2 * tid;
+
+  // KARATSUBA MULT
+  uint64_t a[2] = { (uint64_t) (a_in[tid * 2].x), (uint64_t) (a_in[tid * 2 + 1].x) };
+  uint64_t b[2] = { (uint64_t) (b_in[offset].x), (uint64_t) (b_in[offset + 1].x) };
+  uint64_t c0[2];
+  uint64_t c1[2];
+
+  clmul_128(a[0], b[0], c0);
+  clmul_128(a[1], b[1], c1);
+
+  uint64_t tt0[2] = { a[0] ^ a[1], a[1] };
+  uint64_t tt1[2] = { b[0] ^ b[1], b[1] };
+  uint64_t tt2[2];
+  clmul_128(tt0[0], tt1[0], tt2);
+  tt2[0] ^= c0[0] ^ c1[0];
+  tt2[1] ^= c0[1] ^ c1[1];
+
+  c0[1] ^= tt2[0];
+  c1[0] ^= tt2[1];
+
+  // REDUCTION
+  uint64_t reducer[2] = { 0x87, 0x0 };
+  uint64_t x64[2];
+  clmul_128(c1[1], reducer[0], x64);
+  uint64_t out[2];
+  shuffle_128(x64, 0xfe, out);
+  c1[0] ^= out[0];
+  c1[1] ^= out[1];
+  shuffle_128(x64, 0x4f, out);
+  c0[0] ^= out[0];
+  c0[1] ^= out[1];
+  clmul_128(c1[0], reducer[0], out);
+  c0[0] ^= out[0];
+  c0[1] ^= out[1];
+
+  c_out[offset].x = (float) c0[0];
+  c_out[offset].y = 0;
+  c_out[offset + 1].x = (float) c0[1];
+  c_out[offset + 1].y = 0;
 }
 
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
@@ -88,12 +140,12 @@ void warp_reduce(volatile uint64_t *sdata, uint64_t tid) {
 }
 
 __global__
-void xor_reduce_gpu(uint64_t *data) {
+void xor_reduce_gpu(uint64_t *out, uint64_t *in) {
   extern __shared__ uint64_t sdata[];
   uint64_t tid = threadIdx.x;
   uint64_t start = blockIdx.x * (blockDim.x * 2);
 
-  sdata[tid] = data[start + tid] ^ data[start + tid + blockDim.x];
+  sdata[tid] = in[start + tid] ^ in[start + tid + blockDim.x];
   __syncthreads();
   if (blockDim.x >= 1024 && tid < 512) sdata[tid] ^= sdata[tid + 512];
   __syncthreads();
@@ -104,24 +156,7 @@ void xor_reduce_gpu(uint64_t *data) {
   if (blockDim.x >= 128 && tid < 64) sdata[tid] ^= sdata[tid + 64];
   __syncthreads();
   if (tid < 32) warp_reduce(sdata, tid);
-  if (tid < 2) data[start + tid] = sdata[tid];
-}
-
-__global__
-void xor_reduce_packer_gpu(uint64_t *data, uint64_t width) {
-  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  data[2 * tid] = data[tid * width];
-  data[2 * tid + 1] = data[tid * width + 1];
-}
-
-__global__
-void print_gpu(void *data, uint64_t n) {
-  uint8_t *uData = (uint8_t*) data;
-  for(int i = 0; i < n; i+= 16) {
-    for (int j = i; j < n && j < i + 16; j++)
-      printf("%02x ", uData[j]);
-    printf("\n");
-  }
+  if (tid < 2) out[2 * blockIdx.x + tid] = sdata[tid];
 }
 
 __global__

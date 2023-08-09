@@ -6,6 +6,7 @@
 
 #define AES_KEYLEN 16
 #define AES_BSIZE 256
+#define AES_PADDING (AES_BSIZE / 4 * 16)
 
 #define CUDA_CALL(e) if (e != cudaSuccess) \
   fprintf(stderr, "%s\n", cudaGetErrorString(e));

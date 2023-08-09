@@ -5,7 +5,6 @@
 
 class GPUdata {
 public:
-  GPUdata() {}
   GPUdata(uint64_t n);
   GPUdata(const GPUdata &blk);
   virtual ~GPUdata();
@@ -18,6 +17,8 @@ public:
   uint64_t size_bytes() const { return mNBytes; }
   void resize(uint64_t size);
   void load(const uint8_t *data);
+  void load(const char *filename);
+  void save(const char *filename);
   void clear();
   void xor_async(GPUdata &rhs, cudaStream_t s);
   void copy_async(GPUdata &rhs, cudaStream_t s);

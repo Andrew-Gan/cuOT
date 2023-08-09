@@ -1,8 +1,6 @@
 #include <vector>
 #include <algorithm>
-#include "aes.h"
-#include "aes_encrypt.h"
-#include "aes_decrypt.h"
+#include "expander.h"
 #include "aes_expand.h"
 #include "utilsBox.h"
 
@@ -13,57 +11,33 @@
 // state - array holding the intermediate results during decryption.
 typedef uint8_t state_t[4][4];
 
-Aes::~Aes() {
-  if (encExpKey_d) cudaFree(encExpKey_d);
-  if (decExpKey_d) cudaFree(decExpKey_d);
+AesHash::AesHash(uint8_t *newLeft, uint8_t *newRight) {
+  AES_ctx leftExpKey, rightExpKey;
+
+  AesHash::expand_encKey(leftExpKey.roundKey, newLeft);
+  cudaMalloc(&keyLeft_d, sizeof(leftExpKey.roundKey));
+  cudaMemcpy(keyLeft_d, leftExpKey.roundKey, sizeof(leftExpKey.roundKey), cudaMemcpyHostToDevice);
+
+  AesHash::expand_encKey(rightExpKey.roundKey, newRight);
+  cudaMalloc(&keyRight_d, sizeof(rightExpKey.roundKey));
+  cudaMemcpy(keyRight_d, rightExpKey.roundKey, sizeof(rightExpKey.roundKey), cudaMemcpyHostToDevice);
 }
 
-void Aes::init(uint8_t *key) {
-  AES_ctx encExpKey;
-  AES_ctx decExpKey;
-  Aes::expand_encKey(encExpKey.roundKey, key);
-  Aes::expand_decKey(decExpKey.roundKey, key);
-  cudaError_t err = cudaMalloc(&encExpKey_d, sizeof(encExpKey.roundKey));
-  if (err != cudaSuccess)
-    fprintf(stderr, "Aes() enc: %s\n", cudaGetErrorString(err));
-  cudaMemcpy(encExpKey_d, encExpKey.roundKey, sizeof(encExpKey.roundKey), cudaMemcpyHostToDevice);
-  err = cudaMalloc(&decExpKey_d, sizeof(decExpKey.roundKey));
-  if (err != cudaSuccess)
-    fprintf(stderr, "Aes() dec: %s\n", cudaGetErrorString(err));
-  cudaMemcpy(decExpKey_d, decExpKey.roundKey, sizeof(decExpKey.roundKey), cudaMemcpyHostToDevice);
+AesHash::~AesHash() {
+  if (keyLeft_d) cudaFree(keyLeft_d);
+  if (keyRight_d) cudaFree(keyRight_d);
 }
 
-void Aes::decrypt(GPUdata &msg) {
-  GPUdata input(std::max(msg.size_bytes(), (uint64_t)1024));
-  input.clear();
-  cudaMemcpy(input.data(), msg.data(), msg.size_bytes(), cudaMemcpyDeviceToDevice);
-  if (msg.size_bytes() < 1024) {
-    msg = GPUdata(1024);
-  }
-  dim3 grid(msg.size_bytes() / 4 / AES_BSIZE);
-  aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) msg.data(), (uint32_t*) input.data());
-  cudaDeviceSynchronize();
-}
+void AesHash::expand_async(GPUvector<OTblock> &interleaved, GPUvector<OTblock> &separated,
+	GPUvector<OTblock> &input, uint64_t width, cudaStream_t &s) {
 
-void Aes::encrypt(GPUdata &msg) {
-  GPUdata input(std::max(msg.size_bytes(), (uint64_t)1024));
-  input.clear();
-  cudaMemcpy(input.data(), msg.data(), msg.size_bytes(), cudaMemcpyDeviceToDevice);
-  if (msg.size_bytes() < 1024) {
-    msg = GPUdata(1024);
-  }
-  dim3 grid(msg.size_bytes() / 4 / AES_BSIZE);
-  aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) msg.data(), (uint32_t*) input.data());
-  cudaDeviceSynchronize();
-}
-
-void Aes::expand_async(OTblock *interleaved, GPUdata &separated, OTblock *input_d, uint64_t width, int dir, cudaStream_t &s) {
   static int thread_per_aesblock = 4;
-  uint64_t paddedBytes = (width / 2) * sizeof(*interleaved);
-  if (paddedBytes % 1024 != 0)
-    paddedBytes += 1024 - (paddedBytes % 1024);
-  dim3 grid(paddedBytes * thread_per_aesblock / 16 / AES_BSIZE);
-  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) encExpKey_d, interleaved, (uint32_t*) separated.data(), (uint32_t*) input_d, dir, width);
+  uint64_t paddedBytes = (width / 2) * sizeof(OTblock);
+  if (paddedBytes % AES_PADDING != 0)
+    paddedBytes += AES_PADDING - (paddedBytes % AES_PADDING);
+  uint64_t numAesBlocks = paddedBytes / 16;
+  dim3 grid(numAesBlocks * thread_per_aesblock / AES_BSIZE, 2);
+  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved.data(), separated.data(), input.data(), width);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {
@@ -128,7 +102,7 @@ static void _inv_exp_func(std::vector<unsigned> &expKey, std::vector<unsigned> &
 	}
 }
 
-void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
+void AesHash::expand_encKey(uint8_t *encExpKey, uint8_t *key){
   std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
 	std::vector<uint32_t> expKeyArray(176);
   _exp_func(keyArray, expKeyArray);
@@ -139,7 +113,7 @@ void Aes::expand_encKey(uint8_t *encExpKey, uint8_t *key){
   }
 }
 
-void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
+void AesHash::expand_decKey(uint8_t *decExpKey, uint8_t *key){
   std::vector<uint32_t> keyArray(key, key + AES_KEYLEN);
   std::vector<uint32_t> expKeyArray(176);
 	std::vector<uint32_t> invExpKeyArray(176);
@@ -151,3 +125,27 @@ void Aes::expand_decKey(uint8_t *decExpKey, uint8_t *key){
     decExpKey[cnt] = *pc;
   }
 }
+
+// void AesHash::encrypt(GPUdata &msg) {
+//   GPUdata input(std::max(msg.size_bytes(), (uint64_t)1024));
+//   input.clear();
+//   cudaMemcpy(input.data(), msg.data(), msg.size_bytes(), cudaMemcpyDeviceToDevice);
+//   if (msg.size_bytes() < 1024) {
+//     msg = GPUdata(1024);
+//   }
+//   dim3 grid(msg.size_bytes() / 4 / AES_BSIZE);
+//   aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*) encExpKey_d, (uint32_t*) msg.data(), (uint32_t*) input.data());
+//   cudaDeviceSynchronize();
+// }
+
+// void AesHash::decrypt(GPUdata &msg) {
+//   GPUdata input(std::max(msg.size_bytes(), (uint64_t)1024));
+//   input.clear();
+//   cudaMemcpy(input.data(), msg.data(), msg.size_bytes(), cudaMemcpyDeviceToDevice);
+//   if (msg.size_bytes() < 1024) {
+//     msg = GPUdata(1024);
+//   }
+//   dim3 grid(msg.size_bytes() / 4 / AES_BSIZE);
+//   aesDecrypt128<<<grid, AES_BSIZE>>>((uint32_t*) decExpKey_d, (uint32_t*) msg.data(), (uint32_t*) input.data());
+//   cudaDeviceSynchronize();
+// }

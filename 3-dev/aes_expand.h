@@ -2,10 +2,9 @@
 #define _AESEXPAND_KERNEL_H_
 
 #include "util.h"
-#include "aes.h"
 
 __global__
-void aesExpand128(unsigned *aesKey, OTblock *interleaved, uint32_t *separated,
-	unsigned *inData, int expandDir, uint64_t width);
+void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
+	OTblock *separated, OTblock *inData, uint64_t width);
 
 #endif

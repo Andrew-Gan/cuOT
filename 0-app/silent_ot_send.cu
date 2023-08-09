@@ -1,16 +1,13 @@
-#include "simplest_ot.h"
 #include "silent_ot.h"
 #include <future>
 
 std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
 
-SilentOTSender::SilentOTSender(int myid, int logOT, int numTrees) :
-  SilentOT(myid, logOT, numTrees) {
-
-  buffer_init();
-  silentOTSenders[id] = this;
-  while(silentOTRecvers[id] == nullptr);
-  other = silentOTRecvers[id];
+SilentOTSender::SilentOTSender(SilentOTConfig config) :
+  SilentOT(config), fullVector(2 * numOT) {
+  silentOTSenders[config.id] = this;
+  while(silentOTRecvers[config.id] == nullptr);
+  other = silentOTRecvers[config.id];
 }
 
 void SilentOTSender::run() {
@@ -23,8 +20,7 @@ void SilentOTSender::run() {
   Log::end(Sender, Expand);
 
   Log::start(Sender, Compress);
-  QuasiCyclic code(Sender, 2 * numOT, numOT);
-  code.encode(fullVector);
+  mult_compress();
   Log::end(Sender, Compress);
 }
 
@@ -32,9 +28,12 @@ void SilentOTSender::base_ot() {
   std::vector<std::future<std::array<GPUvector<OTblock>, 2>>> workers;
   for (int d = 0; d <= depth; d++) {
     workers.push_back(std::async([d, this]() {
-      return SimplestOT(Sender, d, nTree).send();
+      switch (mConfig.baseOT) {
+        case SimplestOT_t: return SimplestOT(Sender, d, mConfig.nTree).send();
+      }
     }));
   }
+
   for (auto &worker : workers) {
     auto res = worker.get();
     leftHash.push_back(res[0]);
@@ -42,93 +41,82 @@ void SilentOTSender::base_ot() {
   }
 }
 
-void SilentOTSender::buffer_init() {
-  uint64_t k0 = 3242342, k1 = 8993849;
-  uint8_t k0_blk[16] = {0};
-  uint8_t k1_blk[16] = {0};
-  memcpy(&k0_blk[8], &k0, sizeof(k0));
-  memcpy(&k1_blk[8], &k1, sizeof(k1));
-  aesLeft.init(k0_blk);
-  aesRight.init(k1_blk);
-
+void SilentOTSender::pprf_expand() {
+  // init hash keys
+  uint32_t k0_blk[4] = {3242342};
+  uint32_t k1_blk[4] = {8993849};
+  Expander *expander;
+  switch (mConfig.expander) {
+    case AesHash_t:
+      expander = new AesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
+  }
+  // init buffers
+  GPUvector<OTblock> interleaved(2 * numOT);
+  GPUvector<OTblock> separated(2 * numOT);
+  GPUvector<OTblock> leftSum(mConfig.nTree), rightSum(mConfig.nTree);
+  // init delta
   OTblock buff;
-
   for (int i = 0; i < 4; i++) {
     buff.data[i] = rand();
   }
   cudaMalloc(&delta, sizeof(*delta));
   cudaMemcpy(delta, &buff, sizeof(*delta), cudaMemcpyHostToDevice);
-
-  bufferA.resize(2 * numOT);
-  bufferB.resize(2 * numOT);
-  leftNodes.resize(numOT);
-  rightNodes.resize(numOT);
-
-  leftSum.resize(nTree);
-  rightSum.resize(nTree);
-
-  for (int t = 0; t < nTree; t++) {
+  // init root
+  for (int t = 0; t < mConfig.nTree; t++) {
     for (int i = 0; i < 4; i++) {
-      buff.data[i] = i;
+      buff.data[i] = rand();
     }
-    bufferA.set(t, buff);
+    interleaved.set(t, buff);
   }
-}
 
-void SilentOTSender::pprf_expand() {
-  cudaStream_t stream[4];
-  cudaStreamCreate(&stream[0]);
-  cudaStreamCreate(&stream[1]);
-  cudaStreamCreate(&stream[2]);
-  cudaStreamCreate(&stream[3]);
+  cudaStream_t s;
+  cudaStreamCreate(&s);
   GPUvector<OTblock> *inBuffer, *outBuffer;
 
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
-    inBuffer = (d % 2 == 1) ? &bufferA : &bufferB;
-    outBuffer = (d % 2 == 1) ? &bufferB : &bufferA;
-    OTblock *inPtr = inBuffer->data();
-    OTblock *outPtr = outBuffer->data();
+    inBuffer = (d % 2 == 1) ? &interleaved : &fullVector;
+    outBuffer = (d % 2 == 1) ? &fullVector : &interleaved;
 
-    uint64_t packedWidth = nTree * width;
-    aesLeft.expand_async(outPtr, leftNodes, inPtr, packedWidth, 0, stream[0]);
-    aesRight.expand_async(outPtr, rightNodes, inPtr, packedWidth, 1, stream[1]);
+    uint64_t packedWidth = mConfig.nTree * width;
+    expander->expand_async(*outBuffer, separated, *inBuffer, packedWidth, s);
 
-    leftNodes.sum_async(nTree, width / 2, stream[0]);
-    rightNodes.sum_async(nTree, width / 2, stream[1]);
+    separated.sum_async(2 * mConfig.nTree, width / 2, s);
 
-    cudaMemcpyAsync(leftSum.data(), leftNodes.data(), nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[0]);
-    cudaMemcpyAsync(rightSum.data(), rightNodes.data(), nTree * sizeof(OTblock), cudaMemcpyDeviceToDevice, stream[1]);
+    leftHash.at(d-1).xor_async(separated, 0, s);
+    rightHash.at(d-1).xor_async(separated, mConfig.nTree, s);
 
-    cudaStreamSynchronize(stream[0]);
-    cudaStreamSynchronize(stream[1]);
-
-    leftHash.at(d-1).xor_async(leftSum, stream[2]);
-    rightHash.at(d-1).xor_async(rightSum, stream[3]);
+    other->leftBuffer.at(d-1).copy_async(leftHash.at(d-1), s);
+    other->rightBuffer.at(d-1).copy_async(rightHash.at(d-1), s);
 
     if (d == depth) {
-      leftHash.at(d).xor_async(leftSum,stream[2]);
-      rightHash.at(d).xor_async(rightSum, stream[3]);
+      leftHash.at(d).xor_async(separated, 0, s);
+      rightHash.at(d).xor_async(separated, mConfig.nTree, s);
+
+      leftHash.at(d).xor_one_to_many_async(delta, s);
+      rightHash.at(d).xor_one_to_many_async(delta, s);
+
+      other->leftBuffer.at(d).copy_async(leftHash.at(d), s);
+      other->rightBuffer.at(d).copy_async(rightHash.at(d), s);
     }
 
-    other->leftHash.at(d-1).copy_async(leftHash.at(d-1), stream[2]);
-    other->rightHash.at(d-1).copy_async(rightHash.at(d-1), stream[3]);
-
-    if (d == depth) {
-      leftHash.at(d).xor_one_to_many_async(delta, stream[2]);
-      rightHash.at(d).xor_one_to_many_async(delta, stream[3]);
-
-      other->leftHash.at(d).copy_async(leftHash.at(d), stream[2]);
-      other->rightHash.at(d).copy_async(rightHash.at(d), stream[3]);
-    }
-
-    cudaEventRecord(other->expandEvents.at(d-1), stream[2]);
-    cudaEventRecord(other->expandEvents.at(d-1), stream[3]);
+    cudaEventRecord(other->expandEvents.at(d-1), s);
   }
+
   other->eventsRecorded = true;
-  cudaDeviceSynchronize();
-  cudaStreamDestroy(stream[0]);
-  cudaStreamDestroy(stream[1]);
-  cudaStreamDestroy(stream[2]);
-  cudaStreamDestroy(stream[3]);
-  fullVector = *outBuffer;
+  cudaStreamSynchronize(s);
+  cudaStreamDestroy(s);
+
+  if (outBuffer != &fullVector)
+    fullVector = *outBuffer;
+
+  delete expander;
+}
+
+void SilentOTSender::mult_compress() {
+  switch (mConfig.compressor) {
+    case QuasiCyclic_t:
+      QuasiCyclic code(Sender, 2 * numOT, numOT);
+      code.encode(fullVector);
+    // case ExpandAccumulate:
+  }
 }

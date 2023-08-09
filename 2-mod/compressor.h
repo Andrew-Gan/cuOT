@@ -5,7 +5,14 @@
 #include <cufftXt.h>
 #include "gpu_vector.h"
 
-class QuasiCyclic {
+enum CompressType { QuasiCyclic_t, ExpandAccumulate_t };
+
+class Compressor {
+public:
+  virtual void encode(GPUvector<OTblock> &vector) = 0;
+};
+
+class QuasiCyclic : public Compressor {
 private:
   curandGenerator_t prng;
   const uint64_t rows = 128;
@@ -16,6 +23,13 @@ private:
 public:
   QuasiCyclic(Role role, uint64_t in, uint64_t out);
   virtual ~QuasiCyclic();
+  void encode(GPUvector<OTblock> &vector);
+};
+
+class ExpandAccumulate : public Compressor {
+public:
+  ExpandAccumulate(Role role, uint64_t in, uint64_t out);
+  virtual ~ExpandAccumulate();
   void encode(GPUvector<OTblock> &vector);
 };
 
