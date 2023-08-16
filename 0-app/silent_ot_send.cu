@@ -5,6 +5,10 @@ std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
 
 SilentOTSender::SilentOTSender(SilentOTConfig config) :
   SilentOT(config), fullVector(2 * numOT) {
+  expandEvents.resize(depth);
+  for (auto &event : expandEvents) {
+    cudaEventCreate(&event);
+  }
   silentOTSenders[config.id] = this;
   while(silentOTRecvers[config.id] == nullptr);
   other = silentOTRecvers[config.id];
@@ -99,7 +103,7 @@ void SilentOTSender::pprf_expand() {
       other->rightBuffer.at(d).copy_async(rightHash.at(d), s);
     }
 
-    cudaEventRecord(other->expandEvents.at(d-1), s);
+    cudaEventRecord(expandEvents.at(d-1), s);
   }
 
   other->eventsRecorded = true;

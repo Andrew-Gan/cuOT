@@ -71,7 +71,9 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   Log::start(mRole, CompressTP);
   GPUmatrix<OTblock> XT(mOut, 1); // XT = mOut x 1
   XT.load((uint8_t*) vector.data());
+  // XT.save("XT_before.bin");
   XT.bit_transpose(); // XT = rows x n2blocks
+  // XT.save("XT_after.bin");
   Log::end(mRole, CompressTP);
 
   // XT.load("input/XT.bin");

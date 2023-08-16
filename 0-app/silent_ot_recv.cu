@@ -8,10 +8,6 @@ SilentOTRecver::SilentOTRecver(SilentOTConfig config) :
   SilentOT(config), puncVector(2 * numOT), choiceVector(2 * numOT),
   leftBuffer(std::vector<GPUvector<OTblock>>(depth+1, GPUvector<OTblock>(mConfig.nTree))),
   rightBuffer(std::vector<GPUvector<OTblock>>(depth+1, GPUvector<OTblock>(mConfig.nTree))) {
-  expandEvents.resize(depth);
-  for (auto &event : expandEvents) {
-    cudaEventCreate(&event);
-  }
   silentOTRecvers[mConfig.id] = this;
   while(silentOTSenders[mConfig.id] == nullptr);
   other = silentOTSenders[mConfig.id];
@@ -105,7 +101,7 @@ void SilentOTRecver::pprf_expand() {
     uint64_t packedWidth = mConfig.nTree * width;
     expander->expand_async(*outBuffer, separated, *inBuffer, packedWidth, s);
 
-    cudaStreamWaitEvent(s, expandEvents.at(d-1));
+    cudaStreamWaitEvent(s, other->expandEvents.at(d-1));
 
     leftBuffer.at(d-1).xor_async(choiceHash.at(d-1), s);
     rightBuffer.at(d-1).xor_async(choiceHash.at(d-1), s);

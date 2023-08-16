@@ -46,11 +46,25 @@ template<typename T>
 void GPUmatrix<T>::bit_transpose() {
   uint8_t *tpBuffer;
   cudaMalloc(&tpBuffer, mNBytes);
-  uint64_t numThreadX = mCols * 8 * sizeof(OTblock);
-  uint64_t numThreadY = mRows / 64;
-  dim3 blocks(std::min((uint64_t) 32, numThreadX), std::min((uint64_t) 32, numThreadY));
-  dim3 grid((numThreadX + 31) / 32, (numThreadY + 31) / 32);
-  bit_transposer<<<grid, blocks>>>((uint64_t*) tpBuffer, (uint64_t*) mPtr);
+  dim3 block, grid;
+  if (mCols * sizeof(T) < 32) {
+    block.x = mCols * sizeof(T);
+    grid.x = 1;
+  }
+  else {
+    block.x = 32;
+    grid.x = mCols * sizeof(T) / 32;
+  }
+  if (mRows / 8 < 32) {
+    block.y = mRows / 8;
+    grid.y = 1;
+  }
+  else {
+    block.y = 32;
+    grid.y = mRows / 8 / 32;
+  }
+  // translate 2D grid into 1D due to CUDA limitations
+  bit_transposer<<<grid.x * grid.y, block>>>(tpBuffer, mPtr, grid);
   cudaDeviceSynchronize();
   cudaFree(mPtr);
   mPtr = tpBuffer;
@@ -79,21 +93,6 @@ GPUmatrix<T>& GPUmatrix<T>::operator&=(T *rhs) {
   uint64_t nBlk = (mNBytes + 1023) / 1024;
   and_single_gpu<<<nBlk, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(T), mNBytes);
   cudaDeviceSynchronize();
-}
-
-template<typename T>
-std::ostream& operator<<(std::ostream &os, const GPUmatrix<T> &obj) {
-  T *nodes = new T[obj.rows() * obj.cols()];
-  cudaMemcpy(nodes, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
-  for (uint64_t r = 0; r < obj.rows(); r++) {
-    for (uint64_t c = 0; c < obj.cols(); c++) {
-      uint64_t offs = r * obj.cols() + c;
-      os << nodes[offs] << " ";
-    }
-    os << std::endl;
-  }
-  delete[] nodes;
-  return os;
 }
 
 #endif
