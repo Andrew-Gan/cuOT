@@ -27,6 +27,16 @@ void cufftArrayToBitPoly(cufftReal *arr, uint64_t *bitPoly) {
   }
 }
 
+__global__
+void complex_dot_product(cufftComplex *c_out, cufftComplex *a_in, cufftComplex *b_in) {
+  uint64_t row = blockIdx.y;
+  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t width = gridDim.x * blockDim.x;
+
+  c_out[row * width + tid].x = a_in[tid].x * b_in[row * width + tid].x - (a_in[tid].y * b_in[row * width + tid].y);
+  c_out[row * width + tid].y = a_in[tid].x * b_in[row * width + tid].y + (a_in[tid].y * b_in[row * width + tid].x);
+}
+
 QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mIn(in), mOut(out) {
   if (mIn == 0 || mOut == 0) return;
   
@@ -41,8 +51,8 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   cufftCreate(&bPlan);
   cufftCreate(&cPlan);
   cufftPlan1d(&aPlan, 2 * mOut, CUFFT_R2C, 1);
-  cufftPlan1d(&bPlan, 2 * mOut, CUFFT_R2C, 1);
-  cufftPlan1d(&cPlan, 2 * mOut, CUFFT_C2R, 1);
+  cufftPlan1d(&bPlan, 2 * mOut, CUFFT_R2C, FFT_BATCHSIZE);
+  cufftPlan1d(&cPlan, 2 * mOut, CUFFT_C2R, FFT_BATCHSIZE);
 
   GPUvector<uint64_t> a64(n64);
   cufftReal *a64_poly;
@@ -111,6 +121,7 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
 
   GPUmatrix<OTblock> cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
   uint64_t grid, blk;
+  dim3 grid2;
 
   for (uint64_t r = 0; r < XT.rows() / FFT_BATCHSIZE; r++) {
     blk = std::min(FFT_BATCHSIZE * n64, 1024lu);
@@ -123,9 +134,9 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
     Log::end(mRole, CompressFFT);
 
     Log::start(mRole, CompressMult);
-    blk = std::min(FFT_BATCHSIZE * n64 / 2, 1024lu);
-    grid = n64 / 2 < 1024 ? 1 : FFT_BATCHSIZE * n64 / 2 / 1024;
-    complex_dot_product<<<grid, blk>>>(c64_fft, a64_fft, b64_fft);
+    blk = std::min(2 * mOut, 1024lu);
+    grid2 = dim3(2 * mOut < 1024 ? 1 : 2 * mOut / 1024, FFT_BATCHSIZE, 1);
+    complex_dot_product<<<grid2, blk>>>(c64_fft, a64_fft, b64_fft);
     cudaDeviceSynchronize();
     Log::end(mRole, CompressMult);
 

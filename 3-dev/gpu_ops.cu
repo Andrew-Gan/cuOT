@@ -26,8 +26,6 @@ void xor_single_gpu(uint8_t *a, uint8_t *b, uint64_t size, uint64_t n) {
   if (tid < n) a[tid] ^= b[tid % size];
 }
 
-#define TILE_DIM 512
-
 __global__
 void bit_transposer(uint8_t *out, uint8_t *in, dim3 grid) {
   dim3 blockId(blockIdx.x % grid.x, blockIdx.x / grid.x);
@@ -69,83 +67,6 @@ void bit_transposer(uint8_t *out, uint8_t *in, dim3 grid) {
     out[ ( j * 8 + 5 ) * nRowBlocks + i ] = uint8_t( ( y >> 16 ) & 0xFF );
     out[ ( j * 8 + 6 ) * nRowBlocks + i ] = uint8_t( ( y >> 8 ) & 0xFF );
     out[ ( j * 8 + 7 ) * nRowBlocks + i ] = uint8_t( y & 0xFF );
-}
-
-// __device__
-// void clmul_128(uint64_t a, uint64_t b, uint64_t c[2]) {
-//   for (int i = 0; i < 64; i++) {
-//     if (a & (1 << i)) {
-//       c[0] ^= b << i;
-//       c[1] ^= b >> (64-i);
-//     }
-//   }
-// }
-
-// __device__
-// void shuffle_128(uint64_t a[2], uint8_t control, uint64_t b[2]) {
-//   uint32_t src[4] = {
-//     (uint32_t) a[0],
-//     (uint32_t) (a[0] >> 32),
-//     (uint32_t) a[1],
-//     (uint32_t) (a[1] >> 32),
-//   };
-//   uint32_t des[4];
-//   for (int i = 0; i < 4; i++) {
-//     uint8_t pos = (control >> (i * 2)) & 0b11;
-//     des[pos] = src[i];
-//   }
-//   b[0] = (uint64_t) des[1] << 32 | des[0];
-//   b[1] = (uint64_t) des[3] << 32 | des[2];
-// }
-
-__global__
-void complex_dot_product(cufftComplex *c_out, cufftComplex *a_in, cufftComplex *b_in) {
-  uint64_t row = blockIdx.y;
-  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t width = gridDim.x * blockDim.x;
-  uint64_t offset = row * width + 2 * tid;
-
-  c_out[offset].x = a_in[tid].x * b_in[offset].x - (a_in[tid].y * b_in[offset].y);
-  c_out[offset].x = a_in[tid].x * b_in[offset].y + (a_in[tid].y * b_in[offset].x);
-
-  // // KARATSUBA MULT
-  // uint64_t a[2] = { (uint64_t) (a_in[tid * 2].x), (uint64_t) (a_in[tid * 2 + 1].x) };
-  // uint64_t b[2] = { (uint64_t) (b_in[offset].x), (uint64_t) (b_in[offset + 1].x) };
-  // uint64_t c0[2];
-  // uint64_t c1[2];
-
-  // clmul_128(a[0], b[0], c0);
-  // clmul_128(a[1], b[1], c1);
-
-  // uint64_t tt0[2] = { a[0] ^ a[1], a[1] };
-  // uint64_t tt1[2] = { b[0] ^ b[1], b[1] };
-  // uint64_t tt2[2];
-  // clmul_128(tt0[0], tt1[0], tt2);
-  // tt2[0] ^= c0[0] ^ c1[0];
-  // tt2[1] ^= c0[1] ^ c1[1];
-
-  // c0[1] ^= tt2[0];
-  // c1[0] ^= tt2[1];
-
-  // // REDUCTION
-  // uint64_t reducer[2] = { 0x87, 0x0 };
-  // uint64_t x64[2];
-  // clmul_128(c1[1], reducer[0], x64);
-  // uint64_t out[2];
-  // shuffle_128(x64, 0xfe, out);
-  // c1[0] ^= out[0];
-  // c1[1] ^= out[1];
-  // shuffle_128(x64, 0x4f, out);
-  // c0[0] ^= out[0];
-  // c0[1] ^= out[1];
-  // clmul_128(c1[0], reducer[0], out);
-  // c0[0] ^= out[0];
-  // c0[1] ^= out[1];
-
-  // c_out[offset].x = (float) c0[0];
-  // c_out[offset].y = 0;
-  // c_out[offset + 1].x = (float) c0[1];
-  // c_out[offset + 1].y = 0;
 }
 
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
