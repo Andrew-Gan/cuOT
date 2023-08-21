@@ -15,9 +15,11 @@ public:
   void set(uint64_t r, uint64_t c, T &val);
   void resize(uint64_t r, uint64_t c);
   void bit_transpose();
-  void modp(uint64_t reducedTerms);
+  void modp(uint64_t reducedCol);
   void xor_one_to_many_async(T *rhs, cudaStream_t s);
   GPUmatrix<T>& operator&=(T *rhs);
+  GPUmatrix<T>& operator%=(uint64_t mod);
+  void print_bits(const char *filename);
 
 protected:
   uint64_t mRows, mCols;
@@ -44,6 +46,10 @@ void GPUmatrix<T>::resize(uint64_t r, uint64_t c) {
 
 template<typename T>
 void GPUmatrix<T>::bit_transpose() {
+  if (mRows < 8 * sizeof(T)) {
+    printf("GPUmatrix::bit_transpose() insufficient rows to transpose\n");
+    return;
+  }
   uint8_t *tpBuffer;
   cudaMalloc(&tpBuffer, mNBytes);
   dim3 block, grid;
@@ -74,12 +80,14 @@ void GPUmatrix<T>::bit_transpose() {
 }
 
 template<typename T>
-void GPUmatrix<T>::modp(uint64_t reducedTerms) {
-  uint64_t block = std::min(reducedTerms, 1024lu);
-  uint64_t grid = reducedTerms < 1024 ? 1 : (reducedTerms + 1023) / 1024;
-  poly_mod_gpu<<<grid, block>>>((uint64_t*) mPtr, mCols);
-  cudaDeviceSynchronize();
-  mCols = reducedTerms;
+void GPUmatrix<T>::modp(uint64_t reducedCol) {
+  uint64_t block = std::min(reducedCol, 1024lu);
+  uint64_t grid = reducedCol < 1024 ? 1 : (reducedCol + 1023) / 1024;
+  for (uint64_t i = 0; i < mCols / reducedCol; i++) {
+    xor_gpu<<<grid, block>>>(mPtr, mPtr + (i * reducedCol * sizeof(T)), mCols);
+    cudaDeviceSynchronize();
+  }
+  mCols = reducedCol;
 }
 
 template<typename T>
@@ -93,6 +101,31 @@ GPUmatrix<T>& GPUmatrix<T>::operator&=(T *rhs) {
   uint64_t nBlk = (mNBytes + 1023) / 1024;
   and_single_gpu<<<nBlk, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(T), mNBytes);
   cudaDeviceSynchronize();
+}
+
+template<typename T>
+GPUmatrix<T>& GPUmatrix<T>::operator%=(uint64_t mod) {
+  uint64_t numElems = mRows * mCols;
+  uint64_t grid = (numElems + 1023) / 1024;
+  uint64_t block = grid == 1 ? numElems : 1024;
+  mod_single_gpu<T><<<grid, block>>>((T*) mPtr, mod, numElems);
+  cudaDeviceSynchronize();
+}
+
+template<typename T>
+void GPUmatrix<T>::print_bits(const char *filename) {
+  std::ofstream ofs(filename);
+  uint8_t *cpuBuffer = new uint8_t[mNBytes];
+  cudaMemcpy(cpuBuffer, mPtr, mNBytes, cudaMemcpyDeviceToHost);
+  for (uint64_t r = 0; r < mRows; r++) {
+    for (uint64_t c = 0; c < mCols * sizeof(T); c++) {
+      uint64_t offset = r * mCols * sizeof(T) + c;
+      std::bitset<8> byteBits(cpuBuffer[offset]);
+      ofs << byteBits << " ";
+    }
+    ofs << std::endl;
+  }
+  delete[] cpuBuffer;
 }
 
 #endif

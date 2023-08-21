@@ -3,10 +3,33 @@
 #include "gpu_vector.h"
 #include "gpu_ops.h"
 
-#define DENSITY 4096
+// rows to run FFT at once: 1-128
+#define FFT_BATCHSIZE 8
+
+__global__
+void bitPolyToCufftArray(uint64_t *bitPoly, cufftReal *arr) {
+  uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  for (uint64_t j = 0; j < 64; j++) {
+    arr[64 * i + j] = bitPoly[i] & (1 << j);
+  }
+}
+
+__global__
+void cufftArrayToBitPoly(cufftReal *arr, uint64_t *bitPoly) {
+  uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  for (uint64_t j = 0; j < 64; j++) {
+    if ((int)(arr[64 * i + j]) % 2)
+      bitPoly[i] |= 1 << j;
+    else
+      bitPoly[i] &= ~(1 << j);
+  }
+}
 
 QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mIn(in), mOut(out) {
   if (mIn == 0 || mOut == 0) return;
+  
   Log::start(mRole, CompressInit);
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_DEFAULT);
   curandSetPseudoRandomGeneratorSeed(prng, 50);
@@ -17,12 +40,10 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   cufftCreate(&aPlan);
   cufftCreate(&bPlan);
   cufftCreate(&cPlan);
-  cufftPlan1d(&aPlan, n64, CUFFT_R2C, 1);
-  cufftPlan1d(&bPlan, n64, CUFFT_R2C, rows);
-  cufftPlan1d(&cPlan, n64, CUFFT_C2R, rows);
-  Log::end(mRole, CompressInit);
+  cufftPlan1d(&aPlan, 2 * mOut, CUFFT_R2C, 1);
+  cufftPlan1d(&bPlan, 2 * mOut, CUFFT_R2C, 1);
+  cufftPlan1d(&cPlan, 2 * mOut, CUFFT_C2R, 1);
 
-  Log::start(mRole, CompressFFT);
   GPUvector<uint64_t> a64(n64);
   cufftReal *a64_poly;
   curandGenerate(prng, (uint32_t*) a64.data(), 2 * n64);
@@ -36,12 +57,14 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   // ofs << a64 << std::endl;
   // ofs.close();
 
-  cudaMalloc(&a64_poly, n64 * sizeof(cufftReal));
-  cudaMalloc(&a64_fft, n64 * sizeof(cufftComplex));
+  cudaMalloc(&a64_poly, 2 * mOut * sizeof(cufftReal));
+  cudaMalloc(&a64_fft, 2 * mOut * sizeof(cufftComplex));
+  Log::end(mRole, CompressInit);
 
+  Log::start(mRole, CompressFFT);
   uint64_t blk = std::min(n64, 1024lu);
   uint64_t grid = n64 < 1024 ? 1 : n64 / 1024;
-  cast<uint64_t, cufftReal><<<grid, blk>>>((uint64_t*) a64.data(), a64_poly);
+  bitPolyToCufftArray<<<grid, blk>>>((uint64_t*) a64.data(), a64_poly);
   cudaDeviceSynchronize();
 
   cufftExecR2C(aPlan, a64_poly, a64_fft);
@@ -51,7 +74,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   // cufftComplex *buffer = new cufftComplex[n64];
   // cudaMemcpy(buffer, a64_fft, n64 * sizeof(cufftComplex), cudaMemcpyDeviceToHost);
   // ofs.open("output/a64_fft.txt");
-  // for (int i = 0; i < n64; i++) {
+  // for (int i = 0; i < n64; i++) pipeline{
   //   ofs << buffer[i].x << std::endl;
   // }
   // ofs.close();
@@ -69,55 +92,58 @@ QuasiCyclic::~QuasiCyclic() {
 
 void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   Log::start(mRole, CompressTP);
-  GPUmatrix<OTblock> XT(mOut, 1); // XT = mOut x 1
-  XT.load((uint8_t*) vector.data());
-  // XT.save("XT_before.bin");
-  XT.bit_transpose(); // XT = rows x n2blocks
-  // XT.save("XT_after.bin");
+  // XT = mOut x 1
+  GPUmatrix<OTblock> XT(mOut, 1);
+  XT.load((uint8_t*) (vector.data() + mOut));
+  // XT = rows x n2blocks
+  XT.bit_transpose();
   Log::end(mRole, CompressTP);
 
   // XT.load("input/XT.bin");
 
-  Log::start(mRole, CompressFFT);
   uint64_t *b64 = (uint64_t*) XT.data();
-  cufftReal *b64_poly;
-  cufftComplex *b64_fft;
-  cudaMalloc(&b64_poly, rows * n64 * sizeof(cufftReal));
-  cudaMalloc(&b64_fft, rows * n64 * sizeof(cufftComplex));
+  cufftReal *b64_poly, *c64_poly;
+  cufftComplex *b64_fft, *c64_fft;
+  cudaMalloc(&b64_poly, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftReal));
+  cudaMalloc(&b64_fft, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftComplex));
+  cudaMalloc(&c64_poly, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftReal));
+  cudaMalloc(&c64_fft, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftComplex));
 
-  uint64_t blk = std::min(rows * n64, 1024lu);
-  uint64_t grid = rows * n64 < 1024 ? 1 : rows * n64 / 1024;
-  cast<uint64_t, cufftReal><<<grid, blk>>>(b64, b64_poly);
-  cudaDeviceSynchronize();
+  GPUmatrix<OTblock> cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
+  uint64_t grid, blk;
 
-  cufftExecR2C(bPlan, b64_poly, b64_fft);
+  for (uint64_t r = 0; r < XT.rows() / FFT_BATCHSIZE; r++) {
+    blk = std::min(FFT_BATCHSIZE * n64, 1024lu);
+    grid = n64 < 1024 ? 1 : FFT_BATCHSIZE * n64 / 1024;
+
+    Log::start(mRole, CompressFFT);
+    bitPolyToCufftArray<<<grid, blk>>>(b64 + (r * FFT_BATCHSIZE * n64), b64_poly);
+    cudaDeviceSynchronize();
+    cufftExecR2C(bPlan, b64_poly, b64_fft);
+    Log::end(mRole, CompressFFT);
+
+    Log::start(mRole, CompressMult);
+    blk = std::min(FFT_BATCHSIZE * n64 / 2, 1024lu);
+    grid = n64 / 2 < 1024 ? 1 : FFT_BATCHSIZE * n64 / 2 / 1024;
+    complex_dot_product<<<grid, blk>>>(c64_fft, a64_fft, b64_fft);
+    cudaDeviceSynchronize();
+    Log::end(mRole, CompressMult);
+
+    Log::start(mRole, CompressIFFT);
+    cufftExecC2R(cPlan, c64_fft, c64_poly);
+    blk = std::min(FFT_BATCHSIZE * n64, 1024lu);
+    grid = n64 < 1024 ? 1 : FFT_BATCHSIZE * n64 / 1024;
+    cufftArrayToBitPoly<<<grid, blk>>>(c64_poly, (uint64_t*) cModP1.data());
+    cudaDeviceSynchronize();
+    Log::end(mRole, CompressIFFT);
+  }
+
   cudaFree(b64_poly);
-  Log::end(mRole, CompressFFT);
-
-  Log::start(mRole, CompressMult);
-  cufftComplex *c64_fft;
-  cufftReal *c64_poly;
-  cudaMalloc(&c64_poly, rows * n64 * sizeof(cufftReal));
-  cudaMalloc(&c64_fft, rows * n64 * sizeof(cufftComplex));
-
-  blk = std::min(n64 / 2, 1024lu);
-  dim3 blocks(n64 / 2 < 1024 ? 1 : n64 / 2 / 1024, rows);
-  complex_dot_product<<<blocks, blk>>>(c64_fft, a64_fft, b64_fft);
-  cudaDeviceSynchronize();
   cudaFree(b64_fft);
-  Log::end(mRole, CompressMult);
-
-  Log::start(mRole, CompressIFFT);
-  cufftExecC2R(cPlan, c64_fft, c64_poly);
+  cudaFree(c64_poly);
   cudaFree(c64_fft);
-  Log::end(mRole, CompressIFFT);
 
   Log::start(mRole, CompressTP);
-  GPUmatrix<OTblock> cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
-  cast<cufftReal, uint64_t><<<rows * n64 / 1024, 1024>>>(c64_poly, (uint64_t*) cModP1.data());
-  cudaDeviceSynchronize();
-  cudaFree(c64_poly);
-
   cModP1.modp(nBlocks); // cModP1 = rows x nBlocks
   cModP1.bit_transpose(); // cModP1 = mOut x 1
 
