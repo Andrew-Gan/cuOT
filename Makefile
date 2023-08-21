@@ -68,7 +68,4 @@ plot:
 	python plotter.py
 
 clean:
-	rm -rf $(EXE) $(OBJ)/app $(OBJ)/mod $(OBJ)/dev
-
-cleanall:
-	rm -rf $(EXE) $(OBJ) prof
+	rm -rf $(EXE) $(OBJ) prof output/*

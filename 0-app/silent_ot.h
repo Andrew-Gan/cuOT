@@ -44,6 +44,7 @@ class SilentOTSender : public SilentOT {
 public:
   GPUvector<OTblock> fullVector;
   OTblock *delta = nullptr;
+  std::vector<cudaEvent_t> expandEvents;
 
   SilentOTSender(SilentOTConfig config);
   void run();
@@ -65,7 +66,6 @@ public:
   std::vector<GPUvector<OTblock>> leftBuffer;
   std::vector<GPUvector<OTblock>> rightBuffer;
 
-  std::vector<cudaEvent_t> expandEvents;
   std::atomic<bool> eventsRecorded = false;
 
   GPUvector<OTblock> puncVector, choiceVector;
