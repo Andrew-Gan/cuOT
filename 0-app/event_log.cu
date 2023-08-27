@@ -9,12 +9,6 @@ float Log::eventDuration[2][NUM_EVENTS];
 
 const char *eventString[] = {
   "CudaInit", "BaseOT", "Expand", "Compress", "Hash",
-
-  // subevents of Expand
-  "ExpandInit", "ExpandHash", "ExpandSum", "ExpandXor", "ExpandSend", "ExpandRecv",
-
-  // subevents of Encode
-  "CompressInit", "CompressTP", "CompressFFT", "CompressMult", "CompressIFFT",
 };
 
 void Log::open(int role, const char *filename) {

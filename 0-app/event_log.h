@@ -5,15 +5,7 @@
 #include <mutex>
 
 enum Event {
-  CudaInit, BaseOT, Expand, Compress, Hash,
-
-  // subevents of Expand
-  ExpandInit, ExpandHash, ExpandSum, ExpandXor, ExpandSend, ExpandRecv,
-
-  // subevents of Encode
-  CompressInit, CompressTP, CompressFFT, CompressMult, CompressIFFT,
-
-  NUM_EVENTS,
+  CudaInit, BaseOT, Expand, Compress, Hash, NUM_EVENTS,
 };
 
 class Log {

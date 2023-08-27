@@ -17,10 +17,11 @@ mkdir -p output
 
 # compute-sanitizer --tool memcheck ./ot 1 24 8 &> out
 
-./ot 1 24 8
-python plotter.py
+nsys profile --stats=true ./ot 1 24 8 &> prof
+rm report*
 
-# nsys profile --stats=true ./ot 1 24 8 &> prof
-# rm report*
 # valgrind ./ot 1 24 8 &> valgrind-out
 # compute-sanitizer --tool memcheck ./ot 1 24 8 &> memcheck-out
+
+./ot 1 24 8
+python plotter.py
