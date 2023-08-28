@@ -56,22 +56,25 @@ std::array<GPUvector<OTblock>, 2> SimplestOT::send() {
   A *= a;
   fromOwnBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
 
+  OTblock buff0[mCount * sizeof(OTblock)];
+  OTblock buff1[mCount * sizeof(OTblock)];
+
   for (uint64_t i = 0; i < mCount; i++) {
     B.at(i) *= a;
     osuCrypto::RandomOracle ro(sizeof(OTblock));
     ro.Update(B.at(i));
     ro.Update(i);
     uint8_t buff0[sizeof(OTblock)];
-    ro.Final(buff0);
-    cudaMemcpy((OTblock*) m[0].data() + i, buff0, sizeof(OTblock), cudaMemcpyHostToDevice);
+    ro.Final(buff0 + i);
     B.at(i) -= A;
     ro.Reset();
     ro.Update(B.at(i));
     ro.Update(i);
     uint8_t buff1[sizeof(OTblock)];
-    ro.Final(buff1);
-    cudaMemcpy((OTblock*) m[1].data() + i, buff1, sizeof(OTblock), cudaMemcpyHostToDevice);
+    ro.Final(buff1 + i);
   }
+  cudaMemcpy(m[0].data(), buff0, mCount * sizeof(OTblock), cudaMemcpyHostToDevice);
+  cudaMemcpy(m[1].data(), buff1, mCount * sizeof(OTblock), cudaMemcpyHostToDevice);
   return m;
 }
 
@@ -88,14 +91,15 @@ GPUvector<OTblock> SimplestOT::recv(uint64_t choice) {
   }
   toOtherBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
 
-  uint8_t buff[sizeof(OTblock)];
+  uint8_t buff[mCount * sizeof(OTblock)];
+
   for (uint64_t i = 0; i < mCount; i++) {
     Point point = A * b.at(i);
     osuCrypto::RandomOracle ro(sizeof(OTblock));
     ro.Update(point);
     ro.Update(i);
     ro.Final(buff);
-    cudaMemcpy((OTblock*) mb.data() + i, buff, sizeof(OTblock), cudaMemcpyHostToDevice);
   }
+  cudaMemcpy(mb.data(), buff, mCount * sizeof(OTblock), cudaMemcpyHostToDevice);
   return mb;
 }

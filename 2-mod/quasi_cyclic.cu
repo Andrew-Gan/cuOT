@@ -26,7 +26,6 @@ __global__
 void cufftArrayToBitPoly(cufftReal *arr, uint64_t *bitPoly, uint64_t rows) {
   uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t n64 = gridDim.x * blockDim.x;
-  uint64_t fftSize = 2 * 64 * n64;
   uint64_t arrWidth = 2 * 64 * gridDim.x * blockDim.x;
   uint64_t tmp, col;
 
