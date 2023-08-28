@@ -9,12 +9,12 @@
 __global__
 void bitPolyToCufftArray(uint64_t *bitPoly, cufftReal *arr, uint64_t rows) {
   uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t bitWidth = gridDim.x * blockDim.x;
+  uint64_t n64 = gridDim.x * blockDim.x;
   uint64_t arrWidth = 2 * 64 * gridDim.x * blockDim.x;
   uint64_t tmp, col;
 
   for (uint64_t r = 0; r < rows; r++) {
-    tmp = bitPoly[r * bitWidth + i];
+    tmp = bitPoly[r * n64 + i];
     for (uint64_t j = 0; j < 64; j++) {
       col = 64 * i + j;
       arr[r * arrWidth + col] = tmp & (1 << j) ? 1 : 0;
@@ -25,35 +25,41 @@ void bitPolyToCufftArray(uint64_t *bitPoly, cufftReal *arr, uint64_t rows) {
 __global__
 void cufftArrayToBitPoly(cufftReal *arr, uint64_t *bitPoly, uint64_t rows) {
   uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t bitWidth = gridDim.x * blockDim.x;
+  uint64_t n64 = gridDim.x * blockDim.x;
+  uint64_t fftSize = 2 * 64 * n64;
   uint64_t arrWidth = 2 * 64 * gridDim.x * blockDim.x;
   uint64_t tmp, col;
 
   for (uint64_t r = 0; r < rows; r++) {
     for (uint64_t j = 0; j < 64; j++) {
       col = 64 * i + j;
-      if ((int)(arr[r * arrWidth + col]) % 2)
+      if ((int) arr[r * arrWidth + col] % 2)
         tmp |= 1 << j;
       else
         tmp &= ~(1 << j);
     }
-    bitPoly[r * bitWidth + i] = tmp;
+    bitPoly[r * n64 + i] = tmp;
   }
 }
 
 __global__
 void complex_dot_product(cufftComplex *c_out, cufftComplex *a_in, cufftComplex *b_in) {
   uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t width = gridDim.x * blockDim.x;
-  cufftComplex a = a_in[tid], b, c;
+  uint64_t nT = gridDim.x * blockDim.x;
+  uint64_t width = 2 * nT;
+  cufftComplex a[2] = { a_in[tid], a_in[tid + nT] };
+  cufftComplex b, c;
 
   for (uint64_t row = 0; row < FFT_BATCHSIZE; row++) {
     b = b_in[row * width + tid];
-
-    c.x = a.x * b.x - a.y * b.y;
-    c.y = a.x * b.y + a.y * b.x;
-
+    c.x = a[0].x * b.x - a[0].y * b.y;
+    c.y = a[0].x * b.y + a[0].y * b.x;
     c_out[row * width + tid] = c;
+
+    b = b_in[row * width + tid + nT];
+    c.x = a[1].x * b.x - a[1].y * b.y;
+    c.y = a[1].x * b.y + a[1].y * b.x;
+    c_out[row * width + tid + nT] = c;
   }
 }
 
@@ -82,7 +88,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
 
   uint64_t blk = std::min(n64, 1024lu);
   uint64_t grid = n64 < 1024 ? 1 : n64 / 1024;
-  bitPolyToCufftArray<<<grid, blk>>>((uint64_t*) a64.data(), a64_poly, 1);
+  bitPolyToCufftArray<<<grid, blk>>>(a64.data(), a64_poly, 1);
   cudaDeviceSynchronize();
 
   cufftExecR2C(aPlan, a64_poly, a64_fft);
@@ -121,11 +127,11 @@ void QuasiCyclic::encode(GPUvector<OTblock> &vector) {
   for (uint64_t r = 0; r < rows; r += FFT_BATCHSIZE) {
     blk = std::min(n64, 1024lu);
     grid = n64 < 1024 ? 1 : n64 / 1024;
-    bitPolyToCufftArray<<<grid, blk>>>(b64 + (r * n64), b64_poly, FFT_BATCHSIZE);
+    bitPolyToCufftArray<<<grid, blk>>>(b64 + r * n64, b64_poly, FFT_BATCHSIZE);
     cufftExecR2C(bPlan, b64_poly, b64_fft);
 
-    blk = std::min(2 * mOut, 1024lu);
-    grid = 2 * mOut < 1024 ? 1 : 2 * mOut / 1024;
+    blk = std::min(mOut, 1024lu);
+    grid = mOut < 1024 ? 1 : mOut / 1024;
     complex_dot_product<<<grid, blk>>>(c64_fft, a64_fft, b64_fft);
 
     cufftExecC2R(cPlan, c64_fft, c64_poly);
