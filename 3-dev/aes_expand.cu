@@ -34,7 +34,7 @@
 #include "aes_expand.h"
 
 __global__
-void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
+void aesExpand128_4_1(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
     OTblock *separated, OTblock *inData, uint64_t width) {
 
     uint32_t bx        = blockIdx.x;
@@ -103,7 +103,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 
     __syncthreads();
 
-
     //-------------------------------- end of 2nd stage --------------------------------
 
     //----------------------------------- 3th stage -----------------------------------
@@ -122,7 +121,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
     stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
     __syncthreads();
-
 
     //-------------------------------- end of 3th stage --------------------------------
 
@@ -143,7 +141,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 
     __syncthreads();
 
-
     //-------------------------------- end of 4th stage --------------------------------
 
     //----------------------------------- 5th stage -----------------------------------
@@ -162,7 +159,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
     stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
     __syncthreads();
-
 
     //-------------------------------- end of 5th stage --------------------------------
 
@@ -183,7 +179,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 
     __syncthreads();
 
-
     //-------------------------------- end of 6th stage --------------------------------
 
     //----------------------------------- 7th stage -----------------------------------
@@ -202,7 +197,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
     stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
     __syncthreads();
-
 
     //-------------------------------- end of 7th stage --------------------------------
 
@@ -223,7 +217,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
 
     __syncthreads();
 
-
     //-------------------------------- end of 8th stage --------------------------------
 
     //----------------------------------- 9th stage -----------------------------------
@@ -242,7 +235,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
     stageBlock2[tx].uival = op1^op2^op3^op4^aesKey[x];
 
     __syncthreads();
-
 
     //-------------------------------- end of 9th stage --------------------------------
 
@@ -267,3 +259,4 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, OTblock *interleaved,
     uint64_t offs = expandDir * (width / 2);
     separated[parentId + offs].data[mod4tx] = stageBlock1[tx].uival;
 }
+

@@ -31,13 +31,23 @@ AesHash::~AesHash() {
 void AesHash::expand_async(GPUvector<OTblock> &interleaved, GPUvector<OTblock> &separated,
 	GPUvector<OTblock> &input, uint64_t width, cudaStream_t &s) {
 
-  static int thread_per_aesblock = 4;
   uint64_t paddedBytes = (width / 2) * sizeof(OTblock);
   if (paddedBytes % AES_PADDING != 0)
     paddedBytes += AES_PADDING - (paddedBytes % AES_PADDING);
   uint64_t numAesBlocks = paddedBytes / 16;
-  dim3 grid(numAesBlocks * thread_per_aesblock / AES_BSIZE, 2);
-  aesExpand128<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved.data(), separated.data(), input.data(), width);
+
+  if (width < (1 << 26)) {
+    dim3 grid(4 * numAesBlocks / AES_BSIZE, 2);
+    aesExpand128_4_1<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved.data(), separated.data(), input.data(), width);
+  }
+  // else if (width < (1 << 30)) {
+  //   dim3 grid(numAesBlocks / AES_BSIZE, 2);
+  //   aesExpand128_2_1<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved.data(), separated.data(), input.data(), width); 
+  // }
+  else {
+    dim3 grid(numAesBlocks / AES_BSIZE, 2);
+    aesExpand128_1_1<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved.data(), separated.data(), input.data(), width); 
+  }
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {
