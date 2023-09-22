@@ -77,12 +77,20 @@ void SilentOTSender::pprf_expand() {
   cudaStreamCreate(&s);
   GPUvector<OTblock> *inBuffer, *outBuffer;
 
+  // struct timespec timePoint[26];
+
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     inBuffer = (d % 2 == 1) ? &interleaved : &fullVector;
     outBuffer = (d % 2 == 1) ? &fullVector : &interleaved;
 
+    // clock_gettime(CLOCK_MONOTONIC, &timePoint[d-1]);
+
     uint64_t packedWidth = mConfig.nTree * width;
     expander->expand_async(*outBuffer, separated, *inBuffer, packedWidth, s);
+
+    // cudaDeviceSynchronize();
+
+    // clock_gettime(CLOCK_MONOTONIC, &timePoint[d]);
 
     separated.sum_async(2 * mConfig.nTree, width / 2, s);
 
@@ -105,6 +113,12 @@ void SilentOTSender::pprf_expand() {
 
     cudaEventRecord(expandEvents.at(d-1), s);
   }
+
+  // for (int i = 0; i < depth; i++) {
+  //   float elapsed = (timePoint[i+1].tv_sec - timePoint[i].tv_sec) * 1000;
+  //   elapsed += (timePoint[i+1].tv_nsec - timePoint[i].tv_nsec) / 1000000.0;
+  //   printf("printing into layer %d: %f\n", i, elapsed);
+  // }
 
   other->eventsRecorded = true;
   cudaStreamSynchronize(s);

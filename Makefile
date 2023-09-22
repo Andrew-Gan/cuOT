@@ -61,7 +61,7 @@ $(OBJ)/dev/%.o: 3-dev/%.cu $(ALL_HDR)
 	@mkdir -p $(OBJ)/dev
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
-sbatch:
+submit:
 	sbatch -n $(CPU_PER_NODE) -N $(NUM_NODE) --gpus-per-node=$(GPU_PER_NODE) -A $(QUEUE) --constraint=$(CLUSTER) job.sh
 
 plot:

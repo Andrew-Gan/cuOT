@@ -36,7 +36,7 @@ void AesHash::expand_async(GPUvector<OTblock> &interleaved, GPUvector<OTblock> &
     paddedBytes += AES_PADDING - (paddedBytes % AES_PADDING);
   uint64_t numAesBlocks = paddedBytes / 16;
 
-  if (width < (1 << 26)) {
+  if (width < (1 << 30)) {
     dim3 grid(4 * numAesBlocks / AES_BSIZE, 2);
     aesExpand128_4_1<<<grid, AES_BSIZE, 0, s>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved.data(), separated.data(), input.data(), width);
   }

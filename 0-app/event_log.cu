@@ -33,12 +33,9 @@ void Log::start(int role, Event event) {
   clock_gettime(CLOCK_MONOTONIC, &now);
   float timeSinceStart = (now.tv_sec - Log::initTime[role].tv_sec) * 1000;
   timeSinceStart += (now.tv_nsec - Log::initTime[role].tv_nsec) / 1000000.0;
-  // only record start stop for main events
-  if (event <= Hash) {
-    mtx.lock();
-    Log::logFile[role] << "s " << event << " " << timeSinceStart << std::endl;
-    mtx.unlock();
-  }
+  mtx.lock();
+  Log::logFile[role] << "s " << event << " " << timeSinceStart << std::endl;
+  mtx.unlock();
   Log::eventStart[role][event] = timeSinceStart;
 }
 
@@ -47,11 +44,8 @@ void Log::end(int role, Event event) {
   clock_gettime(CLOCK_MONOTONIC, &now);
   float timeSinceStart = (now.tv_sec - Log::initTime[role].tv_sec) * 1000;
   timeSinceStart += (now.tv_nsec - Log::initTime[role].tv_nsec) / 1000000.0;
-  // only record start stop for main events
-  if (event <= Hash) {
-    mtx.lock();
-    Log::logFile[role] << "e " << event << " " << timeSinceStart << std::endl;
-    mtx.unlock();
-  }
+  mtx.lock();
+  Log::logFile[role] << "e " << event << " " << timeSinceStart << std::endl;
+  mtx.unlock();
   Log::eventDuration[role][event] += timeSinceStart - Log::eventStart[role][event];
 }
