@@ -1,15 +1,14 @@
 #ifndef __AES_H__
 #define __AES_H__
 
-#include "util.h"
+#include "gpu_tools.h"
 #include "gpu_vector.h"
 
 enum ExpandType { AesHash_t };
 
 class Expand {
 public:
-  virtual void expand_async(GPUvector<blk> &interleaved, GPUvector<blk> &separated,
-	GPUvector<blk> &input, uint64_t width, cudaStream_t &s) = 0;
+  virtual void expand(vec &interleaved, vec &separated, vec &input, uint64_t width) = 0;
 };
 
 class AesHash : public Expand {
@@ -22,8 +21,8 @@ private:
 public:
   AesHash(uint8_t *newleft, uint8_t *newRight);
   virtual ~AesHash();
-  virtual void expand_async(GPUvector<blk> &interleaved, GPUvector<blk> &separated,
-	GPUvector<blk> &input, uint64_t width, cudaStream_t &s);
+  virtual void expand(blk *interleaved, vec &separated, blk *input, uint64_t width);
+  virtual void expand(vec &interleaved, vec &separated, vec &input, uint64_t width);
 };
 
 #endif

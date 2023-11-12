@@ -42,7 +42,7 @@ protected:
 
 class SilentOTSender : public SilentOT {
 public:
-  GPUvector<blk> fullVector;
+  vec fullVector;
   blk *delta = nullptr;
   std::vector<cudaEvent_t> expandEvents;
 
@@ -52,8 +52,8 @@ public:
 private:
   SilentOTRecver *other = nullptr;
 
-  std::vector<GPUvector<blk>> leftHash;
-  std::vector<GPUvector<blk>> rightHash;
+  std::vector<vec> leftHash;
+  std::vector<vec> rightHash;
   virtual void base_ot();
 
   virtual void pprf_expand();
@@ -63,12 +63,12 @@ private:
 class SilentOTRecver : public SilentOT {
 public:
   // receive from sender
-  std::vector<GPUvector<blk>> leftBuffer;
-  std::vector<GPUvector<blk>> rightBuffer;
+  std::vector<vec> leftBuffer;
+  std::vector<vec> rightBuffer;
 
   std::atomic<bool> eventsRecorded = false;
 
-  GPUvector<blk> puncVector, choiceVector;
+  vec puncVector, choiceVector;
 
   SilentOTRecver(SilentOTConfig config);
   void run();
@@ -76,7 +76,7 @@ public:
 private:
   SilentOTSender *other = nullptr;
 
-  std::vector<GPUvector<blk>> choiceHash;
+  std::vector<vec> choiceHash;
   virtual void base_ot();
 
   virtual void pprf_expand();

@@ -19,8 +19,8 @@ public:
   void load(const char *filename);
   void save(const char *filename);
   void clear();
-  void xor_async(GPUdata &rhs, cudaStream_t s);
-  void copy_async(GPUdata &rhs, cudaStream_t s);
+  void xor_d(GPUdata &rhs);
+  void copy(GPUdata &rhs);
 
 protected:
   uint8_t *mPtr = nullptr;

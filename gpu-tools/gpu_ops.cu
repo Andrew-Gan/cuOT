@@ -1,15 +1,16 @@
+#include <cstdio>
 #include "gpu_ops.h"
 
 #define BIT_ACCESS(d, w, r, c) ((d[r * w + c / 64] >> (63-(c % 64))) & 0b1)
 
 __global__
-void and(uint8_t *a, uint8_t *b, uint64_t n) {
+void gpu_and(uint8_t *a, uint8_t *b, uint64_t n) {
   uint64_t x = blockIdx.x * blockDim.x + threadIdx.x;
   if (x < n) a[x] &= b[x];
 }
 
 __global__
-void xor(uint8_t *a, uint8_t *b, uint64_t n) {
+void gpu_xor(uint8_t *a, uint8_t *b, uint64_t n) {
   uint64_t x = blockIdx.x * blockDim.x + threadIdx.x;
   if (x < n) a[x] ^= b[x];
 }

@@ -30,7 +30,7 @@ bool _cmp(blk &b0, blk &b1) {
 }
 
 void test_reduce() {
-  GPUvector<blk> data(8);
+  vec data(8);
   data.clear();
   blk buff;
   memset(&buff, 0, sizeof(blk));
@@ -38,13 +38,10 @@ void test_reduce() {
   data.set(1, buff);
   buff.data[0] = 0b0101;
   data.set(2, buff);
-  cudaStream_t s;
-  cudaStreamCreate(&s);
-  data.sum_async(1, 8, s);
+  data.sum(1, 8);
   cudaDeviceSynchronize();
-  cudaStreamDestroy(s);
 
-  GPUvector<blk> data2(8);
+  vec data2(8);
   data.clear();
   buff.data[0] = 0b1110;
   data2.set(0, buff);
@@ -54,10 +51,10 @@ void test_reduce() {
 }
 
 void test_cot(SilentOTSender &sender, SilentOTRecver &recver) {
-  GPUvector<blk> lhs(recver.puncVector.size());
+  vec lhs(recver.puncVector.size());
   cudaMemcpyPeer(lhs.data(), 0, recver.puncVector.data(), 1, recver.puncVector.size_bytes());
 
-  GPUvector<blk> rhs(recver.choiceVector.size());
+  vec rhs(recver.choiceVector.size());
   cudaMemcpyPeer(rhs.data(), 0, recver.choiceVector.data(), 1, recver.choiceVector.size_bytes());
 
   printf("fullVector\n");

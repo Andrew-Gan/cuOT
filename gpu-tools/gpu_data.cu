@@ -1,19 +1,20 @@
 #include <iomanip>
+#include <fstream>
 #include <mutex>
 
 #include "gpu_data.h"
 #include "gpu_ops.h"
 
 GPUdata::GPUdata(uint64_t n) : mNBytes(n) {
-  CUDA_CALL(cudaMalloc(&mPtr, n));
+  cudaMalloc(&mPtr, n);
 }
 
 GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
-  CUDA_CALL(cudaMemcpy(mPtr, blk.data(), mNBytes, cudaMemcpyDeviceToDevice));
+  cudaMemcpy(mPtr, blk.data(), mNBytes, cudaMemcpyDeviceToDevice);
 }
 
 GPUdata::~GPUdata() {
-  if (mPtr != nullptr) CUDA_CALL(cudaFree(mPtr));
+  if (mPtr != nullptr) cudaFree(mPtr);
 }
 
 GPUdata& GPUdata::operator&=(const GPUdata &rhs) {
@@ -57,7 +58,7 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
 void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
   uint8_t *newData;
-  CUDA_CALL(cudaMalloc(&newData, size));
+  cudaMalloc(&newData, size);
   if (mPtr != nullptr) {
     cudaMemcpy(newData, mPtr, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
     cudaFree(mPtr);
@@ -92,17 +93,17 @@ void GPUdata::clear() {
   cudaMemset(mPtr, 0, mNBytes);
 }
 
-void GPUdata::xor_async(GPUdata &rhs, cudaStream_t s) {
+void GPUdata::xor_d(GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
-  gpu_xor<<<nBlock, 1024, 0, s>>>(mPtr, rhs.data(), min);
+  gpu_xor<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
 }
 
-void GPUdata::copy_async(GPUdata &rhs, cudaStream_t s) {
+void GPUdata::copy(GPUdata &rhs) {
   if (mNBytes != rhs.size_bytes()) {
-    CUDA_CALL(cudaFree(mPtr));
-    CUDA_CALL(cudaMallocAsync(&mPtr, rhs.size_bytes(), s));
+    cudaFree(mPtr);
+    cudaMalloc(&mPtr, rhs.size_bytes());
     mNBytes = rhs.size_bytes();
   }
-  cudaMemcpyAsync(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice, s);
+  cudaMemcpy(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice);
 }

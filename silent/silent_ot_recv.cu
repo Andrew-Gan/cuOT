@@ -6,8 +6,8 @@ std::array<std::atomic<SilentOTRecver*>, 100> silentOTRecvers;
 
 SilentOTRecver::SilentOTRecver(SilentOTConfig config) :
   SilentOT(config), puncVector(2 * numOT), choiceVector(2 * numOT),
-  leftBuffer(std::vector<GPUvector<blk>>(depth+1, GPUvector<blk>(mConfig.nTree))),
-  rightBuffer(std::vector<GPUvector<blk>>(depth+1, GPUvector<blk>(mConfig.nTree))) {
+  leftBuffer(std::vector<vec>(depth+1, vec(mConfig.nTree))),
+  rightBuffer(std::vector<vec>(depth+1, vec(mConfig.nTree))) {
   silentOTRecvers[mConfig.id] = this;
   while(silentOTSenders[mConfig.id] == nullptr);
   other = silentOTSenders[mConfig.id];
@@ -27,9 +27,9 @@ void SilentOTRecver::run() {
 }
 
 void SilentOTRecver::base_ot() {
-  std::vector<std::future<GPUvector<blk>>> workers;
+  std::vector<std::future<vec>> workers;
   for (int d = 0; d <= depth; d++) {
-    workers.push_back(std::async([d, this]() {
+    workers.push_back(std::([d, this]() {
       switch (mConfig.baseOT) {
         case SimplestOT_t: return SimplestOT(Recver, d, mConfig.nTree).recv(mConfig.choices[d]);
       }
@@ -79,15 +79,13 @@ void SilentOTRecver::pprf_expand() {
   }
 
   // init buffers
-  GPUvector<blk> interleaved(2 * numOT);
-  GPUvector<blk> separated(2 * numOT);
+  vec interleaved(2 * numOT);
+  vec separated(2 * numOT);
 
   std::vector<uint64_t> activeParent(mConfig.nTree, 0);
-  cudaStream_t s;
-  cudaStreamCreate(&s);
-  GPUvector<blk> *inBuffer, *outBuffer;
-  GPUvector<blk> recvSums(mConfig.nTree);
-  GPUvector<blk> *tmp0;
+  vec *inBuffer, *outBuffer;
+  vec recvSums(mConfig.nTree);
+  vec *tmp0;
   uint8_t choice;
   uint64_t offset;
 
@@ -99,16 +97,16 @@ void SilentOTRecver::pprf_expand() {
     outBuffer = (d % 2 == 1) ? &puncVector : &interleaved;
 
     uint64_t packedWidth = mConfig.nTree * width;
-    expander->expand_async(*outBuffer, separated, *inBuffer, packedWidth, s);
+    expander->expand(*outBuffer, separated, *inBuffer, packedWidth);
 
-    cudaStreamWaitEvent(s, other->expandEvents.at(d-1));
+    cudaStreamWaitEvent(0, other->expandEvents.at(d-1));
 
-    leftBuffer.at(d-1).xor_async(choiceHash.at(d-1), s);
-    rightBuffer.at(d-1).xor_async(choiceHash.at(d-1), s);
+    leftBuffer.at(d-1).xor_d(choiceHash.at(d-1));
+    rightBuffer.at(d-1).xor_d(choiceHash.at(d-1));
 
     if (d == depth) {
-      leftBuffer.at(d).xor_async(choiceHash.at(d), s);
-      rightBuffer.at(d).xor_async(choiceHash.at(d), s);
+      leftBuffer.at(d).xor_d(choiceHash.at(d));
+      rightBuffer.at(d).xor_d(choiceHash.at(d));
     }
 
     for (uint64_t t = 0; t < mConfig.nTree; t++) {
@@ -117,25 +115,25 @@ void SilentOTRecver::pprf_expand() {
       choice = (mConfig.choices[d-1] >> t) & 1;
       tmp0 = choice == 0 ? &leftBuffer.at(d-1) : &rightBuffer.at(d-1);
       offset = choice * (mConfig.nTree * width / 2) + t * width / 2 + activeParent.at(t);
-      cudaMemcpyAsync(separated.data() + offset, tmp0->data() + t, sizeof(blk), cudaMemcpyDeviceToDevice, s);
+      cudaMemcpy(separated.data() + offset, tmp0->data() + t, sizeof(blk), cudaMemcpyDeviceToDevice);
       if (d == depth) {
         tmp0 = choice == 0 ? &rightBuffer.at(d) : &leftBuffer.at(d);
         offset = (1-choice) * (mConfig.nTree * width / 2) + t * width / 2 + activeParent.at(t);
-        cudaMemcpyAsync(separated.data() + offset, tmp0->data() + t, sizeof(blk), cudaMemcpyDeviceToDevice, s);
+        cudaMemcpy(separated.data() + offset, tmp0->data() + t, sizeof(blk), cudaMemcpyDeviceToDevice);
       }
     }
 
-    separated.sum_async(2 * mConfig.nTree, width / 2, s);
+    separated.sum(2 * mConfig.nTree, width / 2);
 
     // insert active node value obtained from sum into output
     for (uint64_t t = 0; t < mConfig.nTree; t++) {
       choice = (mConfig.choices[d-1] >> t) & 1;
       offset = t * width + 2 * activeParent.at(t) + choice;
-      cudaMemcpyAsync(outBuffer->data() + offset, separated.data() + choice * mConfig.nTree + t, sizeof(blk), cudaMemcpyDeviceToDevice, s);
+      cudaMemcpy(outBuffer->data() + offset, separated.data() + choice * mConfig.nTree + t, sizeof(blk), cudaMemcpyDeviceToDevice);
 
       if (d == depth) {
         offset = t * width + 2 * activeParent.at(t) + (1-choice);
-        cudaMemcpyAsync(outBuffer->data() + offset, separated.data() + (1-choice) * mConfig.nTree + t, sizeof(blk), cudaMemcpyDeviceToDevice, s);
+        cudaMemcpy(outBuffer->data() + offset, separated.data() + (1-choice) * mConfig.nTree + t, sizeof(blk), cudaMemcpyDeviceToDevice);
       }
       activeParent.at(t) *= 2;
       activeParent.at(t) += 1 - choice;

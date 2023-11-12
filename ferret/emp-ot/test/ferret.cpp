@@ -25,8 +25,6 @@ void test_ferret(int party, NetIO *ios[threads], int64_t num_ot, bool malicious)
 }
 
 int main(int argc, char** argv) {
-	cuda_init();
-
 	parse_party_and_port(argv, &party, &port);
 	NetIO* ios[threads];
 	for(int i = 0; i < threads; ++i)

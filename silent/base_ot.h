@@ -5,8 +5,8 @@
 #include <vector>
 #include "gpu_vector.h"
 #include <array>
-#include "../1-lib/cryptoTools/Crypto/SodiumCurve.h"
-#include "../1-lib/cryptoTools/Crypto/PRNG.h"
+#include "cryptoTools/Crypto/SodiumCurve.h"
+#include "cryptoTools/Crypto/PRNG.h"
 
 using Point = osuCrypto::Sodium::Rist25519;
 using Number = osuCrypto::Sodium::Prime25519;
@@ -15,16 +15,16 @@ enum BaseOTType { SimplestOT_t };
 
 class OT {
 public:
-  virtual std::array<GPUvector<blk>, 2> send() = 0;
-  virtual GPUvector<blk> recv(uint64_t choice) = 0;
+  virtual std::array<vec, 2> send() = 0;
+  virtual vec recv(uint64_t choice) = 0;
 };
 
 class SimplestOT : public OT {
 public:
   SimplestOT(Role role, int id, uint64_t count);
   virtual ~SimplestOT();
-  virtual std::array<GPUvector<blk>, 2> send();
-  virtual GPUvector<blk> recv(uint64_t choice);
+  virtual std::array<vec, 2> send();
+  virtual vec recv(uint64_t choice);
 
 private:
   Role mRole;

@@ -1,4 +1,4 @@
-#include <emp-tool/emp-tool.h>
+#include "emp-tool/emp-tool.h"
 #include "emp-ot/emp-ot.h"
 #include <iostream>
 using namespace emp;
@@ -134,7 +134,7 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
 	clock_gettime(CLOCK_MONOTONIC, &tp[0]);
 
 	block *b = nullptr;
-	GPUvector<blk> b_d(1);
+	vec b_d(1);
 	PRG prg;
 
 	io->sync();

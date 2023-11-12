@@ -56,7 +56,7 @@ void complex_dot_product(cufftComplex *c_out, cufftComplex *a_in, cufftComplex *
 
 QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mIn(in), mOut(out) {
   if (mIn == 0 || mOut == 0) return;
-  
+
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_DEFAULT);
   curandSetPseudoRandomGeneratorSeed(prng, 50);
   nBlocks = (mOut + rows - 1) / rows;
@@ -72,7 +72,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   cufftPlan1d(&bPlan, 2 * mOut, CUFFT_R2C, FFT_BATCHSIZE);
   cufftPlan1d(&cPlan, 2 * mOut, CUFFT_C2R, FFT_BATCHSIZE);
 
-  GPUvector<uint64_t> a64(n64);
+  vec a64(n64 / 2);
   cufftReal *a64_poly;
   curandGenerate(prng, (uint32_t*) a64.data(), 2 * n64);
 
@@ -81,7 +81,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
 
   uint64_t block = std::min(n64, 1024lu);
   uint64_t grid = n64 < 1024 ? 1 : n64 / 1024;
-  bitpoly_to_cufft<<<grid, block>>>(a64.data(), a64_poly);
+  bitpoly_to_cufft<<<grid, block>>>((uint64_t*)a64.data(), a64_poly);
   cudaDeviceSynchronize();
 
   cufftExecR2C(aPlan, a64_poly, a64_fft);
@@ -97,9 +97,9 @@ QuasiCyclic::~QuasiCyclic() {
   cudaFree(a64_fft);
 }
 
-void QuasiCyclic::encode(GPUvector<blk> &vector) {
+void QuasiCyclic::encode(vec &vector) {
   // XT = mOut x 1
-  GPUmatrix<blk> XT(mOut, 1);
+  mat XT(mOut, 1);
   XT.load((uint8_t*) (vector.data() + mOut));
   // XT = rows x n2blocks
   XT.bit_transpose();
@@ -114,7 +114,7 @@ void QuasiCyclic::encode(GPUvector<blk> &vector) {
   cudaMalloc(&c64_poly, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftReal));
   cudaMalloc(&c64_fft, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftComplex));
 
-  GPUmatrix<blk> cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
+  mat cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
   uint64_t block;
   dim3 grid;
 

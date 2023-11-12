@@ -29,7 +29,7 @@ void SilentOTSender::run() {
 }
 
 void SilentOTSender::base_ot() {
-  std::vector<std::future<std::array<GPUvector<blk>, 2>>> workers;
+  std::vector<std::future<std::array<vec, 2>>> workers;
   for (int d = 0; d <= depth; d++) {
     workers.push_back(std::async([d, this]() {
       switch (mConfig.baseOT) {
@@ -55,9 +55,9 @@ void SilentOTSender::pprf_expand() {
       expander = new AesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
   }
   // init buffers
-  GPUvector<blk> interleaved(2 * numOT);
-  GPUvector<blk> separated(2 * numOT);
-  GPUvector<blk> leftSum(mConfig.nTree), rightSum(mConfig.nTree);
+  vec interleaved(2 * numOT);
+  vec separated(2 * numOT);
+  vec leftSum(mConfig.nTree), rightSum(mConfig.nTree);
   // init delta
   blk buff;
   for (int i = 0; i < 4; i++) {
@@ -73,56 +73,39 @@ void SilentOTSender::pprf_expand() {
     interleaved.set(t, buff);
   }
 
-  cudaStream_t s;
-  cudaStreamCreate(&s);
-  GPUvector<blk> *inBuffer, *outBuffer;
-
-  // struct timespec timePoint[26];
+  vec *inBuffer, *outBuffer;
 
   for (uint64_t d = 1, width = 2; d <= depth; d++, width *= 2) {
     inBuffer = (d % 2 == 1) ? &interleaved : &fullVector;
     outBuffer = (d % 2 == 1) ? &fullVector : &interleaved;
 
-    // clock_gettime(CLOCK_MONOTONIC, &timePoint[d-1]);
-
     uint64_t packedWidth = mConfig.nTree * width;
-    expander->expand_async(*outBuffer, separated, *inBuffer, packedWidth, s);
+    expander->expand(*outBuffer, separated, *inBuffer, packedWidth);
 
-    // cudaDeviceSynchronize();
+    separated.sum(2 * mConfig.nTree, width / 2);
 
-    // clock_gettime(CLOCK_MONOTONIC, &timePoint[d]);
+    leftHash.at(d-1).xor_d(separated, 0);
+    rightHash.at(d-1).xor_d(separated, mConfig.nTree);
 
-    separated.sum_async(2 * mConfig.nTree, width / 2, s);
-
-    leftHash.at(d-1).xor_async(separated, 0, s);
-    rightHash.at(d-1).xor_async(separated, mConfig.nTree, s);
-
-    other->leftBuffer.at(d-1).copy_async(leftHash.at(d-1), s);
-    other->rightBuffer.at(d-1).copy_async(rightHash.at(d-1), s);
+    other->leftBuffer.at(d-1).copy(leftHash.at(d-1));
+    other->rightBuffer.at(d-1).copy(rightHash.at(d-1));
 
     if (d == depth) {
-      leftHash.at(d).xor_async(separated, 0, s);
-      rightHash.at(d).xor_async(separated, mConfig.nTree, s);
+      leftHash.at(d).xor_d(separated, 0);
+      rightHash.at(d).xor_d(separated, mConfig.nTree);
 
-      leftHash.at(d).xor_scalar_async(delta, s);
-      rightHash.at(d).xor_scalar_async(delta, s);
+      leftHash.at(d).xor_scalar(delta);
+      rightHash.at(d).xor_scalar(delta);
 
-      other->leftBuffer.at(d).copy_async(leftHash.at(d), s);
-      other->rightBuffer.at(d).copy_async(rightHash.at(d), s);
+      other->leftBuffer.at(d).copy(leftHash.at(d));
+      other->rightBuffer.at(d).copy(rightHash.at(d));
     }
 
-    cudaEventRecord(expandEvents.at(d-1), s);
+    cudaEventRecord(expandEvents.at(d-1));
   }
 
-  // for (int i = 0; i < depth; i++) {
-  //   float elapsed = (timePoint[i+1].tv_sec - timePoint[i].tv_sec) * 1000;
-  //   elapsed += (timePoint[i+1].tv_nsec - timePoint[i].tv_nsec) / 1000000.0;
-  //   printf("printing into layer %d: %f\n", i, elapsed);
-  // }
-
   other->eventsRecorded = true;
-  cudaStreamSynchronize(s);
-  cudaStreamDestroy(s);
+  cudaDeviceSynchronize();
 
   if (outBuffer != &fullVector)
     fullVector = *outBuffer;

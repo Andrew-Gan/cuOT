@@ -3,20 +3,25 @@
 #include "sbox_E.h"
 #include "sbox_D.h"
 
-#define AES_BSIZE 256
-
 union UByte4 {
-  unsigned int uival;
-  unsigned char ubval[4];
+  uint32_t uival;
+  uint8_t ubval[4];
 };
 
+__device__
+void swap(UByte4 *&a, UByte4 *&b) {
+    UByte4 *tmp = a;
+    a = b;
+    b = tmp;
+}
+
 __global__
-void aesEncrypt128(unsigned *key, unsigned * result, unsigned * inData) {
-	unsigned bx		= blockIdx.x;
-    unsigned tx		= threadIdx.x;
-    unsigned mod4tx = tx%4;
-    unsigned int4tx = tx/4;
-    unsigned idx2	= int4tx*4;
+void aesEncrypt128(uint32_t *key, uint32_t * result, uint32_t * inData) {
+	uint32_t bx		= blockIdx.x;
+    uint32_t tx		= threadIdx.x;
+    uint32_t mod4tx = tx%4;
+    uint32_t int4tx = tx/4;
+    uint32_t idx2	= int4tx*4;
 	int x;
 
     uint32_t stageBlockIdx[4] = {
@@ -37,8 +42,8 @@ void aesEncrypt128(unsigned *key, unsigned * result, unsigned * inData) {
 	// input caricati in memoria
 	stageBlock1[tx].uival	= inData[AES_BSIZE * bx + tx ];
 
-	unsigned elemPerThread = 256/AES_BSIZE;
-	for (unsigned cnt=0; cnt<elemPerThread; cnt++) {
+	uint32_t elemPerThread = 256/AES_BSIZE;
+	for (uint32_t cnt=0; cnt<elemPerThread; cnt++) {
 		tBox0Block[tx*elemPerThread + cnt].uival	= TBox0[tx*elemPerThread + cnt];
 		tBox1Block[tx*elemPerThread + cnt].uival	= TBox1[tx*elemPerThread + cnt];
 		tBox2Block[tx*elemPerThread + cnt].uival	= TBox2[tx*elemPerThread + cnt];
@@ -57,7 +62,7 @@ void aesEncrypt128(unsigned *key, unsigned * result, unsigned * inData) {
 	//-------------------------------- end of 1st stage --------------------------------
 
     UByte4 *sbSrc, *sbDes;
-    unsigned op[4];
+    uint32_t op[4];
 
     #pragma unroll
     for (int i = 1; i < 10; i++) {
@@ -77,7 +82,7 @@ void aesEncrypt128(unsigned *key, unsigned * result, unsigned * inData) {
         x += 4;
         sbDes[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
-        std::swap(sbSrc, sbDes);
+        swap(sbSrc, sbDes);
     }
 
 	//----------------------------------- 11th stage -----------------------------------
@@ -99,16 +104,15 @@ void aesEncrypt128(unsigned *key, unsigned * result, unsigned * inData) {
 	//-------------------------------- end of 11th stage --------------------------------
 
 	result[AES_BSIZE * bx + tx] = sbDes[tx].uival;
-	// end of AES
 }
 
 __global__
-void aesDecrypt128(unsigned *key, unsigned * result, unsigned * inData) {
-	unsigned bx		= blockIdx.x;
-    unsigned tx		= threadIdx.x;
-    unsigned mod4tx = tx%4;
-    unsigned int4tx = tx/4;
-    unsigned idx2	= int4tx*4;
+void aesDecrypt128(uint32_t *key, uint32_t * result, uint32_t * inData) {
+	uint32_t bx		= blockIdx.x;
+    uint32_t tx		= threadIdx.x;
+    uint32_t mod4tx = tx%4;
+    uint32_t int4tx = tx/4;
+    uint32_t idx2	= int4tx*4;
 	int x;
 
     uint32_t stageBlockIdx[4] = {
@@ -146,7 +150,7 @@ void aesDecrypt128(unsigned *key, unsigned * result, unsigned * inData) {
 	//-------------------------------- end of 1st stage --------------------------------
 
     UByte4 *sbSrc, *sbDes;
-    unsigned op[4];
+    uint32_t op[4];
 
     #pragma unroll
     for (int i = 1; i < 10; i++) {
@@ -166,7 +170,7 @@ void aesDecrypt128(unsigned *key, unsigned * result, unsigned * inData) {
         x += 4;
         sbDes[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
-        std::swap(sbSrc, sbDes);
+        swap(sbSrc, sbDes);
     }
 
 	//----------------------------------- 11th stage -----------------------------------
@@ -188,7 +192,6 @@ void aesDecrypt128(unsigned *key, unsigned * result, unsigned * inData) {
 	//-------------------------------- end of 11th stage --------------------------------
 
 	result[AES_BSIZE * bx + tx] = sbDes[tx].uival;
-	// end of AES
 }
 
 __global__
@@ -244,7 +247,7 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     //-------------------------------- end of 1st stage --------------------------------
 
     UByte4 *sbSrc = stageBlock2, *sbDes = stageBlock1;
-    unsigned op[4];
+    uint32_t op[4];
 
     #pragma unroll
     for (int i = 1; i < 10; i++) {
@@ -264,7 +267,7 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
         x += 4;
         sbDes[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
-        std::swap(sbSrc, sbDes);
+        swap(sbSrc, sbDes);
     }
 
     //----------------------------------- 11th stage -----------------------------------

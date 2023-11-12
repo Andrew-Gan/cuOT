@@ -1,5 +1,5 @@
 #include "base_ot.h"
-#include "../1-lib/cryptoTools/Crypto/RandomOracle.h"
+#include "cryptoTools/Crypto/RandomOracle.h"
 #include <ctime>
 
 std::array<std::atomic<SimplestOT*>, 100> simplestOTSenders;
@@ -45,13 +45,13 @@ void SimplestOT::toOtherBuffer(uint8_t *s, uint64_t nBytes) {
   other->hasContent = true;
 }
 
-std::array<GPUvector<blk>, 2> SimplestOT::send() {
+std::array<vec, 2> SimplestOT::send() {
   a.randomize(prng);
   A = Point::mulGenerator(a);
   toOtherBuffer((uint8_t*) &A, sizeof(A));
 
-  std::array<GPUvector<blk>, 2> m = {
-    GPUvector<blk>(mCount), GPUvector<blk>(mCount)
+  std::array<vec, 2> m = {
+    vec(mCount), vec(mCount)
   };
   A *= a;
   fromOwnBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
@@ -78,9 +78,9 @@ std::array<GPUvector<blk>, 2> SimplestOT::send() {
   return m;
 }
 
-GPUvector<blk> SimplestOT::recv(uint64_t choice) {
+vec SimplestOT::recv(uint64_t choice) {
   fromOwnBuffer((uint8_t*) &A, sizeof(A));
-  GPUvector<blk> mb(mCount);
+  vec mb(mCount);
 
   for (uint64_t i = 0; i < mCount; i++) {
     b.emplace_back(prng);
