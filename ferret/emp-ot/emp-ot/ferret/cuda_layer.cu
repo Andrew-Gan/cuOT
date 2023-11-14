@@ -15,50 +15,64 @@ void cuda_memcpy(void *dest, void *src, size_t n, cudaMemcpy_t type) {
 	cudaMemcpy(dest, src, n, (cudaMemcpyKind)type);
 }
 
-void cuda_spcot_sender_compute(blk *tree, int n, int depth, vec &lSum, vec &rSum) {
+void cuda_spcot_sender_compute(vec &tree, int t, int n, int depth, mat &lSum, mat &rSum) {
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
 	AesHash aesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
-	vec sep(n);
+	vec separated(t*n);
 
 	for (uint64_t d = 1, w = 2; d <= depth; d++, w *= 2) {
-		aesHash.expand(tree, sep, tree, w); // implement inplace mode
-		sep.sum(2, w / 2);
-		cudaMemcpy(lSum.data(d-1), sep.data(0), sizeof(blk), cudaMemcpyDeviceToDevice);
-		cudaMemcpy(rSum.data(d-1), sep.data(1), sizeof(blk), cudaMemcpyDeviceToDevice);
+		aesHash.expand(tree, separated, tree, w*t); // implement inplace mode
+		separated.sum(2*t, w/2);
+		cudaMemcpy(lSum.data(d-1, 0), separated.data(0), t*sizeof(blk), cudaMemcpyDeviceToDevice);
+		cudaMemcpy(rSum.data(d-1, 0), separated.data(t), t*sizeof(blk), cudaMemcpyDeviceToDevice);
 	}
+
+	cudaError_t err = cudaDeviceSynchronize();
+	if (err != cudaSuccess)
+		printf("spcot_sender: %s\n", cudaGetErrorString(err));
 }
 
-void cuda_spcot_recver_compute(int n, int depth, blk *tree, bool *b, vec &cSum) {
-
+void cuda_spcot_recver_compute(int t, int n, int depth, vec &tree, bool *b, mat &cSum) {
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
 	AesHash aesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
-	vec sep(n);
+	vec separated(n);
 	uint64_t activeParent = 0;
 	uint8_t choice;
 	uint64_t offset;
 
 	for (uint64_t d = 1, w = 2; d <= depth; d++, w *= 2) {
-		aesHash.expand(tree, sep, tree, w); // implement inplace mode
-		choice = b[d-1];
-		offset = (w / 2) * choice + activeParent;
-		cudaMemcpy(sep.data(offset), cSum.data(d-1), sizeof(blk), cudaMemcpyDeviceToDevice);
-		if (d == depth) {
-			offset = (w / 2) * (1-choice) + activeParent;
-			cudaMemcpy(sep.data(offset), cSum.data(d), sizeof(blk), cudaMemcpyDeviceToDevice);
-		}
-		sep.sum(2, w / 2);
-		offset = 2 * activeParent + choice;
-		cudaMemcpy(tree + offset, sep.data(choice), sizeof(blk), cudaMemcpyDeviceToDevice);
-		if (d == depth) {
-			offset = 2 * activeParent + (1-choice);
-			cudaMemcpy(tree + offset, sep.data(1-choice), sizeof(blk), cudaMemcpyDeviceToDevice);
+		aesHash.expand(tree, separated, tree, w*t); // implement inplace mode
+		for (uint64_t i = 0; i < t; i++) {
+			// sum in separated
+			choice = b[t*(depth-1)+d-1];
+			offset = (t*w/2) * choice + (i*w/2) + activeParent;
+			cudaMemcpy(separated.data(offset), cSum.data(d-1, t), sizeof(blk), cudaMemcpyDeviceToDevice);
+			if (d == depth) {
+				offset = (w / 2) * (1-choice) + activeParent;
+				cudaMemcpy(separated.data(offset), cSum.data(d, t), sizeof(blk), cudaMemcpyDeviceToDevice);
+			}
 		}
 
-		activeParent *= 2;
-		activeParent += 1 - choice;
+		separated.sum(2*t, w/2);
+
+		for (uint64_t i = 0; i < t; i++) {
+			// copy into interleaved
+			offset = 2 * activeParent + choice;
+			cudaMemcpy(tree.data(offset), separated.data(t*choice+i), sizeof(blk), cudaMemcpyDeviceToDevice);
+			if (d == depth) {
+				offset = 2 * activeParent + (1-choice);
+				cudaMemcpy(tree.data(offset), separated.data(t*(1-choice)+i), sizeof(blk), cudaMemcpyDeviceToDevice);
+			}
+			activeParent *= 2;
+			activeParent += 1 - choice;
+		}
 	}
+
+	cudaError_t err = cudaDeviceSynchronize();
+	if (err != cudaSuccess)
+		printf("spcot_recver: %s\n", cudaGetErrorString(err));
 }
 
 void cuda_lpn_f2_compute(int d, int n, int k, uint32_t *key, vec &nn, blk *kk) {
@@ -66,10 +80,16 @@ void cuda_lpn_f2_compute(int d, int n, int k, uint32_t *key, vec &nn, blk *kk) {
 	cudaMalloc(&r_in, (d * n / 4) * sizeof(*r_in));
 	cudaMalloc(&r_out, (d * n / 4) * sizeof(*r_out));
 
+	uint32_t *key_d;
+	cudaMalloc(&key_d, 176);
+	cudaMemcpy(key_d, key, 11 * AES_KEYLEN, cudaMemcpyHostToDevice);
+
 	dim3 grid(n/4/1024, d);
 	make_block<<<grid, 1024>>>(r_in);
-	aesEncrypt128<<<d*n/4/1024, 1024>>>((uint32_t*)key, (uint32_t*)r_out, (uint32_t*)r_in);
+	aesEncrypt128<<<d*n/AES_BSIZE, AES_BSIZE>>>(key_d, (uint32_t*)r_out, (uint32_t*)r_in);
 	lpn_single_row<<<n / 1024, 1024>>>((uint32_t*)r_out, d, k, nn.data(), kk);
 
-	cudaDeviceSynchronize();
+	cudaError_t err = cudaDeviceSynchronize();
+	if (err != cudaSuccess)
+		printf("lpn: %s\n", cudaGetErrorString(err));
 }

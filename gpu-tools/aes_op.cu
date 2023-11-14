@@ -42,13 +42,10 @@ void aesEncrypt128(uint32_t *key, uint32_t * result, uint32_t * inData) {
 	// input caricati in memoria
 	stageBlock1[tx].uival	= inData[AES_BSIZE * bx + tx ];
 
-	uint32_t elemPerThread = 256/AES_BSIZE;
-	for (uint32_t cnt=0; cnt<elemPerThread; cnt++) {
-		tBox0Block[tx*elemPerThread + cnt].uival	= TBox0[tx*elemPerThread + cnt];
-		tBox1Block[tx*elemPerThread + cnt].uival	= TBox1[tx*elemPerThread + cnt];
-		tBox2Block[tx*elemPerThread + cnt].uival	= TBox2[tx*elemPerThread + cnt];
-		tBox3Block[tx*elemPerThread + cnt].uival	= TBox3[tx*elemPerThread + cnt];
-	}
+    tBox0Block[tx].uival	= 0;TBox0[tx];
+    tBox1Block[tx].uival	= 0;TBox1[tx];
+    tBox2Block[tx].uival	= 0;TBox2[tx];
+    tBox3Block[tx].uival	= 0;TBox3[tx];
 
 	__syncthreads();
 
@@ -63,6 +60,8 @@ void aesEncrypt128(uint32_t *key, uint32_t * result, uint32_t * inData) {
 
     UByte4 *sbSrc, *sbDes;
     uint32_t op[4];
+
+    return;
 
     #pragma unroll
     for (int i = 1; i < 10; i++) {

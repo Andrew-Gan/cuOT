@@ -1,17 +1,16 @@
 #include "cuda_layer.h"
 
 template<typename T>
-FerretCOT<T>::FerretCOT(int party, int threads, T **ios,
+FerretCOT<T>::FerretCOT(int party, T *ios,
 		bool malicious, bool run_setup, PrimalLPNParameter param, std::string pre_file) {
 	this->party = party;
-	this->threads = threads;
-	io = ios[0];
+	io = ios;
 	this->ios = ios;
 	this->is_malicious = malicious;
 	one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
 	ch[0] = zero_block;
 	base_cot = new BaseCot<T>(party, io, malicious);
-	pool = new ThreadPool(threads);
+	// pool = new ThreadPool(threads);
 	this->param = param;
 
 	this->extend_initialized = false;
@@ -45,10 +44,10 @@ FerretCOT<T>::~FerretCOT() {
 template<typename T>
 void FerretCOT<T>::extend_initialization() {
 	lpn_f2 = new LpnF2<T, 10>(party, param.n, param.k, pool, io, pool->size());
-	mpcot = new MpcotReg<T>(party, threads, param.n, param.t, param.log_bin_sz, pool, ios);
+	mpcot = new MpcotReg<T>(party, param.n, param.t, param.log_bin_sz, pool, ios);
 	if(is_malicious) mpcot->set_malicious();
 
-	pre_ot = new OTPre<T>(io, mpcot->tree_height-1, mpcot->tree_n);
+	pre_ot = new OTPre<T>(io, mpcot->tree_n*(mpcot->tree_height-1), 1);
 	M = param.k + pre_ot->n + mpcot->consist_check_cot_num;
 	ot_limit = param.n - M;
 	ot_used = ot_limit;
@@ -61,25 +60,20 @@ void FerretCOT<T>::extend(vec &ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
 		LpnF2<T, 10> *lpn, vec &ot_input) {
 
 	cuda_init();
-
-	struct timespec t[4];
-
-	clock_gettime(CLOCK_MONOTONIC, &t[0]);
-
 	blk Delta_blk;
 	memcpy(&Delta_blk, &Delta, sizeof(blk));
 
+	struct timespec t[4];
+	clock_gettime(CLOCK_MONOTONIC, &t[0]);
+
 	if(party == ALICE) mpcot->sender_init(Delta_blk);
 	else mpcot->recver_init();
-
 	clock_gettime(CLOCK_MONOTONIC, &t[1]);
 
 	mpcot->mpcot(ot_output, preot, ot_input);
-
 	clock_gettime(CLOCK_MONOTONIC, &t[2]);
 
 	lpn->compute(ot_output, ot_input.data(mpcot->consist_check_cot_num));
-
 	clock_gettime(CLOCK_MONOTONIC, &t[3]);
 
 	printf("\n");
@@ -158,9 +152,9 @@ void FerretCOT<T>::setup(std::string pre_file) {
 		if(party == BOB) base_cot->cot_gen_pre();
 		else base_cot->cot_gen_pre(Delta);
 
-		MpcotReg<T> mpcot_ini(party, threads, param.n_pre, param.t_pre, param.log_bin_sz_pre, pool, ios);
+		MpcotReg<T> mpcot_ini(party, param.n_pre, param.t_pre, param.log_bin_sz_pre, pool, ios);
 		if(is_malicious) mpcot_ini.set_malicious();
-		OTPre<T> pre_ot_ini(ios[0], mpcot_ini.tree_height-1, mpcot_ini.tree_n);
+		OTPre<T> pre_ot_ini(ios, mpcot_ini.tree_n*(mpcot_ini.tree_height-1), 1);
 		LpnF2<T, 10> lpn(party, param.n_pre, param.k_pre, pool, io, pool->size());
 
 		block *pre_data_ini = new block[param.k_pre+mpcot_ini.consist_check_cot_num];

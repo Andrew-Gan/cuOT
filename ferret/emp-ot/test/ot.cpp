@@ -1,7 +1,7 @@
 #include "test/test.h"
 using namespace std;
 
-const static int threads = 1;
+// const static int threads = 1;
 
 int main(int argc, char** argv) {
 	int length, port, party; // make sure all functions work for non-power-of-two lengths
@@ -30,12 +30,12 @@ int main(int argc, char** argv) {
 	cout <<"Active IKNP ROT\t"<<double(length)/test_rot<IKNP<NetIO>>(iknp, io, party, length)*1e6<<" OTps"<<endl;
 	delete iknp;
 
-	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, threads, &io, false);
+	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, io, false);
 	cout <<"Passive FERRET OT\t"<<double(length)/test_ot<FerretCOT<NetIO>>(ferretcot, io, party, length)*1e6<<" OTps"<<endl;
 	cout <<"Passive FERRET COT\t"<<double(length)/test_cot<FerretCOT<NetIO>>(ferretcot, io, party, length)*1e6<<" OTps"<<endl;
 	cout <<"Passive FERRET ROT\t"<<double(length)/test_rot<FerretCOT<NetIO>>(ferretcot, io, party, length)*1e6<<" OTps"<<endl;
 	delete ferretcot;
-	ferretcot = new FerretCOT<NetIO>(party, threads, &io, true);
+	ferretcot = new FerretCOT<NetIO>(party, io, true);
 	cout <<"Active FERRET OT\t"<<double(length)/test_ot<FerretCOT<NetIO>>(ferretcot, io, party, length)*1e6<<" OTps"<<endl;
 	cout <<"Active FERRET COT\t"<<double(length)/test_cot<FerretCOT<NetIO>>(ferretcot, io, party, length)*1e6<<" OTps"<<endl;
 	cout <<"Active FERRET ROT\t"<<double(length)/test_rot<FerretCOT<NetIO>>(ferretcot, io, party, length)*1e6<<" OTps"<<endl;

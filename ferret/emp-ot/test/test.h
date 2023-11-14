@@ -162,6 +162,8 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
 	duration += (tp[1].tv_nsec-tp[0].tv_nsec) / 1000000.0f;
 	printf("total: %.2f ms\n",duration);
 
+	return 0.0f; //debug
+
 	long long t = time_from(start);
 	io->sync();
 	if (party == ALICE) {

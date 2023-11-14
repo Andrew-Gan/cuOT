@@ -4,12 +4,13 @@ CCFLG := -g -std=c++20 -gdwarf-4 -w
 LIB := -lcurand -lcufft
 INC := -I./silent/lib
 DIR := gpu-tools
+OBJ := gpu_tools.o
 
 ############################################################
 
-SRC := $(shell find $(DIR) -name '*.cu')
-HDR := $(shell find $(DIR) -name '*.h*')
-OBJ := $(patsubst %.cu, %.o, $(SRC))
+SRC_FILES := $(shell find $(DIR) -name '*.cu')
+HDR_FILES := $(shell find $(DIR) -name '*.h*')
+OBJ_FILES := $(patsubst %.cu, %.o, $(SRC_FILES))
 
 FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 
@@ -25,15 +26,17 @@ CLUSTER=K
 
 .PHONY: all clean
 
-ferret: gpu_tools.o
-	cd ferret; \
-	python build.py --ot
+all: $(OBJ)
+	cd ferret; python build.py --ot
 
-gpu_tools.o: $(OBJ) $(HELPER)
-	ld -r -o gpu_tools.o $(OBJ)
+run: ferret/emp-ot/bin/test_ferret
+	sbatch -n 4 -N 1 --gpus-per-node=1 -A standby job.sh
 
-$(DIR)/%.o: $(DIR)/%.cu $(HDR)
+$(OBJ): $(OBJ_FILES) $(HELPER)
+	ld -r -o $(OBJ) $(OBJ_FILES)
+
+$(DIR)/%.o: $(DIR)/%.cu $(HDR_FILES)
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $(INC) -c -o $@ $<
 
 clean:
-	rm -rf $(DIR)/*.o
+	rm -rf $(DIR)/*.o $(OBJ)

@@ -12,21 +12,23 @@ using namespace emp;
 template<typename IO>
 class SPCOT_Recver {
 public:
-	blk *ggm_tree;
-	vec choiceSum;
+	vec *ggm_tree;
+	mat cSum;
 	bool *b;
 	int choice_pos, depth, leave_n;
 	IO *io;
 
 	blk secret_sum_f2;
+	int tree_n;
 
-	SPCOT_Recver(IO *io, int depth_in) {
+	SPCOT_Recver(IO *io, int tree_n, int depth_in) {
 		this->io = io;
+		this->tree_n = tree_n;
 		this->depth = depth_in;
 		this->leave_n = 1<<(depth_in-1);
 		// m = new block[depth-1];
-		choiceSum.resize(depth-1);
-		b = new bool[depth-1];
+		cSum.resize(depth-1, tree_n);
+		b = new bool[tree_n*(depth-1)];
 	}
 
 	~SPCOT_Recver(){
@@ -34,9 +36,9 @@ public:
 		delete[] b;
 	}
 
-	int get_index() {
+	int get_index(int t) {
 		choice_pos = 0;
-		for(int i = 0; i < depth-1; ++i) {
+		for(int i = t * (depth-1); i < (t+1) * (depth-1); ++i) {
 			choice_pos<<=1;
 			if(!b[i])
 				choice_pos +=1;
@@ -46,8 +48,8 @@ public:
 
 	// receive the message and reconstruct the tree
 	// j: position of the secret, begins from 0
-	void compute(blk *ggm_tree_mem) {
-		this->ggm_tree = ggm_tree_mem;
+	void compute(vec &tree) {
+		this->ggm_tree = &tree;
 		// ggm_tree_reconstruction(b, m);
 		// ggm_tree[choice_pos] = zero_block;
 		// block nodes_sum = zero_block;
@@ -58,7 +60,7 @@ public:
 		// }
 		// ggm_tree[choice_pos] = nodes_sum ^ secret_sum_f2;
 
-		cuda_spcot_recver_compute(leave_n, depth, ggm_tree, b, choiceSum);
+		cuda_spcot_recver_compute(tree_n, leave_n, depth, tree, b, cSum);
 
 		// TBD: confirm handled by code above
 		// cudaMemset(ggm_tree.data(choice_pos), 0, sizeof(blk));
@@ -78,13 +80,15 @@ public:
 	// receive the message and reconstruct the tree
 	// j: position of the secret, begins from 0
 	template<typename OT>
-	void recv_f2k(OT * ot, IO * io2, int s) {
-		block *choiceSum_cpu = new block[depth-1];
+	void recv_f2k(OT * ot, IO * io2) {
+		block *cSum_cpu = new block[tree_n*(depth-1)];
 
-		ot->recv(choiceSum_cpu, b, depth-1, io2, s);
-		io2->recv_data(&secret_sum_f2, sizeof(block));
+		ot->recv(cSum_cpu, b, tree_n*(depth-1), io2, 0);
+		io2->recv_data(&secret_sum_f2, sizeof(blk));
 
-		cuda_memcpy(choiceSum.data(), choiceSum_cpu, (depth-1)*sizeof(blk), H2D);
+		cuda_memcpy(cSum.data(), cSum_cpu, tree_n*(depth-1)*sizeof(blk), H2D);
+
+		delete[] cSum_cpu;
 	}
 
 	void consistency_check_msg_gen(block *chi_alpha, block *W) {

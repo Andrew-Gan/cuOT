@@ -14,15 +14,17 @@ class SPCOT_Sender {
 public:
 	blk seed;
 	blk delta;
-	blk *ggm_tree;
-	vec lSum, rSum;
+	vec *ggm_tree;
+	mat lSum, rSum;
 	IO *io;
 	int depth, leave_n;
 	PRG prg;
 	blk secret_sum_f2;
+	int tree_n;
 
-	SPCOT_Sender(IO *io, int depth_in) {
+	SPCOT_Sender(IO *io, int tree_n, int depth_in) {
 		initialization(io, depth_in);
+		this->tree_n = tree_n;
 		block seed128;
 		prg.random_block(&seed128, 1);
 		memcpy(&seed, &seed128, sizeof(block));
@@ -33,8 +35,8 @@ public:
 		this->depth = depth_in;
 		this->leave_n = 1<<(this->depth-1);
 		// m = new block[(depth-1)*2];
-		lSum.resize(depth-1);
-		rSum.resize(depth-1);
+		lSum.resize(depth-1, tree_n);
+		rSum.resize(depth-1, tree_n);
 	}
 
 	~SPCOT_Sender() {
@@ -42,11 +44,11 @@ public:
 	}
 
 	// generate GGM tree, transfer secret, F2^k
-	void compute(blk *ggm_tree_mem, blk secret) {
-		this->ggm_tree = ggm_tree_mem;
+	void compute(vec &tree, blk secret) {
+		this->ggm_tree = &tree;
 		this->delta = secret;
 
-		cuda_spcot_sender_compute(ggm_tree, leave_n, depth, lSum, rSum);
+		cuda_spcot_sender_compute(tree, tree_n, leave_n, depth, lSum, rSum);
 
 		// memset(secretSum, 0, sizeof(secretSum));
 		// blk one = { .data = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFE} };
@@ -64,14 +66,14 @@ public:
 
 	// send the nodes by oblivious transfer, F2^k
 	template<typename OT>
-	void send_f2k(OT * ot, IO * io2, int s) {
-		block *lSum_cpu = new block[depth-1];
-		block *rSum_cpu = new block[depth-1];
+	void send_f2k(OT * ot, IO * io2) {
+		block *lSum_cpu = new block[tree_n*(depth-1)];
+		block *rSum_cpu = new block[tree_n*(depth-1)];
 
-		cuda_memcpy(lSum_cpu, lSum.data(), (depth-1)*sizeof(blk), D2H);
-		cuda_memcpy(rSum_cpu, rSum.data(), (depth-1)*sizeof(blk), D2H);
+		cuda_memcpy(lSum_cpu, lSum.data(), tree_n*(depth-1)*sizeof(blk), D2H);
+		cuda_memcpy(rSum_cpu, rSum.data(), tree_n*(depth-1)*sizeof(blk), D2H);
 
-		ot->send(lSum_cpu, rSum_cpu, depth-1, io2, s);
+		ot->send(lSum_cpu, rSum_cpu, tree_n*(depth-1), io2, 0);
 		io2->send_data(&secret_sum_f2, sizeof(blk));
 
 		delete[] lSum_cpu;

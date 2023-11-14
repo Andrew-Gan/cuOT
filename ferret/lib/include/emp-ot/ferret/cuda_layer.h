@@ -9,8 +9,8 @@ void cuda_init();
 void cuda_malloc(void **ptr, size_t n);
 void cuda_memcpy(void *dest, void *src, size_t n, cudaMemcpy_t type);
 
-void cuda_spcot_sender_compute(blk *tree, int n, int depth, vec &lSum, vec &rSum);
-void cuda_spcot_recver_compute(int n, int depth, blk *tree, bool *b, vec &cSum);
+void cuda_spcot_sender_compute(vec &tree, int t, int n, int depth, mat &lSum, mat &rSum);
+void cuda_spcot_recver_compute(int t, int n, int depth, vec &tree, bool *b, mat &cSum);
 
 void cuda_lpn_f2_compute(int d, int n, int k, uint32_t *key, vec &nn, blk *kk);
 
