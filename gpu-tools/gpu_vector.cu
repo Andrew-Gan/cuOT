@@ -2,6 +2,9 @@
 #include "gpu_vector.h"
 
 blk* GPUvector::data(uint64_t i) const {
+  if (i >= mCols) {
+    throw std::invalid_argument("Index exceeds vector len\n");
+  }
   return GPUmatrix::data(0, i);
 }
 

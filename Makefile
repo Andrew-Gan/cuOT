@@ -31,7 +31,7 @@ all: $(OBJ)
 
 run: ferret/emp-ot/bin/test_ferret
 	rm -f slurm*.out
-	sbatch -n 4 -N 1 --gpus-per-node=1 -A standby job-ferret.sh
+	sbatch -n 4 -N 1 --gpus-per-node=1 -A zghodsi-b job-ferret.sh
 
 $(OBJ): $(OBJ_FILES) $(HELPER)
 	ld -r -o $(OBJ) $(OBJ_FILES)

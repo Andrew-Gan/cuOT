@@ -27,6 +27,7 @@ void test_ferret(int party, NetIO *ios, int64_t num_ot, bool malicious) {
 int main(int argc, char** argv) {
 	parse_party_and_port(argv, &party, &port);
 	NetIO ios(party == ALICE?nullptr:"127.0.0.1",port);
+
 	// for(int i = 0; i < threads; ++i)
 	// 	ios[i] = new NetIO(party == ALICE?nullptr:"127.0.0.1",port+i);
 
@@ -38,9 +39,9 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
-	cout << "Semi-Honest" << endl;
+	// cout << "Semi-Honest" << endl;
 	test_ferret(party, &ios, length, false);
 
-	cout << endl << "Malicious" << endl;
-	test_ferret(party, &ios, length, true);
+// 	cout << endl << "Malicious" << endl;
+// 	test_ferret(party, &ios, length, true);
 }

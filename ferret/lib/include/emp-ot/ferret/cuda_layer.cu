@@ -20,7 +20,8 @@ void cuda_spcot_sender_compute(vec &tree, int t, int n, int depth, mat &lSum, ma
 	uint32_t k1_blk[4] = {8993849};
 	AesHash aesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
 	vec separated(t*n);
-	for (uint64_t d = 0, w = 1; d < depth; d++, w *= 2) {
+
+	for (uint64_t d = 0, w = 1; d < depth-1; d++, w *= 2) {
 		aesHash.expand(tree, separated, tree, w*t); // implement inplace mode
 		separated.sum(2*t, w);
 		cudaMemcpy(lSum.data(d, 0), separated.data(0), t*sizeof(blk), cudaMemcpyDeviceToDevice);
@@ -37,20 +38,20 @@ void cuda_spcot_recver_compute(int t, int n, int depth, vec &tree, bool *b, mat 
 	uint32_t k1_blk[4] = {8993849};
 	AesHash aesHash((uint8_t*) k0_blk, (uint8_t*) k1_blk);
 	vec separated(t*n);
-	uint64_t activeParent = 0;
+	uint64_t *activeParent = new uint64_t[t]();
 	uint8_t choice;
 	uint64_t offset;
 
-	for (uint64_t d = 0, w = 1; d < depth; d++, w *= 2) {
+	for (uint64_t d = 0, w = 1; d < depth-1; d++, w *= 2) {
 		aesHash.expand(tree, separated, tree, w*t); // implement inplace mode
 		for (uint64_t i = 0; i < t; i++) {
 			// sum in separated
-			choice = b[t*(depth-1)+d];
-			offset = (t*w/2) * choice + (i*w/2) + activeParent;
+			choice = b[d*t+i];
+			offset = choice * (t*w) + (i*w) + activeParent[i];
 			cudaMemcpy(separated.data(offset), cSum.data(d, i), sizeof(blk), cudaMemcpyDeviceToDevice);
-			if (d+1 == depth) {
-				offset = (w / 2) * (1-choice) + activeParent;
-				cudaMemcpy(separated.data(offset), cSum.data(d+1, i), sizeof(blk), cudaMemcpyDeviceToDevice);
+			if (d == depth-2) {
+				offset = (t*w/2) * (1-choice) + (i*w/2) + activeParent[i];
+				// cudaMemcpy(separated.data(offset), cSum.data(d+1, i), sizeof(blk), cudaMemcpyDeviceToDevice);
 			}
 		}
 
@@ -58,20 +59,22 @@ void cuda_spcot_recver_compute(int t, int n, int depth, vec &tree, bool *b, mat 
 
 		for (uint64_t i = 0; i < t; i++) {
 			// copy into interleaved
-			offset = 2 * activeParent + choice;
-			cudaMemcpy(tree.data(offset), separated.data(t*choice+i), sizeof(blk), cudaMemcpyDeviceToDevice);
-			if (d == depth-1) {
-				offset = 2 * activeParent + (1-choice);
-				cudaMemcpy(tree.data(offset), separated.data(t*(1-choice)+i), sizeof(blk), cudaMemcpyDeviceToDevice);
+			offset = 2 * activeParent[i] + choice;
+			// cudaMemcpy(tree.data(offset), separated.data(t*choice+i), sizeof(blk), cudaMemcpyDeviceToDevice);
+			if (d == depth-2) {
+				offset = 2 * activeParent[i] + (1-choice);
+				// cudaMemcpy(tree.data(offset), separated.data(t*(1-choice)+i), sizeof(blk), cudaMemcpyDeviceToDevice);
 			}
-			activeParent *= 2;
-			activeParent += 1 - choice;
+			activeParent[i] *= 2;
+			activeParent[i] += 1 - choice;
 		}
 	}
 
 	cudaError_t err = cudaDeviceSynchronize();
 	if (err != cudaSuccess)
 		printf("spcot_recver: %s\n", cudaGetErrorString(err));
+
+	delete[] activeParent;
 }
 
 void cuda_lpn_f2_compute(int d, int n, int k, uint32_t *key, vec &nn, blk *kk) {

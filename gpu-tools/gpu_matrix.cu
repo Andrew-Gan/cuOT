@@ -9,9 +9,7 @@ GPUmatrix::GPUmatrix(uint64_t r, uint64_t c) : GPUdata(r * c * sizeof(blk)) {
 
 blk* GPUmatrix::data(uint64_t r, uint64_t c) const {
   if (r >= mRows || c >= mCols) {
-    printf("GPUmatrix::data(%ld, %ld) row or column exceed dim\n", r, c);
-    printf("matrix dimensions are (%ld, %ld)\n", mRows, mCols);
-    return nullptr;
+    throw std::invalid_argument("Row or column exceed matrix dim\n");
   }
   return (blk*)mPtr + (r * mRows + c);
 }

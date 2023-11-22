@@ -28,7 +28,7 @@ public:
 		this->leave_n = 1<<(depth_in-1);
 		// m = new block[depth];
 		cSum.resize(depth, tree_n);
-		b = new bool[tree_n*(depth)];
+		b = new bool[tree_n*depth];
 	}
 
 	~SPCOT_Recver(){
@@ -81,9 +81,9 @@ public:
 	// j: position of the secret, begins from 0
 	template<typename OT>
 	void recv_f2k(OT * ot, IO * io2) {
-		block *cSum_cpu = new block[tree_n*(depth)];
+		block *cSum_cpu = new block[tree_n*depth];
 
-		ot->recv(cSum_cpu, b, tree_n*(depth), io2, 0);
+		ot->recv(cSum_cpu, b, tree_n*depth, io2, 0);
 		io2->recv_data(&secret_sum_f2, sizeof(blk));
 
 		cuda_memcpy(cSum.data(), cSum_cpu, tree_n*(depth)*sizeof(blk), H2D);

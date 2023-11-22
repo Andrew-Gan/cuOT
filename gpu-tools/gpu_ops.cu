@@ -72,7 +72,7 @@ void bit_transposer(uint8_t *out, uint8_t *in, dim3 grid) {
 
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
 __device__
-void warp_reduce(volatile uint64_t *sdata, uint64_t tid) {
+void warp_reduce(uint64_t *sdata, uint64_t tid) {
   if (blockDim.x >= 64 && tid < 32) sdata[tid] ^= sdata[tid + 32];
   if (blockDim.x >= 32 && tid < 16) sdata[tid] ^= sdata[tid + 16];
   if (blockDim.x >= 16 && tid < 8) sdata[tid] ^= sdata[tid + 8];

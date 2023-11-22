@@ -3,7 +3,7 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
-OUTPUT_FOLDER = 'output/'
+OUTPUT_FOLDER = 'results/'
 hideEvents = []
 
 def extract_data(filename):

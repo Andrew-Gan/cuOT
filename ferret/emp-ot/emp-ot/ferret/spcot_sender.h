@@ -34,7 +34,7 @@ public:
 		this->io = io;
 		this->depth = depth_in;
 		this->leave_n = 1<<(this->depth);
-		// m = new block[(depth-1)*2];
+		// m = new block[depth*2];
 		lSum.resize(depth, tree_n);
 		rSum.resize(depth, tree_n);
 	}
@@ -67,13 +67,13 @@ public:
 	// send the nodes by oblivious transfer, F2^k
 	template<typename OT>
 	void send_f2k(OT * ot, IO * io2) {
-		block *lSum_cpu = new block[tree_n*(depth-1)];
-		block *rSum_cpu = new block[tree_n*(depth-1)];
+		block *lSum_cpu = new block[tree_n*depth];
+		block *rSum_cpu = new block[tree_n*depth];
 
-		cuda_memcpy(lSum_cpu, lSum.data(), tree_n*(depth-1)*sizeof(blk), D2H);
-		cuda_memcpy(rSum_cpu, rSum.data(), tree_n*(depth-1)*sizeof(blk), D2H);
+		cuda_memcpy(lSum_cpu, lSum.data(), tree_n*depth*sizeof(blk), D2H);
+		cuda_memcpy(rSum_cpu, rSum.data(), tree_n*depth*sizeof(blk), D2H);
 
-		ot->send(lSum_cpu, rSum_cpu, tree_n*(depth-1), io2, 0);
+		ot->send(lSum_cpu, rSum_cpu, tree_n*depth, io2, 0);
 		io2->send_data(&secret_sum_f2, sizeof(blk));
 
 		delete[] lSum_cpu;

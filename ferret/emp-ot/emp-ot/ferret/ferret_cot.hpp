@@ -69,13 +69,14 @@ void FerretCOT<T>::extend(vec &ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
 	cuda_init();
 	blk Delta_blk;
 	memcpy(&Delta_blk, &Delta, sizeof(blk));
+	printf("\n");
 
 	struct timespec start;
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	if(party == ALICE) mpcot->sender_init(Delta_blk);
 	else mpcot->recver_init();
-	print_duration(party, start, "\nRoleInit");
+	print_duration(party, start, "RoleInit");
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	mpcot->mpcot(ot_output, preot, ot_input);
@@ -84,7 +85,6 @@ void FerretCOT<T>::extend(vec &ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	lpn->compute(ot_output, ot_input.data(mpcot->consist_check_cot_num));
 	print_duration(party, start, "LPN-MatMult");
-
 }
 
 // extend f2k (customized location)
