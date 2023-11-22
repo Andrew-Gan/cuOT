@@ -30,7 +30,8 @@ all: $(OBJ)
 	cd ferret; python build.py --ot
 
 run: ferret/emp-ot/bin/test_ferret
-	sbatch -n 4 -N 1 --gpus-per-node=1 -A standby job.sh
+	rm -f slurm*.out
+	sbatch -n 4 -N 1 --gpus-per-node=1 -A standby job-ferret.sh
 
 $(OBJ): $(OBJ_FILES) $(HELPER)
 	ld -r -o $(OBJ) $(OBJ_FILES)

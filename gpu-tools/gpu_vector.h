@@ -10,8 +10,8 @@ public:
 
   GPUvector() {}
   GPUvector(uint64_t len) : GPUmatrix(1, len) {}
-  uint64_t size() { return this->mCols; }
-  blk* data(uint64_t i) const { return GPUmatrix::data(0, i); }
+  uint64_t size() { return mCols; }
+  blk* data(uint64_t i) const;
   void set(uint64_t i, blk &val) { GPUmatrix::set(0, i, val); }
   void resize(uint64_t len) { GPUmatrix::resize(1, len); }
   void sum(uint64_t nPartition, uint64_t blkPerPart);

@@ -26,9 +26,9 @@ public:
 		this->tree_n = tree_n;
 		this->depth = depth_in;
 		this->leave_n = 1<<(depth_in-1);
-		// m = new block[depth-1];
-		cSum.resize(depth-1, tree_n);
-		b = new bool[tree_n*(depth-1)];
+		// m = new block[depth];
+		cSum.resize(depth, tree_n);
+		b = new bool[tree_n*(depth)];
 	}
 
 	~SPCOT_Recver(){
@@ -38,7 +38,7 @@ public:
 
 	int get_index(int t) {
 		choice_pos = 0;
-		for(int i = t * (depth-1); i < (t+1) * (depth-1); ++i) {
+		for(int i = t * depth; i < (t+1) * depth; ++i) {
 			choice_pos<<=1;
 			if(!b[i])
 				choice_pos +=1;
@@ -81,12 +81,12 @@ public:
 	// j: position of the secret, begins from 0
 	template<typename OT>
 	void recv_f2k(OT * ot, IO * io2) {
-		block *cSum_cpu = new block[tree_n*(depth-1)];
+		block *cSum_cpu = new block[tree_n*(depth)];
 
-		ot->recv(cSum_cpu, b, tree_n*(depth-1), io2, 0);
+		ot->recv(cSum_cpu, b, tree_n*(depth), io2, 0);
 		io2->recv_data(&secret_sum_f2, sizeof(blk));
 
-		cuda_memcpy(cSum.data(), cSum_cpu, tree_n*(depth-1)*sizeof(blk), H2D);
+		cuda_memcpy(cSum.data(), cSum_cpu, tree_n*(depth)*sizeof(blk), H2D);
 
 		delete[] cSum_cpu;
 	}
@@ -121,11 +121,11 @@ public:
 	// 	int item_n = 1<<depth;
 	// 	block nodes_sum = zero_block;
 	// 	int lr_start = lr==0?layer_start:(layer_start+1);
-		
+
 	// 	for(int i = lr_start; i < item_n; i+=2)
 	// 		nodes_sum = nodes_sum ^ ggm_tree[i];
 	// 	ggm_tree[to_fill_idx] = nodes_sum ^ sum;
-	// 	if(depth == this->depth-1) return;
+	// 	if(depth == this->depth) return;
 	// 	if(item_n == 2)
 	// 		prp->node_expand_2to4(&ggm_tree[0], &ggm_tree[0]);
 	// 	else {

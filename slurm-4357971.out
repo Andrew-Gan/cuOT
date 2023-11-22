@@ -1,0 +1,11 @@
+========= COMPUTE-SANITIZER
+connected
+Semi-Honest
+connected
+Semi-Honest
+extend 1 
+RoleInit: 0.00 ms
+extend 1 COT-TreeExp: 524.32 ms
+extend 1 LPN-MatMult: 834.68 ms
+1	setup	4823.6ms
+slurmstepd: error: *** JOB 4357971 ON gilbreth-e003 CANCELLED AT 2023-11-22T03:43:42 ***

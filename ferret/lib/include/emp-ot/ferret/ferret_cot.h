@@ -65,7 +65,7 @@ private:
 
 	BaseCot<T> *base_cot = nullptr;
 	OTPre<T> *pre_ot = nullptr;
-	ThreadPool *pool = nullptr;
+	// ThreadPool *pool = nullptr;
 	MpcotReg<T> *mpcot = nullptr;
 	LpnF2<T, 10> *lpn_f2 = nullptr;
 

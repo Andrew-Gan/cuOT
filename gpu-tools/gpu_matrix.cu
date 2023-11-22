@@ -7,6 +7,15 @@ GPUmatrix::GPUmatrix(uint64_t r, uint64_t c) : GPUdata(r * c * sizeof(blk)) {
   mCols = c;
 }
 
+blk* GPUmatrix::data(uint64_t r, uint64_t c) const {
+  if (r >= mRows || c >= mCols) {
+    printf("GPUmatrix::data(%ld, %ld) row or column exceed dim\n", r, c);
+    printf("matrix dimensions are (%ld, %ld)\n", mRows, mCols);
+    return nullptr;
+  }
+  return (blk*)mPtr + (r * mRows + c);
+}
+
 void GPUmatrix::set(uint64_t r, uint64_t c, blk &val) {
   uint64_t offset = r * mCols + c;
   cudaMemcpy((blk*) mPtr + offset, &val, sizeof(blk), cudaMemcpyHostToDevice);

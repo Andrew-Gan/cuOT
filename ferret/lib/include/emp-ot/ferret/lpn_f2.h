@@ -11,17 +11,15 @@ template<typename IO, int d = 10>
 class LpnF2 { public:
 	int party;
 	int64_t n;
-	ThreadPool * pool;
 	IO *io;
-	int threads, k, mask;
+	int k, mask;
 	block seed;
-	LpnF2 (int party, int64_t n, int k, ThreadPool * pool, IO *io, int threads) {
+	LpnF2 (int party, int64_t n, int k, IO *io) {
 		this->party = party;
 		this->k = k;
 		this->n = n;
-		this->pool = pool;
 		this->io = io;
-		this->threads = threads;
+		return;
 		mask = 1;
 		while(mask < k) {
 			mask <<=1;

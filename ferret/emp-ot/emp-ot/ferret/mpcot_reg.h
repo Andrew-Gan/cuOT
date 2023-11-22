@@ -25,18 +25,16 @@ public:
 	IO *ios;
 	blk Delta_f2k;
 	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
-	ThreadPool *pool;
 
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
 
-	MpcotReg(int party, int n, int t, int log_bin_sz, ThreadPool * pool, IO *ios) {
+	MpcotReg(int party, int n, int t, int log_bin_sz, IO *ios) {
 		this->party = party;
 		netio = ios;
 		this->ios = ios;
 		consist_check_cot_num = 128;
 
-		this->pool = pool;
 		this->is_malicious = false;
 
 		this->item_n = t;

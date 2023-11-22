@@ -28,18 +28,6 @@ AesHash::~AesHash() {
 	if (keyRight_d) cudaFree(keyRight_d);
 }
 
-void AesHash::expand(blk *interleaved, vec &separated,
-	blk *input, uint64_t width) {
-
-  	uint64_t paddedBytes = (width / 2) * sizeof(blk);
-  	if (paddedBytes % AES_PADDING != 0)
-    	paddedBytes += AES_PADDING - (paddedBytes % AES_PADDING);
-  	uint64_t numAesBlocks = paddedBytes / 16;
-
-    dim3 grid(4 * numAesBlocks / AES_BSIZE, 2);
-    aesExpand128<<<grid, AES_BSIZE>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved, separated.data(), input, width);
-}
-
 void AesHash::expand(vec &interleaved, vec &separated,
 	vec &input, uint64_t width) {
 
@@ -50,6 +38,7 @@ void AesHash::expand(vec &interleaved, vec &separated,
 
     dim3 grid(4 * numAesBlocks / AES_BSIZE, 2);
     aesExpand128<<<grid, AES_BSIZE>>>((uint32_t*) keyLeft_d, (uint32_t*) keyRight_d, interleaved.data(), separated.data(), input.data(), width);
+	cudaDeviceSynchronize();
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {

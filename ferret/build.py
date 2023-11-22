@@ -24,7 +24,7 @@ if [ ! -d "REPO" ]; then
 fi
 cd REPO
 cmake -DCMAKE_INSTALL_PREFIX=../lib -DCMAKE_PREFIX_PATH=$CONDA_PREFIX \
-    -DCMAKE_CXX_FLAGS='-g -I../../../gpu-tools' -DCMAKE_CUDA_FLAGS='-I../../../gpu-tools'
+    -DCMAKE_CXX_FLAGS='-g -I../../../gpu-tools' -DCMAKE_CUDA_FLAGS='-g -G -I../../../gpu-tools'
 make -j4
 make install
 cd ..

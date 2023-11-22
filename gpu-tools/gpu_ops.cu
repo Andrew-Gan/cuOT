@@ -73,11 +73,11 @@ void bit_transposer(uint8_t *out, uint8_t *in, dim3 grid) {
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
 __device__
 void warp_reduce(volatile uint64_t *sdata, uint64_t tid) {
-  if (blockDim.x >= 64) sdata[tid] = sdata[tid] ^ sdata[tid + 32];
-  if (blockDim.x >= 32) sdata[tid] = sdata[tid] ^ sdata[tid + 16];
-  if (blockDim.x >= 16) sdata[tid] = sdata[tid] ^ sdata[tid + 8];
-  if (blockDim.x >= 8) sdata[tid] = sdata[tid] ^ sdata[tid + 4];
-  if (blockDim.x >= 4) sdata[tid] = sdata[tid] ^ sdata[tid + 2];
+  if (blockDim.x >= 64 && tid < 32) sdata[tid] ^= sdata[tid + 32];
+  if (blockDim.x >= 32 && tid < 16) sdata[tid] ^= sdata[tid + 16];
+  if (blockDim.x >= 16 && tid < 8) sdata[tid] ^= sdata[tid + 8];
+  if (blockDim.x >= 8 && tid < 4) sdata[tid] ^= sdata[tid + 4];
+  if (blockDim.x >= 4 && tid < 2) sdata[tid] ^= sdata[tid + 2];
   // stop here for blk reduction
   // if (blockDim.x >= 2) sdata[tid] ^= sdata[tid + 1];
 }
@@ -86,11 +86,11 @@ __global__
 void xor_reduce(uint64_t *out, uint64_t *in) {
   extern __shared__ uint64_t sdata[];
   uint64_t tid = threadIdx.x;
-  uint64_t start = blockIdx.x * (blockDim.x * 2);
+  uint64_t start = blockIdx.x * (2 * blockDim.x);
 
   sdata[tid] = in[start + tid] ^ in[start + tid + blockDim.x];
   __syncthreads();
-  if (blockDim.x >= 1024 && tid < 512) sdata[tid] ^= sdata[tid + 512];
+  if (blockDim.x == 1024 && tid < 512) sdata[tid] ^= sdata[tid + 512];
   __syncthreads();
   if (blockDim.x >= 512 && tid < 256) sdata[tid] ^= sdata[tid + 256];
   __syncthreads();

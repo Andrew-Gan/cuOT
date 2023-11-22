@@ -11,7 +11,7 @@ public:
   uint64_t rows() const { return mRows; }
   uint64_t cols() const { return mCols; }
   blk* data() const { return (blk*) mPtr; }
-  blk* data(uint64_t r, uint64_t c) const { return (blk*)mPtr + (r * mRows + c); }
+  blk* data(uint64_t r, uint64_t c) const;
   void set(uint64_t r, uint64_t c, blk &val);
   void resize(uint64_t r, uint64_t c);
   void bit_transpose();

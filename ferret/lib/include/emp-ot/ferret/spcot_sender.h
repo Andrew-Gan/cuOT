@@ -23,8 +23,8 @@ public:
 	int tree_n;
 
 	SPCOT_Sender(IO *io, int tree_n, int depth_in) {
-		initialization(io, depth_in);
 		this->tree_n = tree_n;
+		initialization(io, depth_in);
 		block seed128;
 		prg.random_block(&seed128, 1);
 		memcpy(&seed, &seed128, sizeof(block));
@@ -33,10 +33,10 @@ public:
 	void initialization(IO *io, int depth_in) {
 		this->io = io;
 		this->depth = depth_in;
-		this->leave_n = 1<<(this->depth-1);
+		this->leave_n = 1<<(this->depth);
 		// m = new block[(depth-1)*2];
-		lSum.resize(depth-1, tree_n);
-		rSum.resize(depth-1, tree_n);
+		lSum.resize(depth, tree_n);
+		rSum.resize(depth, tree_n);
 	}
 
 	~SPCOT_Sender() {

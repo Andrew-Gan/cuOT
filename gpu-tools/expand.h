@@ -21,7 +21,6 @@ private:
 public:
   AesHash(uint8_t *newleft, uint8_t *newRight);
   virtual ~AesHash();
-  virtual void expand(blk *interleaved, vec &separated, blk *input, uint64_t width);
   virtual void expand(vec &interleaved, vec &separated, vec &input, uint64_t width);
 };
 
