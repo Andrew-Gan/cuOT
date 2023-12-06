@@ -4,27 +4,32 @@
 #include "gpu_tools.h"
 #include "gpu_data.h"
 
-class GPUmatrix : public GPUdata {
+#include <vector>
+
+class Mat : public GPUdata {
 public:
-  GPUmatrix() {}
-  GPUmatrix(uint64_t r, uint64_t c);
-  uint64_t rows() const { return mRows; }
-  uint64_t cols() const { return mCols; }
+  Mat() {}
+  Mat(const Mat &other);
+  Mat(std::vector<uint64_t> newDim);
+  std::vector<uint64_t> dims() const { return mDim; }
+  uint64_t dim(uint32_t i) const;
   blk* data() const { return (blk*) mPtr; }
-  blk* data(uint64_t r, uint64_t c) const;
-  void set(uint64_t r, uint64_t c, blk &val);
-  void resize(uint64_t r, uint64_t c);
+  blk* data(std::vector<uint64_t> pos) const;
+  void set(blk &val, std::vector<uint64_t> pos);
+  void resize(std::vector<uint64_t> newDim);
+  void xor_scalar(blk *rhs);
+  Mat& operator&=(blk *rhs);
+  Mat& operator%=(uint64_t mod);
+  uint64_t size() const { return listToSize(mDim); }
+
+  // 2D Matrix only
   void bit_transpose();
   void modp(uint64_t reducedCol);
-  void xor_scalar(blk *rhs);
-  GPUmatrix& operator&=(blk *rhs);
-  GPUmatrix& operator%=(uint64_t mod);
-  void print_bits(const char *filename);
 
-protected:
-  uint64_t mRows = 0, mCols = 0;
+private:
+  std::vector<uint64_t> mDim;
+  static uint64_t listToSize(std::vector<uint64_t> dim);
+  uint64_t listToOffset(std::vector<uint64_t> pos) const;
 };
-
-using mat = GPUmatrix;
 
 #endif

@@ -6,7 +6,10 @@
 #include "gpu_ops.h"
 
 GPUdata::GPUdata(uint64_t n) : mNBytes(n) {
-  cudaMalloc(&mPtr, n);
+  cudaError_t err = cudaMalloc(&mPtr, n);
+  if (err != cudaSuccess) {
+    throw std::runtime_error(cudaGetErrorString(err));
+  }
 }
 
 GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
@@ -58,7 +61,10 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
 void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
   uint8_t *newData;
-  cudaMalloc(&newData, size);
+  cudaError_t err = cudaMalloc(&newData, size);
+  if (err != cudaSuccess) {
+    throw std::runtime_error(cudaGetErrorString(err));
+  }
   if (mPtr != nullptr) {
     cudaMemcpy(newData, mPtr, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
     cudaFree(mPtr);

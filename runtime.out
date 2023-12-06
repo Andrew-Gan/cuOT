@@ -1,3 +1,0 @@
-extend 1 RoleInit: 0.00 ms
-extend 1 COT-TreeExp: 10.19 ms
-extend 1 LPN-MatMult: 10.38 ms

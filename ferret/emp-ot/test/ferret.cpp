@@ -1,5 +1,6 @@
 #include "emp-ot/emp-ot.h"
 #include "test/test.h"
+#include "../emp-ot/ferret/cuda_layer.h"
 using namespace std;
 
 int port, party;
@@ -13,14 +14,14 @@ void test_ferret(int party, NetIO *ios, int64_t num_ot, bool malicious) {
 
 	// RCOT
 	// The RCOTs will be generated at internal memory, and copied to user buffer
-	// int64_t num = 1 << num_ot;
-	// cout <<"Active FERRET RCOT\t"<<double(num)/test_rcot<FerretCOT<NetIO>>(ferretcot, ios[0], party, num, false)*1e6<<" OTps"<<endl;
+	int64_t num = 1 << num_ot;
+	cout <<"Active FERRET RCOT\t"<<double(num)/test_rcot<FerretCOT<NetIO>>(ferretcot, ios, party, num, false)*1e6<<" OTps"<<endl;
 
 	// RCOT inplace
 	// The RCOTs will be generated at user buffer
 	// Get the buffer size needed by calling byte_memory_need_inplace()
-	uint64_t batch_size = ferretcot->ot_limit;
-	cout <<"Active FERRET RCOT inplace\t"<<double(batch_size)/test_rcot<FerretCOT<NetIO>>(ferretcot, ios, party, batch_size, true)*1e6<<" OTps"<<endl;
+	// uint64_t batch_size = ferretcot->ot_limit;
+	// cout <<"Active FERRET RCOT inplace\t"<<double(batch_size)/test_rcot<FerretCOT<NetIO>>(ferretcot, ios, party, batch_size, true)*1e6<<" OTps"<<endl;
 	delete ferretcot;
 }
 

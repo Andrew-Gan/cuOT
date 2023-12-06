@@ -9,7 +9,7 @@ enum CompressType { QuasiCyclic_t, ExpandAccumulate_t };
 
 class Compress {
 public:
-  virtual void encode(vec &vector) = 0;
+  virtual void encode(Vec &vector) = 0;
 };
 
 class QuasiCyclic : public Compress {
@@ -23,14 +23,14 @@ private:
 public:
   QuasiCyclic(Role role, uint64_t in, uint64_t out);
   virtual ~QuasiCyclic();
-  void encode(vec &vector);
+  void encode(Vec &vector);
 };
 
 class ExpandAccumulate : public Compress {
 public:
   ExpandAccumulate(Role role, uint64_t in, uint64_t out);
   virtual ~ExpandAccumulate();
-  void encode(vec &vector);
+  void encode(Vec &vector);
 };
 
 #endif

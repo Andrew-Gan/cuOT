@@ -1,10 +1,11 @@
-#include <stdio.h>
+#include <cstdio>
 #include <random>
 #include <future>
 #include <thread>
 
+#include "event_log.h"
 #include "unit_test.h"
-#include "silent_ot.h"
+#include "roles.h"
 
 uint64_t* gen_choices(int depth) {
   uint64_t *choices = new uint64_t[depth+1];
@@ -48,7 +49,7 @@ int main(int argc, char** argv) {
   SilentOTConfig config = {
     .id = 0, .logOT = logOT, .nTree = numTrees,
     .baseOT = SimplestOT_t,
-    .expander = AesHash_t,
+    .expander = AesExpand_t,
     .compressor = QuasiCyclic_t,
     .choices = gen_choices(depth),
   };

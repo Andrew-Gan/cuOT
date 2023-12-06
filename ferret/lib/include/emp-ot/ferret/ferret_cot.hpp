@@ -1,4 +1,5 @@
 #include "cuda_layer.h"
+#include "event_log.h"
 
 template<typename T>
 FerretCOT<T>::FerretCOT(int party, T *ios,
@@ -12,8 +13,12 @@ FerretCOT<T>::FerretCOT(int party, T *ios,
 	base_cot = new BaseCot<T>(party, io, malicious);
 	// pool = new ThreadPool(threads);
 	this->param = param;
-
 	this->extend_initialized = false;
+
+	cuda_init(party);
+
+	if (party==ALICE) Log::open(0, "results/gpu-ferret-send.txt");
+	if (party==BOB) Log::open(1, "results/gpu-ferret-recv.txt");
 
 	if(run_setup) {
 		if(party == ALICE) {
@@ -38,10 +43,13 @@ FerretCOT<T>::~FerretCOT() {
 	delete base_cot;
 	if(lpn_f2 != nullptr) delete lpn_f2;
 	if(mpcot != nullptr) delete mpcot;
+
+	Log::close(party-1);
 }
 
 template<typename T>
 void FerretCOT<T>::extend_initialization() {
+	cuda_init(party);
 	lpn_f2 = new LpnF2<T, 10>(party, param.n, param.k, io);
 	mpcot = new MpcotReg<T>(party, param.n, param.t, param.log_bin_sz, ios);
 	if(is_malicious) mpcot->set_malicious();
@@ -53,44 +61,37 @@ void FerretCOT<T>::extend_initialization() {
 	extend_initialized = true;
 }
 
-void print_duration(int party, struct timespec &start, const char* str) {
-	struct timespec now;
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	float duration = (now.tv_sec-start.tv_sec) * 1000.0f;
-	duration += (now.tv_nsec-start.tv_nsec) / 1000000.0f;
-	printf("extend %d %s: %.2f ms\n", party, str, duration);
-}
-
 // extend f2k in detail
 template<typename T>
-void FerretCOT<T>::extend(vec &ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
-		LpnF2<T, 10> *lpn, vec &ot_input) {
+void FerretCOT<T>::extend(Span &ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
+		LpnF2<T, 10> *lpn, Vec &ot_input) {
 
-	cuda_init();
 	blk Delta_blk;
 	memcpy(&Delta_blk, &Delta, sizeof(blk));
-	printf("\n");
-
-	struct timespec start;
-
-	clock_gettime(CLOCK_MONOTONIC, &start);
 	if(party == ALICE) mpcot->sender_init(Delta_blk);
 	else mpcot->recver_init();
-	print_duration(party, start, "RoleInit");
 
-	clock_gettime(CLOCK_MONOTONIC, &start);
+	Log::start(party-1, Expand);
 	mpcot->mpcot(ot_output, preot, ot_input);
-	print_duration(party, start, "COT-TreeExp");
+	Log::end(party-1, Expand);
 
-	clock_gettime(CLOCK_MONOTONIC, &start);
-	lpn->compute(ot_output, ot_input.data(mpcot->consist_check_cot_num));
-	print_duration(party, start, "LPN-MatMult");
+	Log::start(party-1, LPN);
+	Span kSpan = ot_input.span(mpcot->consist_check_cot_num);
+	lpn->compute(ot_output, kSpan);
+	Log::end(party-1, LPN);
+}
+
+template<typename T>
+void FerretCOT<T>::extend(Vec &ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
+		LpnF2<T, 10> *lpn, Vec &ot_input) {
+
+	Span otSpan = ot_output.span();
+	extend(otSpan, mpcot, preot, lpn, ot_input);
 }
 
 // extend f2k (customized location)
 template<typename T>
-void FerretCOT<T>::extend_f2k(vec &ot_buffer) {
-
+void FerretCOT<T>::extend_f2k(Span &ot_buffer) {
 	block *tmp = new block[param.n_pre];
 
 	if(party == ALICE) {
@@ -103,7 +104,6 @@ void FerretCOT<T>::extend_f2k(vec &ot_buffer) {
 	}
 
 	extend(ot_buffer, mpcot, pre_ot, lpn_f2, ot_pre_data);
-	// memcpy(ot_pre_data, ot_buffer+ot_limit, M*sizeof(block));
 	cuda_memcpy(ot_pre_data.data(), ot_buffer.data(ot_limit), M*sizeof(block), D2D);
 
 	ot_used = 0;
@@ -113,7 +113,8 @@ void FerretCOT<T>::extend_f2k(vec &ot_buffer) {
 // extend f2k
 template<typename T>
 void FerretCOT<T>::extend_f2k() {
-	extend_f2k(ot_data);
+	Span tmp = ot_data.span();
+	extend_f2k(tmp);
 }
 
 template<typename T>
@@ -135,7 +136,6 @@ void FerretCOT<T>::setup(std::string pre_file) {
 		extend_initialization();
 	});
 
-	// ot_pre_data = new block[param.n_pre];
 	ot_pre_data.resize(param.n_pre);
 	bool hasfile = file_exists(pre_ot_filename), hasfile2;
 	if(party == ALICE) {
@@ -162,13 +162,13 @@ void FerretCOT<T>::setup(std::string pre_file) {
 		LpnF2<T, 10> lpn(party, param.n_pre, param.k_pre, io);
 
 		block *pre_data_ini = new block[param.k_pre+mpcot_ini.consist_check_cot_num];
-		// memset(this->ot_pre_data, 0, param.n_pre*16);
 		ot_pre_data.clear();
 
 		base_cot->cot_gen(&pre_ot_ini, pre_ot_ini.n);
 		base_cot->cot_gen(pre_data_ini, param.k_pre+mpcot_ini.consist_check_cot_num);
-		vec tmp(param.k_pre+mpcot_ini.consist_check_cot_num);
+		Vec tmp(param.k_pre+mpcot_ini.consist_check_cot_num);
 		cuda_memcpy(tmp.data(), pre_data_ini, tmp.size_bytes(), H2D);
+		lpn.init(1);
 		extend(ot_pre_data, &mpcot_ini, &pre_ot_ini, &lpn, tmp);
 		delete[] pre_data_ini;
 	}
@@ -177,49 +177,51 @@ void FerretCOT<T>::setup(std::string pre_file) {
 }
 
 template<typename T>
-void FerretCOT<T>::rcot(block *data, int64_t num) {
+void FerretCOT<T>::rcot(Vec &data) {
+	int64_t num = (int64_t) data.size();
 	if(ot_data.size() == 0) {
-		// ot_data = new block[param.n];
 		ot_data.resize(param.n);
-		// memset(ot_data, 0, param.n*sizeof(block));
 		ot_data.clear();
 	}
 	if(extend_initialized == false)
 		error("Run setup before extending");
 	if(num <= silent_ot_left()) {
-		// memcpy(data, ot_data+ot_used, num*sizeof(block));
-		cuda_memcpy(data, ot_data.data(ot_used), num*sizeof(block), D2H);
+		cuda_memcpy(data.data(), ot_data.data(ot_used), num*sizeof(block), D2D);
 		ot_used += num;
 		return;
 	}
-	block *pt = data;
+	uint64_t pt = 0;
 	int64_t gened = silent_ot_left();
 	if(gened > 0) {
-		// memcpy(pt, ot_data+ot_used, gened*sizeof(block));
-		cuda_memcpy(pt, ot_data.data(ot_used), gened*sizeof(block), D2H);
+		cuda_memcpy(data.data(), ot_data.data(ot_used), gened*sizeof(block), D2D);
 		pt += gened;
 	}
 	int64_t round_inplace = (num-gened-M) / ot_limit;
 	int64_t last_round_ot = num-gened-round_inplace*ot_limit;
 	bool round_memcpy = last_round_ot>ot_limit?true:false;
 	if(round_memcpy) last_round_ot -= ot_limit;
-	vec tmp(ot_limit);
+
+	lpn_f2->init(round_inplace + 2);
+
+	printf("Pre-OT done. Ferret starts...\n");
+	printf("num OT requested = %ld\n", num);
+	printf("OT per iteration = %ld\n", ot_limit);
+	printf("iterations = %ld\n", round_inplace);
+
 	for(int64_t i = 0; i < round_inplace; ++i) {
-		cuda_memcpy(tmp.data(), pt, ot_limit*sizeof(blk), H2D);
-		extend_f2k(tmp);
+		Span dataSpan = data.span(pt, pt + ot_limit + M);
+		extend_f2k(dataSpan);
 		ot_used = ot_limit;
 		pt += ot_limit;
 	}
 	if(round_memcpy) {
 		extend_f2k();
-		// memcpy(pt, ot_data, ot_limit*sizeof(block));
-		cuda_memcpy(pt, ot_data.data(), ot_limit*sizeof(block), D2H);
+		cuda_memcpy(data.data(pt), ot_data.data(), ot_limit*sizeof(blk), D2D);
 		pt += ot_limit;
 	}
 	if(last_round_ot > 0) {
 		extend_f2k();
-		// memcpy(pt, ot_data, last_round_ot*sizeof(block));
-		cuda_memcpy(pt, ot_data.data(), last_round_ot*sizeof(block), D2H);
+		cuda_memcpy(data.data(pt), ot_data.data(), last_round_ot*sizeof(blk), D2D);
 		ot_used = last_round_ot;
 	}
 }
@@ -272,7 +274,8 @@ int64_t FerretCOT<T>::byte_memory_need_inplace(int64_t ot_need) {
 // parameter "length" should be the return of "byte_memory_need_inplace"
 // output the number of COTs that can be used
 template<typename T>
-int64_t FerretCOT<T>::rcot_inplace(vec &ot_buffer, int64_t byte_space) {
+int64_t FerretCOT<T>::rcot_inplace(Vec &ot_buffer) {
+	int64_t byte_space = (int64_t)ot_buffer.size();
 	if(byte_space < param.n) error("space not enough");
 	if((byte_space - M) % ot_limit != 0) error("call byte_memory_need_inplace \
 			to get the correct length of memory space");
@@ -324,13 +327,19 @@ void FerretCOT<T>::online_recver(block *data, const bool *b, int64_t length) {
 
 template<typename T>
 void FerretCOT<T>::send_cot(block * data, int64_t length) {
-	rcot(data, length);
+	Vec data_d(length);
+	cuda_memcpy(data_d.data(), data, length*sizeof(blk), H2D);
+	rcot(data_d);
+	cuda_memcpy(data, data_d.data(), length*sizeof(blk), D2H);
 	online_sender(data, length);
 }
 
 template<typename T>
 void FerretCOT<T>::recv_cot(block* data, const bool * b, int64_t length) {
-	rcot(data, length);
+	Vec data_d(length);
+	cuda_memcpy(data_d.data(), data, length*sizeof(blk), H2D);
+	rcot(data_d);
+	cuda_memcpy(data, data_d.data(), length*sizeof(blk), D2H);
 	online_recver(data, b, length);
 }
 
@@ -343,11 +352,7 @@ void FerretCOT<T>::assemble_state(void * data, int64_t size) {
 	memcpy(array + sizeof(int64_t) * 2, &param.t, sizeof(int64_t));
 	memcpy(array + sizeof(int64_t) * 3, &param.k, sizeof(int64_t));
 	memcpy(array + sizeof(int64_t) * 4, &Delta, sizeof(block));
-	// memcpy(array + sizeof(int64_t) * 4 + sizeof(block), ot_pre_data, sizeof(block)*param.n_pre);
 	cuda_memcpy(array + sizeof(int64_t) * 4 + sizeof(block), ot_pre_data.data(), sizeof(block)*param.n_pre, D2H);
-	// if (ot_pre_data!= nullptr)
-	// 	delete[] ot_pre_data;
-	// ot_pre_data = nullptr;
 	ot_pre_data.clear();
 }
 

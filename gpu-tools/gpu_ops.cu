@@ -78,8 +78,6 @@ void warp_reduce(uint64_t *sdata, uint64_t tid) {
   if (blockDim.x >= 16 && tid < 8) sdata[tid] ^= sdata[tid + 8];
   if (blockDim.x >= 8 && tid < 4) sdata[tid] ^= sdata[tid + 4];
   if (blockDim.x >= 4 && tid < 2) sdata[tid] ^= sdata[tid + 2];
-  // stop here for blk reduction
-  // if (blockDim.x >= 2) sdata[tid] ^= sdata[tid + 1];
 }
 
 __global__

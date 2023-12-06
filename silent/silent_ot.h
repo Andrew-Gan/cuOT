@@ -42,7 +42,7 @@ protected:
 
 class SilentOTSender : public SilentOT {
 public:
-  vec fullVector;
+  Vec fullVector;
   blk *delta = nullptr;
   std::vector<cudaEvent_t> expandEvents;
 
@@ -68,7 +68,7 @@ public:
 
   std::atomic<bool> eventsRecorded = false;
 
-  vec puncVector, choiceVector;
+  Vec puncVector, choiceVector;
 
   SilentOTRecver(SilentOTConfig config);
   void run();

@@ -30,8 +30,8 @@ all: $(OBJ)
 	cd ferret; python build.py --ot
 
 run: ferret/emp-ot/bin/test_ferret
-	rm -f slurm*.out
-	sbatch -n 4 -N 1 --gpus-per-node=1 -A zghodsi-b job-ferret.sh
+	rm -f slurm*.out report*sqlite report*nsys-rep
+	sbatch -n 4 -N 1 --gpus-per-node=2 -A standby --constraint=K job-ferret.sh
 
 $(OBJ): $(OBJ_FILES) $(HELPER)
 	ld -r -o $(OBJ) $(OBJ_FILES)

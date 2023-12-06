@@ -4,13 +4,13 @@
 #include "gpu_tools.h"
 
 __global__
-void aesEncrypt128(uint32_t *key, uint32_t * result, uint32_t *inData);
+void aesEncrypt128(uint32_t *key, uint32_t *data);
 
 __global__
-void aesDecrypt128(uint32_t *key, uint32_t *result, uint32_t *inData);
+void aesDecrypt128(uint32_t *key, uint32_t *data);
 
 __global__
 void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
-	blk *separated, blk *inData, uint64_t width);
+	blk *separated, uint64_t width);
 
 #endif

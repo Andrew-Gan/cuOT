@@ -1,6 +1,7 @@
 #include "emp-tool/emp-tool.h"
 #include "emp-ot/emp-ot.h"
 #include <iostream>
+#include "../emp-ot/ferret/cuda_layer.h"
 using namespace emp;
 
 template <typename T>
@@ -133,8 +134,8 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
 	struct timespec tp[2];
 	clock_gettime(CLOCK_MONOTONIC, &tp[0]);
 
-	block *b = nullptr;
-	vec b_d(1);
+	block *b;
+	Vec bVec;
 	PRG prg;
 
 	io->sync();
@@ -142,27 +143,29 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
 	int64_t mem_size;
 	if(!inplace) {
 		mem_size = length;
-		b = new block[length];
+		bVec.resize(length);
 
 		// The RCOTs will be generated in the internal buffer
 		// then be copied to the user buffer
-		ot->rcot(b, length);
+		ot->rcot(bVec);
 	} else {
 		// Call byte_memory_need_inplace() to get the buffer size needed
 		mem_size = ot->byte_memory_need_inplace((uint64_t)length);
-		// b = new block[mem_size];
-		b_d.resize(mem_size);
+		bVec.resize(mem_size);
 
 		// The RCOTs will be generated directly to this buffer
-		ot->rcot_inplace(b_d, mem_size);
+		ot->rcot_inplace(bVec);
 	}
+
+	return 0.0f;
+
+	b = new block[bVec.size()];
+	cuda_memcpy(b, bVec.data(), bVec.size_bytes(), D2H);
 
 	clock_gettime(CLOCK_MONOTONIC, &tp[1]);
 	float duration = (tp[1].tv_sec-tp[0].tv_sec) * 1000.0f;
 	duration += (tp[1].tv_nsec-tp[0].tv_nsec) / 1000000.0f;
-	printf("total: %.2f ms\n",duration);
-
-	return 0.0f; //debug
+	printf("total: %.2f ms\n", duration);
 
 	long long t = time_from(start);
 	io->sync();

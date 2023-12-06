@@ -30,7 +30,7 @@ bool _cmp(blk &b0, blk &b1) {
 }
 
 void test_reduce() {
-  vec data(8);
+  Vec data(8);
   data.clear();
   blk buff;
   memset(&buff, 0, sizeof(blk));
@@ -41,7 +41,7 @@ void test_reduce() {
   data.sum(1, 8);
   cudaDeviceSynchronize();
 
-  vec data2(8);
+  Vec data2(8);
   data.clear();
   buff.data[0] = 0b1110;
   data2.set(0, buff);
@@ -51,10 +51,10 @@ void test_reduce() {
 }
 
 void test_cot(SilentOTSender &sender, SilentOTRecver &recver) {
-  vec lhs(recver.puncVector.size());
+  Vec lhs(recver.puncVector.size());
   cudaMemcpyPeer(lhs.data(), 0, recver.puncVector.data(), 1, recver.puncVector.size_bytes());
 
-  vec rhs(recver.choiceVector.size());
+  Vec rhs(recver.choiceVector.size());
   cudaMemcpyPeer(rhs.data(), 0, recver.choiceVector.data(), 1, recver.choiceVector.size_bytes());
 
   printf("fullVector\n");

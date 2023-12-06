@@ -78,9 +78,9 @@ std::array<vec, 2> SimplestOT::send() {
   return m;
 }
 
-vec SimplestOT::recv(uint64_t choice) {
+Vec SimplestOT::recv(uint64_t choice) {
   fromOwnBuffer((uint8_t*) &A, sizeof(A));
-  vec mb(mCount);
+  Vec mb(mCount);
 
   for (uint64_t i = 0; i < mCount; i++) {
     b.emplace_back(prng);

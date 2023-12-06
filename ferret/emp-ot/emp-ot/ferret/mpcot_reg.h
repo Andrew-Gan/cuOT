@@ -57,7 +57,7 @@ public:
 	}
 
 	// MPFSS F_2k
-	void mpcot(vec &sparse_vector, OTPre<IO> * ot, vec &pre_cot_data) {
+	void mpcot(Span &sparse_vector, OTPre<IO> * ot, Vec &pre_cot_data) {
 		if(party == BOB) consist_check_chi_alpha = new block[item_n];
 		consist_check_VW = new block[item_n];
 
@@ -66,11 +66,9 @@ public:
 
 		if(party == ALICE) {
 			mpcot_init_sender(ot);
-			// exec_parallel_sender(sender, ot, sparse_vector);
 			exec_f2k_sender(sender, ot, sparse_vector, ios);
 		} else {
 			mpcot_init_recver(recver, ot);
-			// exec_parallel_recver(recver, ot, sparse_vector);
 			exec_f2k_recver(recver, ot, sparse_vector, ios);
 		}
 
@@ -96,17 +94,16 @@ public:
 		ot->reset();
 	}
 
-	void exec_f2k_sender(SPCOT_Sender<IO> &sender, OTPre<IO> *ot, vec &tree, IO *io) {
+	void exec_f2k_sender(SPCOT_Sender<IO> &sender, OTPre<IO> *ot, Span &tree, IO *io) {
 		sender.compute(tree, Delta_f2k);
 		sender.template send_f2k<OTPre<IO>>(ot, io);
 		io->flush();
-
 		// to do: all tree joint consistency check
 		if(is_malicious)
 			sender.consistency_check_msg_gen(consist_check_VW);
 	}
 
-	void exec_f2k_recver(SPCOT_Recver<IO> &recver, OTPre<IO> *ot, vec &tree, IO *io) {
+	void exec_f2k_recver(SPCOT_Recver<IO> &recver, OTPre<IO> *ot, Span &tree, IO *io) {
 		recver.template recv_f2k<OTPre<IO>>(ot, io);
 		recver.compute(tree);
 
@@ -116,7 +113,7 @@ public:
 	}
 
 	// f2k consistency check
-	void consistency_check_f2k(vec &pre_cot_data, int num) {
+	void consistency_check_f2k(Vec &pre_cot_data, int num) {
 		// if(this->party == ALICE) {
 		// 	block r1, r2;
 		// 	vector_self_xor(&r1, this->consist_check_VW, num);
@@ -162,7 +159,7 @@ public:
 	}
 
 	// void exec_parallel_sender(SPCOT_Sender<IO> &senders,
-	// 		OTPre<IO> *ot, vec &sparse_vector) {
+	// 		OTPre<IO> *ot, Vec &sparse_vector) {
 	// 	vector<future<void>> fut;
 	// 	int width = tree_n / threads;
 	// 	int start = 0, end = width;
@@ -185,7 +182,7 @@ public:
 	// }
 
 	// void exec_parallel_recver(vector<SPCOT_Recver<IO>*> &recvers,
-	// 		OTPre<IO> *ot, vec &sparse_vector) {
+	// 		OTPre<IO> *ot, Vec &sparse_vector) {
 	// 	vector<future<void>> fut;
 	// 	int width = tree_n / threads;
 	// 	int start = 0, end = width;

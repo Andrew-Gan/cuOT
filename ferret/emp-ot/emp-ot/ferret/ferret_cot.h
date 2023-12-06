@@ -36,9 +36,9 @@ PrimalLPNParameter param = ferret_b13, std::string pre_file="");
 
 	void recv_cot(block* data, const bool * b, int64_t length) override;
 
-	void rcot(block *data, int64_t num);
+	void rcot(Vec &data);
 
-	int64_t rcot_inplace(vec &ot_buffer, int64_t length);
+	int64_t rcot_inplace(Vec &ot_buffer);
 
 	int64_t byte_memory_need_inplace(int64_t ot_need);
 
@@ -58,8 +58,8 @@ private:
 
 	block one;
 
-	vec ot_pre_data;
-	vec ot_data;
+	Vec ot_pre_data;
+	Vec ot_data;
 
 	std::string pre_ot_filename;
 
@@ -68,7 +68,6 @@ private:
 	// ThreadPool *pool = nullptr;
 	MpcotReg<T> *mpcot = nullptr;
 	LpnF2<T, 10> *lpn_f2 = nullptr;
-
 
 	void online_sender(block *data, int64_t length);
 
@@ -80,10 +79,13 @@ private:
 
 	void extend_initialization();
 
-	void extend(vec &ot_output, MpcotReg<T> *mpfss, OTPre<T> *preot,
-			LpnF2<T, 10> *lpn, vec &ot_input);
+	void extend(Vec &ot_output, MpcotReg<T> *mpfss, OTPre<T> *preot,
+			LpnF2<T, 10> *lpn, Vec &ot_input);
 
-	void extend_f2k(vec &ot_buffer);
+	void extend(Span &ot_output, MpcotReg<T> *mpfss, OTPre<T> *preot,
+			LpnF2<T, 10> *lpn, Vec &ot_input);
+
+	void extend_f2k(Span &ot_buffer);
 
 	void extend_f2k();
 

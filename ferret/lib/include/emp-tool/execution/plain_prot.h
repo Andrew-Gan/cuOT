@@ -1,6 +1,6 @@
 #ifndef EMP_PLAIN_ENV_H__
 #define EMP_PLAIN_ENV_H__
-#include "emp-tool/emp-tool.h"
+// #include "emp-tool/emp-tool.h"
 #include <iostream>
 #include <fstream>
 using std::endl;

@@ -3,21 +3,35 @@
 
 #include "gpu_matrix.h"
 
-class GPUvector : public GPUmatrix {
+class Span;
+
+class Vec : public Mat {
 public:
   using GPUdata::xor_d;
-  using GPUmatrix::data;
+  using Mat::data;
 
-  GPUvector() {}
-  GPUvector(uint64_t len) : GPUmatrix(1, len) {}
-  uint64_t size() { return mCols; }
+  Vec() {}
+  Vec(uint64_t len) : Mat({1, len}) {}
+  uint64_t size() const { return dim(1); }
   blk* data(uint64_t i) const;
-  void set(uint64_t i, blk &val) { GPUmatrix::set(0, i, val); }
-  void resize(uint64_t len) { GPUmatrix::resize(1, len); }
+  void set(uint64_t i, blk &val) { Mat::set(val, {0, i}); }
+  void resize(uint64_t len) { Mat::resize({1, len}); }
   void sum(uint64_t nPartition, uint64_t blkPerPart);
-  void xor_d(GPUvector &rhs, uint64_t offs);
+  void xor_d(Vec &rhs, uint64_t offs);
+  Span span(uint64_t start = 0, uint64_t end = 0);
 };
 
-using vec = GPUvector;
+class Span {
+private:
+  uint64_t start, range;
+  Vec &obj;
+
+public:
+  Span(Vec &data, uint64_t start, uint64_t end);
+  uint64_t size() const { return range; }
+  blk* data(uint64_t i = 0) const;
+  void set(uint64_t i, blk &val);
+  void operator=(const Span& other);
+};
 
 #endif

@@ -14,8 +14,8 @@ class SPCOT_Sender {
 public:
 	blk seed;
 	blk delta;
-	vec *ggm_tree;
-	mat lSum, rSum;
+	Span *ggm_tree;
+	Mat lSum, rSum;
 	IO *io;
 	int depth, leave_n;
 	PRG prg;
@@ -34,21 +34,15 @@ public:
 		this->io = io;
 		this->depth = depth_in;
 		this->leave_n = 1<<(this->depth);
-		// m = new block[depth*2];
-		lSum.resize(depth, tree_n);
-		rSum.resize(depth, tree_n);
+		lSum.resize({depth-1, tree_n});
+		rSum.resize({depth-1, tree_n});
 	}
-
-	~SPCOT_Sender() {
-		// delete[] m;
-	}
-
+	
 	// generate GGM tree, transfer secret, F2^k
-	void compute(vec &tree, blk secret) {
+	void compute(Span &tree, blk secret) {
 		this->ggm_tree = &tree;
 		this->delta = secret;
-
-		cuda_spcot_sender_compute(tree, tree_n, leave_n, depth, lSum, rSum);
+		cuda_spcot_sender_compute(tree, tree_n, depth, lSum, rSum);
 
 		// memset(secretSum, 0, sizeof(secretSum));
 		// blk one = { .data = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFE} };
@@ -57,7 +51,7 @@ public:
 		// cudaMemcpy(one_d, &one, sizeof(*one_d), cudaMemcpyHostToDevice);
 
 		// ggm_tree.and_scalar(one_d);
-		// vec nodes_sum(leave_n + 1);
+		// Vec nodes_sum(leave_n + 1);
 		// nodes_sum = ggm_tree;
 		// nodes_sum.set(leave_n, secret);
 		// nodes_sum.sum(1, leave_n+1);
@@ -67,13 +61,13 @@ public:
 	// send the nodes by oblivious transfer, F2^k
 	template<typename OT>
 	void send_f2k(OT * ot, IO * io2) {
-		block *lSum_cpu = new block[tree_n*depth];
-		block *rSum_cpu = new block[tree_n*depth];
+		block *lSum_cpu = new block[tree_n*(depth-1)];
+		block *rSum_cpu = new block[tree_n*(depth-1)];
 
-		cuda_memcpy(lSum_cpu, lSum.data(), tree_n*depth*sizeof(blk), D2H);
-		cuda_memcpy(rSum_cpu, rSum.data(), tree_n*depth*sizeof(blk), D2H);
+		cuda_memcpy(lSum_cpu, lSum.data(), tree_n*(depth-1)*sizeof(blk), D2H);
+		cuda_memcpy(rSum_cpu, rSum.data(), tree_n*(depth-1)*sizeof(blk), D2H);
 
-		ot->send(lSum_cpu, rSum_cpu, tree_n*depth, io2, 0);
+		ot->send(lSum_cpu, rSum_cpu, tree_n*(depth-1), io2, 0);
 		io2->send_data(&secret_sum_f2, sizeof(blk));
 
 		delete[] lSum_cpu;

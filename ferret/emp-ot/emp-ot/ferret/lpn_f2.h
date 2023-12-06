@@ -14,12 +14,15 @@ class LpnF2 { public:
 	IO *io;
 	int k, mask;
 	block seed;
+	Mat pubMat;
+	int iter = 0;
+	bool isInit = false;
+
 	LpnF2 (int party, int64_t n, int k, IO *io) {
 		this->party = party;
 		this->k = k;
 		this->n = n;
 		this->io = io;
-		return;
 		mask = 1;
 		while(mask < k) {
 			mask <<=1;
@@ -27,17 +30,35 @@ class LpnF2 { public:
 		}
 	}
 
-	void compute(vec &nn, blk *kk) {
-		seed = seed_gen();
-		PRP prp(seed);
+	void init(int num_iter) {
+		pubMat.resize({num_iter, n / 4, d});
+
+		uint8_t* key_d;
+		uint64_t keySize = 11 * AES_KEYLEN;
+		PRP prp;
+		cuda_malloc((void**)&key_d, keySize * num_iter);
+		for (int i = 0; i < num_iter; i++) {
+			prp.aes_set_key(seed_gen());
+			cuda_memcpy(key_d + i * keySize, prp.aes.rd_key, keySize, H2D);
+		}
+
+		cuda_gen_matrices(pubMat, (uint32_t*) key_d);
+		cuda_free(key_d);
+		isInit = true;
+	}
+
+	void compute(Span &nn, Span &kk) {
+		if (!isInit) throw std::invalid_argument("Initialise lpn before calling compute()\n");
+		int n_0 = nn.size();
+		int k_0 = kk.size();
 
 		// bench(nn, kk);
+		cuda_lpn_f2_compute(pubMat.data({iter, 0, 0}), d, n_0, k_0, nn, kk);
+	}
 
-		blk *r_in, *r_out;
-		cuda_malloc((void**)&r_in, (d * n / 4) * sizeof(*r_in));
-		cuda_malloc((void**)&r_out, (d * n / 4) * sizeof(*r_out));
-
-		cuda_lpn_f2_compute(d, n, k, (uint32_t*)prp.aes.rd_key, nn, kk);
+	void compute(Vec &nn, Vec &kk, uint64_t consist_check_cot_num) {
+		Span nnSpan = nn.span();
+		compute(nnSpan, kk, consist_check_cot_num);
 	}
 
 	block seed_gen() {
@@ -48,7 +69,7 @@ class LpnF2 { public:
 			io->send_data(&seed, sizeof(block));
 		} else {
 			io->recv_data(&seed, sizeof(block));
-		}io->flush();
+		} io->flush();
 		return seed;
 	}
 

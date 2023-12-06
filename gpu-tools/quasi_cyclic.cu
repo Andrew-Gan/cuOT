@@ -72,7 +72,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   cufftPlan1d(&bPlan, 2 * mOut, CUFFT_R2C, FFT_BATCHSIZE);
   cufftPlan1d(&cPlan, 2 * mOut, CUFFT_C2R, FFT_BATCHSIZE);
 
-  vec a64(n64 / 2);
+  Vec a64(n64 / 2);
   cufftReal *a64_poly;
   curandGenerate(prng, (uint32_t*) a64.data(), 2 * n64);
 
@@ -97,9 +97,9 @@ QuasiCyclic::~QuasiCyclic() {
   cudaFree(a64_fft);
 }
 
-void QuasiCyclic::encode(vec &vector) {
+void QuasiCyclic::encode(Vec &vector) {
   // XT = mOut x 1
-  mat XT(mOut, 1);
+  Mat XT({mOut, 1});
   XT.load((uint8_t*) (vector.data() + mOut));
   // XT = rows x n2blocks
   XT.bit_transpose();
@@ -114,7 +114,7 @@ void QuasiCyclic::encode(vec &vector) {
   cudaMalloc(&c64_poly, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftReal));
   cudaMalloc(&c64_fft, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftComplex));
 
-  mat cModP1(rows, 2 * nBlocks); // hold unmodded coeffs
+  Mat cModP1({rows, 2 * nBlocks}); // hold unmodded coeffs
   uint64_t block;
   dim3 grid;
 

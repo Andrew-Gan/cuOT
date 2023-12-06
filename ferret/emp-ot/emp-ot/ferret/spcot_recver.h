@@ -12,8 +12,8 @@ using namespace emp;
 template<typename IO>
 class SPCOT_Recver {
 public:
-	vec *ggm_tree;
-	mat cSum;
+	Span *ggm_tree;
+	Mat cSum;
 	bool *b;
 	int choice_pos, depth, leave_n;
 	IO *io;
@@ -27,8 +27,8 @@ public:
 		this->depth = depth_in;
 		this->leave_n = 1<<(depth_in-1);
 		// m = new block[depth];
-		cSum.resize(depth, tree_n);
-		b = new bool[tree_n*depth];
+		cSum.resize({depth-1, tree_n});
+		b = new bool[tree_n*(depth-1)];
 	}
 
 	~SPCOT_Recver(){
@@ -38,7 +38,7 @@ public:
 
 	int get_index(int t) {
 		choice_pos = 0;
-		for(int i = t * depth; i < (t+1) * depth; ++i) {
+		for(int i = t * (depth-1); i < (t+1) * (depth-1); ++i) {
 			choice_pos<<=1;
 			if(!b[i])
 				choice_pos +=1;
@@ -48,7 +48,7 @@ public:
 
 	// receive the message and reconstruct the tree
 	// j: position of the secret, begins from 0
-	void compute(vec &tree) {
+	void compute(Span &tree) {
 		this->ggm_tree = &tree;
 		// ggm_tree_reconstruction(b, m);
 		// ggm_tree[choice_pos] = zero_block;
@@ -60,7 +60,7 @@ public:
 		// }
 		// ggm_tree[choice_pos] = nodes_sum ^ secret_sum_f2;
 
-		cuda_spcot_recver_compute(tree_n, leave_n, depth, tree, b, cSum);
+		cuda_spcot_recver_compute(tree, tree_n, depth, cSum, b);
 
 		// TBD: confirm handled by code above
 		// cudaMemset(ggm_tree.data(choice_pos), 0, sizeof(blk));
@@ -70,7 +70,7 @@ public:
 		// cudaMemcpy(one_d, &one, sizeof(*one_d), cudaMemcpyHostToDevice);
 
 		// ggm_tree.and_scalar(one_d);
-		// vec nodes_sum(leave_n + 1);
+		// Vec nodes_sum(leave_n + 1);
 		// nodes_sum = ggm_tree;
 		// nodes_sum.set(leave_n, secret_sum);
 		// nodes_sum.sum(1, leave_n+1);
@@ -81,12 +81,12 @@ public:
 	// j: position of the secret, begins from 0
 	template<typename OT>
 	void recv_f2k(OT * ot, IO * io2) {
-		block *cSum_cpu = new block[tree_n*depth];
+		block *cSum_cpu = new block[tree_n*(depth-1)];
 
-		ot->recv(cSum_cpu, b, tree_n*depth, io2, 0);
+		ot->recv(cSum_cpu, b, tree_n*(depth-1), io2, 0);
 		io2->recv_data(&secret_sum_f2, sizeof(blk));
 
-		cuda_memcpy(cSum.data(), cSum_cpu, tree_n*(depth)*sizeof(blk), H2D);
+		cuda_memcpy(cSum.data(), cSum_cpu, tree_n*(depth-1)*sizeof(blk), H2D);
 
 		delete[] cSum_cpu;
 	}
