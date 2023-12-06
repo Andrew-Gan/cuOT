@@ -1,0 +1,24 @@
+connected
+connected
+2	setup	85.873ms
+connected
+connected
+1	setup	93.051ms
+Active FERRET RCOT	Pre-OT done. Ferret starts...
+num requested = 268435456
+gened = 0, m = 468768, ot_limit = 10016992
+rounds = 26
+party 1 Init-Role: mov avg 0.00 ms
+party 1 COT-TreeExp: mov avg 117.34 ms
+party 1 LPN-MatMult: mov avg 196.53 ms
+total: 8923.76 ms
+Tests passed.	3.00812e+07 OTps
+create a directory to store pre-OT dataActive FERRET RCOT	Pre-OT done. Ferret starts...
+num requested = 268435456
+rounds = 26
+party 2 Init-Role: mov avg 0.00 ms
+party 2 COT-TreeExp: mov avg 108.71 ms
+party 2 LPN-MatMult: mov avg 205.64 ms
+total: 8944.36 ms
+Tests passed.	3.00339e+07 OTps
+create a directory to store pre-OT data

@@ -1,4 +1,4 @@
-obj
-ot
+gpu-tools/*.o
 .vscode
-output
+results/
+data/

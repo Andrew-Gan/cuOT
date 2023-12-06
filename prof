@@ -1,208 +1,0 @@
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-an illegal memory access was encountered
-log OTs: 24, Trees: 8
-Generating '/tmp/nsys-report-ecee.qdstrm'
-[1/8] [0%                          ] report1.nsys-rep[1/8] [0%                          ] report1.nsys-rep[1/8] [8%                          ] report1.nsys-rep[1/8] [=====32%                    ] report1.nsys-rep[1/8] [======33%                   ] report1.nsys-rep[1/8] [======34%                   ] report1.nsys-rep[1/8] [==========49%               ] report1.nsys-rep[1/8] [============56%             ] report1.nsys-rep[1/8] [========================99% ] report1.nsys-rep[1/8] [========================100%] report1.nsys-rep[1/8] [========================100%] report1.nsys-rep
-[2/8] [0%                          ] report1.sqlite[2/8] [1%                          ] report1.sqlite[2/8] [2%                          ] report1.sqlite[2/8] [3%                          ] report1.sqlite[2/8] [4%                          ] report1.sqlite[2/8] [5%                          ] report1.sqlite[2/8] [6%                          ] report1.sqlite[2/8] [7%                          ] report1.sqlite[2/8] [8%                          ] report1.sqlite[2/8] [9%                          ] report1.sqlite[2/8] [10%                         ] report1.sqlite[2/8] [11%                         ] report1.sqlite[2/8] [12%                         ] report1.sqlite[2/8] [13%                         ] report1.sqlite[2/8] [14%                         ] report1.sqlite[2/8] [=15%                        ] report1.sqlite[2/8] [=16%                        ] report1.sqlite[2/8] [=17%                        ] report1.sqlite[2/8] [==18%                       ] report1.sqlite[2/8] [==19%                       ] report1.sqlite[2/8] [==20%                       ] report1.sqlite[2/8] [==21%                       ] report1.sqlite[2/8] [===22%                      ] report1.sqlite[2/8] [===23%                      ] report1.sqlite[2/8] [===24%                      ] report1.sqlite[2/8] [====25%                     ] report1.sqlite[2/8] [====26%                     ] report1.sqlite[2/8] [====27%                     ] report1.sqlite[2/8] [====28%                     ] report1.sqlite[2/8] [=====29%                    ] report1.sqlite[2/8] [=====30%                    ] report1.sqlite[2/8] [=====31%                    ] report1.sqlite[2/8] [=====32%                    ] report1.sqlite[2/8] [======33%                   ] report1.sqlite[2/8] [======34%                   ] report1.sqlite[2/8] [======35%                   ] report1.sqlite[2/8] [=======36%                  ] report1.sqlite[2/8] [=======37%                  ] report1.sqlite[2/8] [=======38%                  ] report1.sqlite[2/8] [=======39%                  ] report1.sqlite[2/8] [========40%                 ] report1.sqlite[2/8] [========41%                 ] report1.sqlite[2/8] [========42%                 ] report1.sqlite[2/8] [=========43%                ] report1.sqlite[2/8] [=========44%                ] report1.sqlite[2/8] [=========45%                ] report1.sqlite[2/8] [=========46%                ] report1.sqlite[2/8] [==========47%               ] report1.sqlite[2/8] [==========48%               ] report1.sqlite[2/8] [==========49%               ] report1.sqlite[2/8] [===========50%              ] report1.sqlite[2/8] [===========51%              ] report1.sqlite[2/8] [===========52%              ] report1.sqlite[2/8] [===========53%              ] report1.sqlite[2/8] [============54%             ] report1.sqlite[2/8] [============55%             ] report1.sqlite[2/8] [============56%             ] report1.sqlite[2/8] [============57%             ] report1.sqlite[2/8] [=============58%            ] report1.sqlite[2/8] [=============59%            ] report1.sqlite[2/8] [=============60%            ] report1.sqlite[2/8] [==============61%           ] report1.sqlite[2/8] [==============62%           ] report1.sqlite[2/8] [==============63%           ] report1.sqlite[2/8] [==============64%           ] report1.sqlite[2/8] [===============65%          ] report1.sqlite[2/8] [===============66%          ] report1.sqlite[2/8] [===============67%          ] report1.sqlite[2/8] [================68%         ] report1.sqlite[2/8] [================69%         ] report1.sqlite[2/8] [================70%         ] report1.sqlite[2/8] [================71%         ] report1.sqlite[2/8] [=================72%        ] report1.sqlite[2/8] [=================73%        ] report1.sqlite[2/8] [=================74%        ] report1.sqlite[2/8] [==================75%       ] report1.sqlite[2/8] [==================76%       ] report1.sqlite[2/8] [==================77%       ] report1.sqlite[2/8] [==================78%       ] report1.sqlite[2/8] [===================79%      ] report1.sqlite[2/8] [===================80%      ] report1.sqlite[2/8] [===================81%      ] report1.sqlite[2/8] [===================82%      ] report1.sqlite[2/8] [====================83%     ] report1.sqlite[2/8] [====================84%     ] report1.sqlite[2/8] [====================85%     ] report1.sqlite[2/8] [=====================86%    ] report1.sqlite[2/8] [=====================87%    ] report1.sqlite[2/8] [=====================88%    ] report1.sqlite[2/8] [=====================89%    ] report1.sqlite[2/8] [======================90%   ] report1.sqlite[2/8] [======================91%   ] report1.sqlite[2/8] [======================92%   ] report1.sqlite[2/8] [=======================93%  ] report1.sqlite[2/8] [=======================94%  ] report1.sqlite[2/8] [=======================95%  ] report1.sqlite[2/8] [=======================96%  ] report1.sqlite[2/8] [========================97% ] report1.sqlite[2/8] [========================98% ] report1.sqlite[2/8] [========================99% ] report1.sqlite[2/8] [========================100%] report1.sqlite[2/8] [========================100%] report1.sqlite
-SKIPPED: /home/gan35/research/silent-ot-gpu/report1.sqlite does not contain NV Tools Extension (NVTX) data.
-[3/8] Executing 'nvtx_sum' stats report
-[4/8] Executing 'osrt_sum' stats report
-
- Time (%)  Total Time (ns)  Num Calls    Avg (ns)      Med (ns)    Min (ns)    Max (ns)     StdDev (ns)           Name         
- --------  ---------------  ---------  ------------  ------------  ---------  -----------  -------------  ---------------------
-     34.3    1,603,020,444         41  39,098,059.6  23,066,035.0      1,904  100,163,958   41,283,387.4  poll                 
-     21.2      990,235,600         48  20,629,908.3     402,397.5        180  936,934,741  135,087,080.6  pthread_join         
-     20.3      948,921,313        149   6,368,599.4     147,137.0         80  128,660,059   16,096,147.0  pthread_mutex_lock   
-     19.9      930,789,788      1,520     612,361.7      46,903.5        361  139,600,181    5,164,576.2  ioctl                
-      1.6       72,728,648        103     706,103.4      74,130.0        952   10,673,840    2,122,973.0  pthread_rwlock_wrlock
-      0.8       37,935,957         53     715,772.8     260,060.0     65,433    8,058,656    1,576,711.6  pthread_create       
-      0.5       22,663,216         11   2,060,292.4   2,059,327.0  2,056,292    2,067,143        3,588.6  nanosleep            
-      0.2       11,497,660        112     102,657.7       6,111.0      1,032    6,938,005      669,530.5  mmap                 
-      0.2       10,197,942         65     156,891.4      82,856.0        121    1,192,375      250,556.2  fread                
-      0.2        9,108,580         63     144,580.6       9,859.0      2,124      541,089      185,224.3  fopen                
-      0.2        9,067,423         53     171,083.5      22,883.0      1,653    6,902,708      951,828.9  mprotect             
-      0.2        7,993,383        100      79,933.8       7,328.5      2,054      665,383      148,477.8  open64               
-      0.1        5,819,060         67      86,851.6      12,323.0      4,830    2,172,781      337,455.1  mmap64               
-      0.1        4,394,335          1   4,394,335.0   4,394,335.0  4,394,335    4,394,335            0.0  pipe2                
-      0.1        3,742,961         58      64,533.8       4,869.0      1,593    2,823,356      371,877.0  fclose               
-      0.1        2,421,856        136      17,807.8         286.0        181      557,109       56,464.3  fcntl                
-      0.0        1,178,649         79      14,919.6       6,331.0        571       73,539       16,297.4  munmap               
-      0.0          945,991          2     472,995.5     472,995.5    343,126      602,865      183,663.2  fopen64              
-      0.0          738,402         22      33,563.7      32,601.5     15,930       65,573       10,407.5  sem_timedwait        
-      0.0          578,459          4     144,614.8     122,691.0      4,298      328,779      165,116.5  fwrite               
-      0.0          200,233         61       3,282.5       2,515.0        541       13,746        2,847.3  write                
-      0.0           47,952         35       1,370.1          60.0         40       46,007        7,766.9  fgets                
-      0.0           47,711          6       7,951.8       6,888.0      5,340       15,680        3,891.6  open                 
-      0.0           27,152         28         969.7         786.0        351        3,186          694.3  read                 
-      0.0           12,263          2       6,131.5       6,131.5      3,968        8,295        3,059.7  socket               
-      0.0           11,642         16         727.6         646.0        210        1,322          366.8  dup                  
-      0.0           10,430          1      10,430.0      10,430.0     10,430       10,430            0.0  connect              
-      0.0            6,664         64         104.1          40.0         30          401          102.6  pthread_mutex_trylock
-      0.0            5,701          1       5,701.0       5,701.0      5,701        5,701            0.0  pthread_rwlock_rdlock
-      0.0            3,797         11         345.2          40.0         30        3,266          970.2  fflush               
-      0.0            1,693          1       1,693.0       1,693.0      1,693        1,693            0.0  bind                 
-      0.0              631          1         631.0         631.0        631          631            0.0  listen               
-
-[5/8] Executing 'cuda_api_sum' stats report
-
- Time (%)  Total Time (ns)  Num Calls    Avg (ns)       Med (ns)      Min (ns)     Max (ns)    StdDev (ns)                 Name               
- --------  ---------------  ---------  -------------  -------------  -----------  -----------  ------------  ---------------------------------
-     40.5      836,569,006        473    1,768,644.8        7,354.0          340   24,932,320   5,251,961.9  cudaMalloc                       
-     35.0      722,541,073        607    1,190,347.7        2,896.0          250  358,741,506  19,985,047.7  cudaFree                         
-     11.1      229,368,504          2  114,684,252.0  114,684,252.0  113,964,366  115,404,138   1,018,072.5  cudaStreamSynchronize            
-     10.8      223,929,835         36    6,220,273.2    1,332,399.5       29,556  136,466,149  22,760,034.3  cuLibraryLoadData                
-      0.7       15,333,404         20      766,670.2          932.0          411    5,977,616   1,830,309.0  cudaDeviceSynchronize            
-      0.5       10,293,299        434       23,717.3        8,596.0        2,735      419,660      50,530.3  cudaMemcpy                       
-      0.4        7,928,378         44      180,190.4        1,127.0          912    6,573,829   1,005,124.3  cudaMallocAsync_v11020           
-      0.3        5,563,638         26      213,986.1        5,375.5        4,428    1,718,326     515,349.5  cuMemcpyHtoD_v2                  
-      0.2        4,531,895         24      188,829.0       84,589.5       72,456    1,030,961     266,101.7  cuModuleLoadData                 
-      0.1        2,728,328          1    2,728,328.0    2,728,328.0    2,728,328    2,728,328           0.0  cudaGetDeviceProperties_v2_v12000
-      0.1        2,517,662        436        5,774.5        4,829.0        4,067       50,465       3,172.2  cudaMemcpyAsync                  
-      0.1        1,791,173          2      895,586.5      895,586.5      772,114    1,019,059     174,616.5  cuMemAlloc_v2                    
-      0.1        1,363,822        370        3,686.0        3,377.0          401       37,601       3,324.2  cudaLaunchKernel                 
-      0.0          715,847        326        2,195.8        3,006.0          140       31,950       2,368.5  cuLaunchKernel                   
-      0.0          340,347        766          444.3          381.0          110        2,255         262.4  cuGetProcAddress_v2              
-      0.0          167,856          6       27,976.0       20,368.5        8,776       75,693      25,872.8  cuMemGetInfo_v2                  
-      0.0           98,766          2       49,383.0       49,383.0       15,679       83,087      47,664.7  cudaStreamCreate                 
-      0.0           83,837         22        3,810.8        2,635.0        2,224       15,198       3,346.1  cudaEventRecord                  
-      0.0           78,016         22        3,546.2        2,825.5        2,264       16,962       3,033.4  cudaStreamWaitEvent              
-      0.0           59,405        228          260.5          180.0          110        2,946         325.5  cudaGetFuncBySymbol_v11000       
-      0.0           53,583         44        1,217.8          981.0          861        7,575       1,066.7  cudaFreeAsync_v11020             
-      0.0           33,313          2       16,656.5       16,656.5       15,058       18,255       2,260.6  cudaStreamDestroy                
-      0.0           29,105          1       29,105.0       29,105.0       29,105       29,105           0.0  cudaMemset                       
-      0.0           28,869         22        1,312.2          591.0          360       14,597       2,997.7  cudaEventCreate              SKIPPED: /home/gan35/research/silent-ot-gpu/report1.sqlite does not contain CUDA kernel data.
-SKIPPED: /home/gan35/research/silent-ot-gpu/report1.sqlite does not contain GPU memory data.
-SKIPPED: /home/gan35/research/silent-ot-gpu/report1.sqlite does not contain GPU memory data.
-    
-      0.0           19,894         98          203.0          141.0          121        1,663         196.6  cuStreamIsCapturing              
-      0.0            9,901         24          412.5          215.5          101        1,443         391.6  cuModuleUnload                   
-      0.0            3,808          3        1,269.3          331.0          170        3,307       1,766.5  cuModuleGetLoadingMode           
-      0.0            2,144          2        1,072.0        1,072.0        1,062        1,082          14.1  cuInit                           
-      0.0              282          2          141.0          141.0          111          171          42.4  cuMemFree_v2                     
-
-[6/8] Executing 'cuda_gpu_kern_sum' stats report
-[7/8] Executing 'cuda_gpu_mem_time_sum' stats report
-[8/8] Executing 'cuda_gpu_mem_size_sum' stats report
-Generated:
-    /home/gan35/research/silent-ot-gpu/report1.nsys-rep
-    /home/gan35/research/silent-ot-gpu/report1.sqlite

@@ -15,8 +15,6 @@ mkdir -p output
 #     ./ot 1 $LOGOT 8
 # done
 
-# compute-sanitizer --tool memcheck ./ot 1 24 8 &> out
-
 nsys profile --stats=true ./ot 1 24 8 &> prof
 rm report*
 
