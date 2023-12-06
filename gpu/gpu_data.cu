@@ -2,14 +2,13 @@
 #include <fstream>
 #include <mutex>
 
+#include "gpu_utils.h"
 #include "gpu_data.h"
 #include "gpu_ops.h"
 
 GPUdata::GPUdata(uint64_t n) : mNBytes(n) {
   cudaError_t err = cudaMalloc(&mPtr, n);
-  if (err != cudaSuccess) {
-    throw std::runtime_error(cudaGetErrorString(err));
-  }
+  check_call("GPUdata:GPUdata\n");
 }
 
 GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
@@ -24,7 +23,7 @@ GPUdata& GPUdata::operator&=(const GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
   gpu_and<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
-  cudaDeviceSynchronize();
+  check_call("GPUdata::operator&=\n");
   return *this;
 }
 
@@ -32,7 +31,7 @@ GPUdata& GPUdata::operator^=(const GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   gpu_xor<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
-  cudaDeviceSynchronize();
+  check_call("GPUdata::operator^=\n");
   return *this;
 }
 
@@ -62,9 +61,7 @@ void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
   uint8_t *newData;
   cudaError_t err = cudaMalloc(&newData, size);
-  if (err != cudaSuccess) {
-    throw std::runtime_error(cudaGetErrorString(err));
-  }
+  check_call("GPUdata::resize\n");
   if (mPtr != nullptr) {
     cudaMemcpy(newData, mPtr, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
     cudaFree(mPtr);
@@ -103,6 +100,7 @@ void GPUdata::xor_d(GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
   gpu_xor<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
+  check_call("GPUdata::xor_d\n");
 }
 
 void GPUdata::copy(GPUdata &rhs) {

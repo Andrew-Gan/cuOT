@@ -1,0 +1,6 @@
+QuasiCyclic::encode 0
+GPUdata::xor_d
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  an illegal memory access was encountered
+log OTs: 28, Trees: 8
+/var/spool/slurm/job4433626/slurm_script: line 4: 45360 Aborted                 ./ot 1 28 8

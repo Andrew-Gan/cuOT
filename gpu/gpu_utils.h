@@ -16,5 +16,6 @@ struct OTblock {
 using blk = OTblock;
 
 void check_alloc(blk *ptr);
+void check_call(const char *msg);
 
 #endif

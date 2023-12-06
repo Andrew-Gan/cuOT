@@ -1,6 +1,7 @@
-#include "gpu_tools.h"
+#include "gpu_utils.h"
 #include <cstdio>
 #include <cuda.h>
+#include <stdexcept>
 
 void check_alloc(blk *ptr) {
 	uint64_t size = 0;
@@ -11,4 +12,12 @@ void check_alloc(blk *ptr) {
 	if (res != CUDA_SUCCESS)
 		printf("something went wrong!\n");
 	fflush(stdout);
+}
+
+void check_call(const char* msg) {
+	cudaError_t err = cudaDeviceSynchronize();
+	if (err != cudaSuccess) {
+		fprintf(stderr, msg);
+		throw std::runtime_error(cudaGetErrorString(err));
+	}
 }

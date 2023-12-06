@@ -1,7 +1,6 @@
 #ifndef __UNIT_TEST_H__
 #define __UNIT_TEST_H__
 
-#include "util.h"
 #include "roles.h"
 
 void test_cuda();

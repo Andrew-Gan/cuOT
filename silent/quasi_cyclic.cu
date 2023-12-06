@@ -1,7 +1,10 @@
 #include "compress.h"
 #include <cmath>
+#include "gpu_utils.h"
 #include "gpu_vector.h"
 #include "gpu_ops.h"
+
+#include <cstdio>
 
 // rows to run FFT at once: 1-128
 #define FFT_BATCHSIZE 8
@@ -82,7 +85,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mI
   uint64_t block = std::min(n64, 1024lu);
   uint64_t grid = n64 < 1024 ? 1 : n64 / 1024;
   bitpoly_to_cufft<<<grid, block>>>((uint64_t*)a64.data(), a64_poly);
-  cudaDeviceSynchronize();
+  check_call("QuasiCyclic::QuasiCyclic\n");
 
   cufftExecR2C(aPlan, a64_poly, a64_fft);
   cudaFree(a64_poly);
@@ -114,25 +117,34 @@ void QuasiCyclic::encode(Vec &vector) {
   cudaMalloc(&c64_poly, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftReal));
   cudaMalloc(&c64_fft, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftComplex));
 
+  check_call("QuasiCyclic::start\n");
+
   Mat cModP1({rows, 2 * nBlocks}); // hold unmodded coeffs
   uint64_t block;
   dim3 grid;
+  cufftResult res;
 
   for (uint64_t r = 0; r < rows; r += FFT_BATCHSIZE) {
     block = std::min(n64, 1024lu);
     grid = dim3(n64 < 1024 ? 1 : n64 / 1024, FFT_BATCHSIZE);
     bitpoly_to_cufft<<<grid, block>>>(b64 + r * n64, b64_poly);
+    check_call("QuasiCyclic::encode 0\n");
     cufftExecR2C(bPlan, b64_poly, b64_fft);
+    check_call("QuasiCyclic::encode 0b\n");
 
     block = std::min(2 * mOut, 1024lu);
     grid = dim3(2 * mOut < 1024 ? 1 : 2 * mOut / 1024, 1);
     complex_dot_product<<<grid, block>>>(c64_fft, a64_fft, b64_fft);
+    check_call("QuasiCyclic::encode 1\n");
 
     cufftExecC2R(cPlan, c64_fft, c64_poly);
     block = std::min(n64, 1024lu);
     grid = dim3(n64 < 1024 ? 1 : n64 / 1024, FFT_BATCHSIZE);
     cufft_to_bitpoly<<<grid, block>>>(c64_poly, (uint64_t*) cModP1.data() + r * 2 * n64);
+    check_call("QuasiCyclic::encode 2\n");
   }
+
+  check_call("QuasiCyclic::encode mid\n");
 
   cudaFree(b64_poly);
   cudaFree(b64_fft);
@@ -143,5 +155,5 @@ void QuasiCyclic::encode(Vec &vector) {
   cModP1.bit_transpose(); // cModP1 = mOut x 1
 
   gpu_xor<<<16 * mOut / 1024, 1024>>>((uint8_t*) vector.data(), (uint8_t*) cModP1.data(), 16 * mOut);
-  cudaDeviceSynchronize();
+  check_call("QuasiCyclic::encode end\n");
 }

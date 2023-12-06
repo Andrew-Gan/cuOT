@@ -15,7 +15,7 @@ enum BaseOTType { SimplestOT_t };
 
 class OT {
 public:
-  virtual std::array<vec, 2> send() = 0;
+  virtual std::array<Vec, 2> send() = 0;
   virtual Vec recv(uint64_t choice) = 0;
 };
 
@@ -23,7 +23,7 @@ class SimplestOT : public OT {
 public:
   SimplestOT(Role role, int id, uint64_t count);
   virtual ~SimplestOT();
-  virtual std::array<vec, 2> send();
+  virtual std::array<Vec, 2> send();
   virtual Vec recv(uint64_t choice);
 
 private:

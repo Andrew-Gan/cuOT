@@ -95,7 +95,7 @@ void Mat::bit_transpose() {
   }
   // translate 2D grid into 1D due to CUDA limitations
   bit_transposer<<<grid.x * grid.y, block>>>(tpBuffer, mPtr, grid);
-  cudaDeviceSynchronize();
+  check_call("Mat::bit_transpose\n");
   cudaFree(mPtr);
   mPtr = tpBuffer;
   uint64_t tpRows = col * 8 * sizeof(blk);
@@ -111,10 +111,10 @@ void Mat::modp(uint64_t reducedCol) {
   uint64_t col = dim(1);
   uint64_t block = std::min(reducedCol, 1024lu);
   uint64_t grid = reducedCol < 1024 ? 1 : (reducedCol + 1023) / 1024;
-  for (uint64_t i = 0; i < col / reducedCol; i++) {
-    gpu_xor<<<grid, block>>>(mPtr, mPtr + (i * reducedCol * sizeof(blk)), col);
-    cudaDeviceSynchronize();
+  for (uint64_t i = 0; i < col / reducedCol - 1; i++) {
+    gpu_xor<<<grid, block>>>(mPtr, mPtr + (i * reducedCol * sizeof(blk)), reducedCol);
   }
+  check_call("Mat::modp\n");
 
   col = reducedCol;
 }
@@ -122,10 +122,13 @@ void Mat::modp(uint64_t reducedCol) {
 void Mat::xor_scalar(blk *rhs) {
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   xor_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), mNBytes);
+  check_call("Mat::xor_scalar\n");
 }
 
 Mat& Mat::operator&=(blk *rhs) {
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   and_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), mNBytes);
-  cudaDeviceSynchronize();
+  check_call("Mat::operator&=\n");
+
+  return *this;
 }

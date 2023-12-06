@@ -1,5 +1,6 @@
 #include "roles.h"
 #include <future>
+#include "event_log.h"
 
 std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
 
@@ -19,9 +20,9 @@ void SilentOTSender::run() {
   base_ot();
   Log::end(Sender, BaseOT);
 
-  Log::start(Sender, Expand);
+  Log::start(Sender, SeedExp);
   pprf_expand();
-  Log::end(Sender, Expand);
+  Log::end(Sender, SeedExp);
 
   Log::start(Sender, LPN);
   mult_compress();
@@ -29,12 +30,13 @@ void SilentOTSender::run() {
 }
 
 void SilentOTSender::base_ot() {
-  std::vector<std::future<std::array<vec, 2>>> workers;
+  std::vector<std::future<std::array<Vec, 2>>> workers;
   for (int d = 0; d <= depth; d++) {
     workers.push_back(std::async([d, this]() {
       switch (mConfig.baseOT) {
         case SimplestOT_t: return SimplestOT(Sender, d, mConfig.nTree).send();
       }
+      return std::array<Vec, 2>();
     }));
   }
 
@@ -49,7 +51,7 @@ void SilentOTSender::pprf_expand() {
   // init hash keys
   uint32_t k0_blk[4] = {3242342};
   uint32_t k1_blk[4] = {8993849};
-  Expander *expander;
+  Expand *expander;
   switch (mConfig.expander) {
     case AesExpand_t:
       expander = new AesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
@@ -71,29 +73,29 @@ void SilentOTSender::pprf_expand() {
     fullVector.set(t, buff);
   }
 
-  for (uint64_t d = 0, inWidth = 1; d <= depth; d++, inWidth *= 2) {
+  for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
     expander->expand(fullVector, separated, mConfig.nTree * inWidth);
 
     separated.sum(2 * mConfig.nTree, inWidth);
 
-    leftHash.at(d-1).xor_d(separated, 0);
-    rightHash.at(d-1).xor_d(separated, mConfig.nTree);
+    leftHash.at(d).xor_d(separated, 0);
+    rightHash.at(d).xor_d(separated, mConfig.nTree);
 
-    other->leftBuffer.at(d-1).copy(leftHash.at(d-1));
-    other->rightBuffer.at(d-1).copy(rightHash.at(d-1));
+    other->leftBuffer.at(d).copy(leftHash.at(d));
+    other->rightBuffer.at(d).copy(rightHash.at(d));
 
-    if (d == depth) {
-      leftHash.at(d).xor_d(separated, 0);
-      rightHash.at(d).xor_d(separated, mConfig.nTree);
+    if (d == depth-1) {
+      leftHash.at(d+1).xor_d(separated, 0);
+      rightHash.at(d+1).xor_d(separated, mConfig.nTree);
 
-      leftHash.at(d).xor_scalar(delta);
-      rightHash.at(d).xor_scalar(delta);
+      leftHash.at(d+1).xor_scalar(delta);
+      rightHash.at(d+1).xor_scalar(delta);
 
-      other->leftBuffer.at(d).copy(leftHash.at(d));
-      other->rightBuffer.at(d).copy(rightHash.at(d));
+      other->leftBuffer.at(d+1).copy(leftHash.at(d+1));
+      other->rightBuffer.at(d+1).copy(rightHash.at(d+1));
     }
 
-    cudaEventRecord(expandEvents.at(d-1));
+    cudaEventRecord(expandEvents.at(d));
   }
 
   other->eventsRecorded = true;

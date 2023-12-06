@@ -18,7 +18,7 @@ class SilentOTRecver;
 struct SilentOTConfig {
   int id, logOT, nTree;
   BaseOTType baseOT;
-  ExpanderType expander;
+  ExpandType expander;
   CompressType compressor;
   uint64_t *choices;
 };
@@ -52,8 +52,8 @@ public:
 private:
   SilentOTRecver *other = nullptr;
 
-  std::vector<vec> leftHash;
-  std::vector<vec> rightHash;
+  std::vector<Vec> leftHash;
+  std::vector<Vec> rightHash;
   virtual void base_ot();
 
   virtual void pprf_expand();
@@ -63,8 +63,8 @@ private:
 class SilentOTRecver : public SilentOT {
 public:
   // receive from sender
-  std::vector<vec> leftBuffer;
-  std::vector<vec> rightBuffer;
+  std::vector<Vec> leftBuffer;
+  std::vector<Vec> rightBuffer;
 
   std::atomic<bool> eventsRecorded = false;
 
@@ -76,7 +76,7 @@ public:
 private:
   SilentOTSender *other = nullptr;
 
-  std::vector<vec> choiceHash;
+  std::vector<Vec> choiceHash;
   virtual void base_ot();
 
   virtual void pprf_expand();

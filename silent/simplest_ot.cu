@@ -45,13 +45,13 @@ void SimplestOT::toOtherBuffer(uint8_t *s, uint64_t nBytes) {
   other->hasContent = true;
 }
 
-std::array<vec, 2> SimplestOT::send() {
+std::array<Vec, 2> SimplestOT::send() {
   a.randomize(prng);
   A = Point::mulGenerator(a);
   toOtherBuffer((uint8_t*) &A, sizeof(A));
 
-  std::array<vec, 2> m = {
-    vec(mCount), vec(mCount)
+  std::array<Vec, 2> m = {
+    Vec(mCount), Vec(mCount)
   };
   A *= a;
   fromOwnBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());

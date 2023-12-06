@@ -1,9 +1,7 @@
 #!/bin/bash
 
 cd $SLURM_SUBMIT_DIR
-
-make -j -s
-mkdir -p output
+./ot 1 28 8
 
 # for NUMTREE in 2 4 8 16 32 64 128 256
 # do
@@ -15,11 +13,5 @@ mkdir -p output
 #     ./ot 1 $LOGOT 8
 # done
 
-nsys profile --stats=true ./ot 1 24 8 &> prof
-rm report*
-
 # valgrind ./ot 1 24 8 &> valgrind-out
 # compute-sanitizer --tool memcheck ./ot 1 24 8 &> memcheck-out
-
-./ot 1 24 8
-python plotter.py

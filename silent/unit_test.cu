@@ -3,6 +3,7 @@
 #include "unit_test.h"
 #include "expand.h"
 #include "base_ot.h"
+#include "gpu_ops.h"
 
 void test_cuda() {
   int deviceCount = 0;

@@ -61,12 +61,7 @@ void cuda_spcot_sender_compute(Span &tree, int t, int depth, Mat &lSum, Mat &rSu
 		cudaMemcpy(rSum.data({d, 0}), separated.data(t), t*sizeof(blk), cudaMemcpyDeviceToDevice);
 	}
 
-	cudaError_t err = cudaDeviceSynchronize();
-	if (err != cudaSuccess) {
-		char msg[40];
-		sprintf(msg, "spcot_sender: %s\n", cudaGetErrorString(err));
-		throw std::runtime_error(msg);
-	}
+	check_call("spcot_sender\n");
 }
 
 void cuda_spcot_recver_compute(Span &tree, int t, int depth, Mat &cSum, bool *b) {
@@ -105,14 +100,8 @@ void cuda_spcot_recver_compute(Span &tree, int t, int depth, Mat &cSum, bool *b)
 		}
 	}
 
-	cudaError_t err = cudaDeviceSynchronize();
-	if (err != cudaSuccess) {
-		char msg[40];
-		sprintf(msg, "spcot_recver: %s\n", cudaGetErrorString(err));
-		throw std::runtime_error(msg);
-	}
-
 	delete[] activeParent;
+	check_call("spcot_recver\n");
 }
 
 void cuda_gen_matrices(Mat &pubMat, uint32_t *key) {
@@ -122,21 +111,11 @@ void cuda_gen_matrices(Mat &pubMat, uint32_t *key) {
 	grid = dim3(4*pubMat.dim(1)*pubMat.dim(2)/AES_BSIZE, pubMat.dim(0));
 	aesEncrypt128<<<grid, AES_BSIZE>>>(key, (uint32_t*)pubMat.data());
 	
-	cudaError_t err = cudaDeviceSynchronize();
-	if (err != cudaSuccess) {
-		char msg[40];
-		sprintf(msg, "gen mat: %s\n", cudaGetErrorString(err));
-		throw std::runtime_error(msg);
-	}
+	check_call("cuda_gen_matrices\n");
 }
 
 void cuda_lpn_f2_compute(blk *pubMat, int d, int n, int k, Span &nn, Span &kk) {
 	lpn_single_row<<<n/1024, 1024>>>((uint32_t*)pubMat, d, k, nn.data(), kk.data());
 
-	cudaError_t err = cudaDeviceSynchronize();
-	if (err != cudaSuccess) {
-		char msg[40];
-		sprintf(msg, "lpn: %s\n", cudaGetErrorString(err));
-		throw std::runtime_error(msg);
-	}
+	check_call("cuda_lpn_f2_compute\n");
 }

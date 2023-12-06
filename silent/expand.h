@@ -1,7 +1,7 @@
 #ifndef __AES_H__
 #define __AES_H__
 
-#include "gpu_tools.h"
+#include "gpu_utils.h"
 #include "gpu_vector.h"
 
 struct AES_ctx {

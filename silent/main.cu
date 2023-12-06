@@ -39,11 +39,6 @@ int main(int argc, char** argv) {
   int numTrees = atoi(argv[3]);
   printf("log OTs: %lu, Trees: %d\n", logOT, numTrees);
 
-  // temporary measure while RDMA being set up to run two processes
-  char filenameS[32], filenameR[32];
-  sprintf(filenameS, "output/gpu-log-%03d-%03d-send.txt", logOT, numTrees);
-  sprintf(filenameR, "output/gpu-log-%03d-%03d-recv.txt", logOT, numTrees);
-
   uint64_t depth = logOT - log2((float) numTrees) + 1;
 
   SilentOTConfig config = {
@@ -57,23 +52,23 @@ int main(int argc, char** argv) {
   SilentOTSender *sender;
   SilentOTRecver *recver;
 
-  std::future<void> senderWorker = std::async([&sender, &config, filenameS]() {
+  std::future<void> senderWorker = std::async([&sender, &config]() {
     // Log::start(Sender, CudaInit);
     cudaSetDevice(0);
     cuda_init();
     // Log::end(Sender, CudaInit);
-    Log::open(Sender, filenameS);
+    Log::open(Sender, "../results/gpu-silent-send.txt");
     sender = new SilentOTSender(config);
     sender->run();
     Log::close(Sender);
   });
 
-  std::future<void> recverWorker = std::async([&recver, &config, filenameR]() {
+  std::future<void> recverWorker = std::async([&recver, &config]() {
     // Log::start(Recver, CudaInit);
     cudaSetDevice(1);
     cuda_init();
     // Log::end(Recver, CudaInit);
-    Log::open(Recver, filenameR);
+    Log::open(Recver, "../results/gpu-silent-recv.txt");
     recver = new SilentOTRecver(config);
     recver->run();
     Log::close(Recver);
