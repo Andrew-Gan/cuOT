@@ -22,7 +22,6 @@ AesExpand::AesExpand(uint8_t *leftUnexp, uint8_t *rightUnexp) {
 	cudaMemcpyToSymbol(keyRight, rightExpKey.roundKey, sizeof(keyRight));
 }
 
-// interleaved used as input
 void AesExpand::expand(Span &interleaved, Vec &separated, uint64_t inWidth) {
     dim3 grid((4*inWidth+(AES_BSIZE-1)) / AES_BSIZE, 2);
 	uint32_t *keyL, *keyR;

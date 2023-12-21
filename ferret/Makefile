@@ -3,7 +3,7 @@ CUFLG := -g -G -std=c++20
 CCFLG := -g -std=c++20 -gdwarf-4 -w
 LIB := -lcurand -lcufft
 INC := -I./silent/lib
-GPU_TOOLS := ../gpu/gpu_tools.o
+GPU_TOOLS := ../gpu/gpu.o
 
 ############################################################
 
@@ -17,7 +17,7 @@ CLUSTER=K
 .PHONY: all clean
 
 ferret: $(GPU_TOOLS)
-	cd ferret; python build.py --ot
+	python build.py --ot
 
 run: emp-ot/bin/test_ferret
 	rm -f slurm*.out report*sqlite report*nsys-rep
