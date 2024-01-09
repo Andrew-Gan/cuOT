@@ -2,9 +2,9 @@
 #include <fstream>
 #include <mutex>
 
-#include "gpu_utils.h"
 #include "gpu_data.h"
 #include "gpu_ops.h"
+#include "gpu_tests.h"
 
 GPUdata::GPUdata(uint64_t n) : mNBytes(n) {
   cudaError_t err = cudaMalloc(&mPtr, n);
@@ -36,7 +36,11 @@ GPUdata& GPUdata::operator^=(const GPUdata &rhs) {
 }
 
 GPUdata& GPUdata::operator=(const GPUdata &rhs) {
-  if (mNBytes != rhs.size_bytes()) resize(rhs.size_bytes());
+  if (mNBytes != rhs.size_bytes()) {
+    cudaFree(mPtr);
+    cudaMalloc(&mPtr, rhs.size_bytes());
+    mNBytes = rhs.size_bytes();
+  }
   cudaMemcpy(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice);
   return *this;
 }
@@ -84,7 +88,7 @@ void GPUdata::load(const char *filename) {
 }
 
 void GPUdata::save(const char *filename) {
-  std::ofstream ofs(filename, std::ios::out | std::ios::binary);
+  std::ofstream ofs(filename, std::ios::out | std::ios::app | std::ios::binary);
   char *buffer = new char[mNBytes];
   cudaMemcpy(buffer, mPtr, mNBytes, cudaMemcpyDeviceToHost);
   ofs.write(buffer, mNBytes);
@@ -103,11 +107,14 @@ void GPUdata::xor_d(GPUdata &rhs) {
   check_call("GPUdata::xor_d\n");
 }
 
-void GPUdata::copy(GPUdata &rhs) {
-  if (mNBytes != rhs.size_bytes()) {
-    cudaFree(mPtr);
-    cudaMalloc(&mPtr, rhs.size_bytes());
-    mNBytes = rhs.size_bytes();
+std::ostream& operator<<(std::ostream &os, GPUdata &obj) {
+  uint8_t *tmp = new uint8_t[obj.size_bytes()];
+  cudaMemcpy(tmp, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
+  uint64_t size = std::min((uint64_t)1024, obj.size_bytes());
+  for (uint64_t i = 0; i < size; i += sizeof(OTblock)) {
+    os << std::hex << std::setw(2) << std::setfill('0') << int(tmp[i]) << " ";
   }
-  cudaMemcpy(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice);
+  os << std::endl;
+  delete[] tmp;
+  return os;
 }

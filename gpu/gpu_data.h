@@ -20,11 +20,12 @@ public:
   void save(const char *filename);
   void clear();
   void xor_d(GPUdata &rhs);
-  void copy(GPUdata &rhs);
 
 protected:
   uint8_t *mPtr = nullptr;
   uint64_t mNBytes = 0;
 };
+
+std::ostream& operator<<(std::ostream &os, GPUdata &obj);
 
 #endif

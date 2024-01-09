@@ -3,6 +3,7 @@
 #include "expand.h"
 #include "aes_op.h"
 #include "utilsBox.h"
+#include "gpu_tests.h"
 
 #define Nb 4
 #define Nk 4

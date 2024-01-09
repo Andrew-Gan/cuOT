@@ -56,22 +56,20 @@ std::array<Vec, 2> SimplestOT::send() {
   A *= a;
   fromOwnBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
 
-  blk buff0[mCount * sizeof(blk)];
-  blk buff1[mCount * sizeof(blk)];
+  blk buff0[mCount];
+  blk buff1[mCount];
 
   for (uint64_t i = 0; i < mCount; i++) {
     B.at(i) *= a;
     osuCrypto::RandomOracle ro(sizeof(blk));
     ro.Update(B.at(i));
     ro.Update(i);
-    uint8_t buff0[sizeof(blk)];
-    ro.Final(buff0 + i);
+    ro.Final((uint8_t*)(buff0 + i));
     B.at(i) -= A;
     ro.Reset();
     ro.Update(B.at(i));
     ro.Update(i);
-    uint8_t buff1[sizeof(blk)];
-    ro.Final(buff1 + i);
+    ro.Final((uint8_t*)(buff1 + i));
   }
   cudaMemcpy(m[0].data(), buff0, mCount * sizeof(blk), cudaMemcpyHostToDevice);
   cudaMemcpy(m[1].data(), buff1, mCount * sizeof(blk), cudaMemcpyHostToDevice);
@@ -91,14 +89,13 @@ Vec SimplestOT::recv(uint64_t choice) {
   }
   toOtherBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
 
-  uint8_t buff[mCount * sizeof(blk)];
-
+  blk buff[mCount];
   for (uint64_t i = 0; i < mCount; i++) {
     Point point = A * b.at(i);
     osuCrypto::RandomOracle ro(sizeof(blk));
     ro.Update(point);
     ro.Update(i);
-    ro.Final(buff);
+    ro.Final((uint8_t*)(buff + i));
   }
   cudaMemcpy(mb.data(), buff, mCount * sizeof(blk), cudaMemcpyHostToDevice);
   return mb;

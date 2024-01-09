@@ -2,7 +2,7 @@
 #include <future>
 #include "event_log.h"
 
-std::array<std::atomic<SilentOTSender*>, 100> silentOTSenders;
+std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 
 SilentOTSender::SilentOTSender(SilentOTConfig config) :
   SilentOT(config), fullVector(2 * numOT) {
@@ -15,23 +15,9 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) :
   other = silentOTRecvers[config.id];
 }
 
-void SilentOTSender::run() {
-  Log::start(Sender, BaseOT);
-  base_ot();
-  Log::end(Sender, BaseOT);
-
-  Log::start(Sender, SeedExp);
-  pprf_expand();
-  Log::end(Sender, SeedExp);
-
-  Log::start(Sender, LPN);
-  mult_compress();
-  Log::end(Sender, LPN);
-}
-
 void SilentOTSender::base_ot() {
   std::vector<std::future<std::array<Vec, 2>>> workers;
-  for (int d = 0; d <= depth; d++) {
+  for (int d = 0; d < depth; d++) {
     workers.push_back(std::async([d, this]() {
       switch (mConfig.baseOT) {
         case SimplestOT_t: return SimplestOT(Sender, d, mConfig.nTree).send();
@@ -41,10 +27,12 @@ void SilentOTSender::base_ot() {
   }
 
   for (auto &worker : workers) {
-    auto res = worker.get();
+    std::array<Vec, 2> res = worker.get();
     leftHash.push_back(res[0]);
     rightHash.push_back(res[1]);
   }
+  leftHash.push_back(leftHash.back());
+  rightHash.push_back(rightHash.back());
 }
 
 void SilentOTSender::pprf_expand() {
@@ -57,8 +45,7 @@ void SilentOTSender::pprf_expand() {
       expander = new AesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
   }
   Vec separated(2 * numOT);
-  Vec leftSum(mConfig.nTree), rightSum(mConfig.nTree);
-  // init delta
+  
   blk buff;
   for (int i = 0; i < 4; i++) {
     buff.data[i] = rand();
@@ -75,24 +62,19 @@ void SilentOTSender::pprf_expand() {
 
   for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
     expander->expand(fullVector, separated, mConfig.nTree * inWidth);
-
     separated.sum(2 * mConfig.nTree, inWidth);
-
     leftHash.at(d).xor_d(separated, 0);
     rightHash.at(d).xor_d(separated, mConfig.nTree);
-
-    other->leftBuffer.at(d).copy(leftHash.at(d));
-    other->rightBuffer.at(d).copy(rightHash.at(d));
+    other->leftBuffer.at(d) = leftHash.at(d);
+    other->rightBuffer.at(d) = rightHash.at(d);
 
     if (d == depth-1) {
-      leftHash.at(d+1).xor_d(separated, 0);
-      rightHash.at(d+1).xor_d(separated, mConfig.nTree);
-
+      leftHash.at(d+1).xor_d(separated, mConfig.nTree);
       leftHash.at(d+1).xor_scalar(delta);
+      rightHash.at(d+1).xor_d(separated, 0);
       rightHash.at(d+1).xor_scalar(delta);
-
-      other->leftBuffer.at(d+1).copy(leftHash.at(d+1));
-      other->rightBuffer.at(d+1).copy(rightHash.at(d+1));
+      other->leftBuffer.at(d+1) = leftHash.at(d+1);
+      other->rightBuffer.at(d+1) = rightHash.at(d+1);
     }
 
     cudaEventRecord(expandEvents.at(d));
@@ -104,10 +86,10 @@ void SilentOTSender::pprf_expand() {
   delete expander;
 }
 
-void SilentOTSender::mult_compress() {
+void SilentOTSender::lpn_compress() {
   switch (mConfig.compressor) {
     case QuasiCyclic_t:
-      QuasiCyclic code(Sender, 2 * numOT, numOT);
+      QuasiCyclic code(2 * numOT, numOT);
       code.encode(fullVector);
     // case ExpandAccumulate:
   }

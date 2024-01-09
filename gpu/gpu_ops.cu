@@ -1,6 +1,6 @@
 #include <cstdio>
 #include "gpu_ops.h"
-#include "gpu_utils.h"
+#include "gpu_define.h"
 
 #define BIT_ACCESS(d, w, r, c) ((d[r * w + c / 64] >> (63-(c % 64))) & 0b1)
 
