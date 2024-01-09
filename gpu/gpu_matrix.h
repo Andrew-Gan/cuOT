@@ -1,7 +1,7 @@
 #ifndef __GPU_MATRIX_H__
 #define __GPU_MATRIX_H__
 
-#include "gpu_utils.h"
+#include "gpu_define.h"
 #include "gpu_data.h"
 
 #include <vector>

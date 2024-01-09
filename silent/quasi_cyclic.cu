@@ -1,13 +1,10 @@
 #include "compress.h"
 #include <cmath>
-#include "gpu_utils.h"
+#include "gpu_tests.h"
 #include "gpu_vector.h"
 #include "gpu_ops.h"
 
 #include <cstdio>
-
-// rows to run FFT at once: 1-128
-#define FFT_BATCHSIZE 8
 
 __global__
 void bitpoly_to_cufft(uint64_t *bitPoly, cufftReal *arr) {
@@ -44,49 +41,42 @@ void cufft_to_bitpoly(cufftReal *arr, uint64_t *bitPoly) {
 
 __global__
 void complex_dot_product(cufftComplex *c_out, cufftComplex *a_in, cufftComplex *b_in) {
-  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t col = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t width = gridDim.x * blockDim.x;
-  cufftComplex a = a_in[tid];
+  cufftComplex a = a_in[col];
   cufftComplex b, c;
 
-  for (uint64_t row = 0; row < FFT_BATCHSIZE; row++) {
-    b = b_in[row * width + tid];
+  for (int row = 0; row < 8 * sizeof(OTblock); row++) {
+    b = b_in[row * width + col];
     c.x = a.x * b.x - a.y * b.y;
     c.y = a.x * b.y + a.y * b.x;
-    c_out[row * width + tid] = c;
+    c_out[row * width + col] = c;
   }
 }
 
-QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) : mRole(role), mIn(in), mOut(out) {
+QuasiCyclic::QuasiCyclic(uint64_t in, uint64_t out) : mIn(in), mOut(out) {
   if (mIn == 0 || mOut == 0) return;
 
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_DEFAULT);
-  curandSetPseudoRandomGeneratorSeed(prng, 50);
-  nBlocks = (mOut + rows - 1) / rows;
-  n2Blocks = ((mIn - mOut) + rows - 1) / rows;
-  n64 = nBlocks * 2;
-
+  curandSetPseudoRandomGeneratorSeed(prng, 1234);
   cufftCreate(&aPlan);
   cufftCreate(&bPlan);
   cufftCreate(&cPlan);
+  cufftPlan1d(&aPlan, 2 * mIn, CUFFT_R2C, 1);
+  cufftPlan1d(&bPlan, 2 * mIn, CUFFT_R2C, rows);
+  cufftPlan1d(&cPlan, 2 * mIn, CUFFT_C2R, 1);
 
-  // long cudaMemcpyHostToDevice runtime
-  cufftPlan1d(&aPlan, 2 * mOut, CUFFT_R2C, 1);
-  cufftPlan1d(&bPlan, 2 * mOut, CUFFT_R2C, FFT_BATCHSIZE);
-  cufftPlan1d(&cPlan, 2 * mOut, CUFFT_C2R, FFT_BATCHSIZE);
-
-  Vec a64(n64 / 2);
+  Vec a64(mIn / sizeof(OTblock));
   cufftReal *a64_poly;
-  curandGenerate(prng, (uint32_t*) a64.data(), 2 * n64);
+  curandGenerate(prng, (uint32_t*)a64.data(), 4 * a64.size());
+  cudaMalloc(&a64_poly, 2 * mIn * sizeof(cufftReal));
+  cudaMalloc(&a64_fft, 2 * mIn * sizeof(cufftComplex));
 
-  cudaMalloc(&a64_poly, 2 * mOut * sizeof(cufftReal));
-  cudaMalloc(&a64_fft, 2 * mOut * sizeof(cufftComplex));
-
-  uint64_t block = std::min(n64, 1024lu);
-  uint64_t grid = n64 < 1024 ? 1 : n64 / 1024;
+  uint64_t thread = 2 * mIn / 64;
+  uint64_t block = std::min(thread, 1024lu);
+  uint64_t grid = (thread + block - 1) / block;
   bitpoly_to_cufft<<<grid, block>>>((uint64_t*)a64.data(), a64_poly);
   check_call("QuasiCyclic::QuasiCyclic\n");
-
   cufftExecR2C(aPlan, a64_poly, a64_fft);
   cudaFree(a64_poly);
 }
@@ -101,48 +91,35 @@ QuasiCyclic::~QuasiCyclic() {
 }
 
 void QuasiCyclic::encode(Vec &vector) {
-  // XT = mOut x 1
-  Mat XT({mOut, 1});
-  XT.load((uint8_t*) (vector.data() + mOut));
-  // XT = rows x n2blocks
-  XT.bit_transpose();
+  Mat b64({mIn, 1});
+  b64.load((uint8_t*) vector.data());
+  b64.bit_transpose();
 
-  // XT.load("input/XT.bin");
-
-  uint64_t *b64 = (uint64_t*) XT.data();
   cufftReal *b64_poly, *c64_poly;
   cufftComplex *b64_fft, *c64_fft;
-  cudaMalloc(&b64_poly, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftReal));
-  cudaMalloc(&b64_fft, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftComplex));
-  cudaMalloc(&c64_poly, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftReal));
-  cudaMalloc(&c64_fft, FFT_BATCHSIZE * 2 * mOut * sizeof(cufftComplex));
-
+  cudaMalloc(&b64_poly, rows * 2 * mIn * sizeof(cufftReal));
+  cudaMalloc(&b64_fft, rows * 2 * mIn * sizeof(cufftComplex));
+  cudaMalloc(&c64_poly, rows * 2 * mIn * sizeof(cufftReal));
+  cudaMalloc(&c64_fft, rows * 2 * mIn * sizeof(cufftComplex));
   check_call("QuasiCyclic::start\n");
 
-  Mat cModP1({rows, 2 * nBlocks}); // hold unmodded coeffs
-  uint64_t block;
-  dim3 grid;
-  cufftResult res;
+  std::cout << "b64: " << std::endl;
+  std::cout << b64 << std::endl;
 
-  for (uint64_t r = 0; r < rows; r += FFT_BATCHSIZE) {
-    block = std::min(n64, 1024lu);
-    grid = dim3(n64 < 1024 ? 1 : n64 / 1024, FFT_BATCHSIZE);
-    bitpoly_to_cufft<<<grid, block>>>(b64 + r * n64, b64_poly);
-    check_call("QuasiCyclic::encode 0\n");
-    cufftExecR2C(bPlan, b64_poly, b64_fft);
-    check_call("QuasiCyclic::encode 0b\n");
+  uint64_t thread = rows * 2 * mIn / 64;
+  uint64_t block = std::min(thread, 1024UL);
+  uint64_t grid = (thread + block - 1) / block;
+  bitpoly_to_cufft<<<grid, block>>>((uint64_t*)b64.data(), b64_poly);
+  cufftExecR2C(bPlan, b64_poly, b64_fft);
 
-    block = std::min(2 * mOut, 1024lu);
-    grid = dim3(2 * mOut < 1024 ? 1 : 2 * mOut / 1024, 1);
-    complex_dot_product<<<grid, block>>>(c64_fft, a64_fft, b64_fft);
-    check_call("QuasiCyclic::encode 1\n");
+  uint64_t threadPerRow = 2 * mIn;
+  uint64_t block2 = std::min(threadPerRow, 1024UL);
+  uint64_t grid2 = (threadPerRow + block - 1) / block;
+  complex_dot_product<<<grid2, block2>>>(c64_fft, a64_fft, b64_fft);
 
-    cufftExecC2R(cPlan, c64_fft, c64_poly);
-    block = std::min(n64, 1024lu);
-    grid = dim3(n64 < 1024 ? 1 : n64 / 1024, FFT_BATCHSIZE);
-    cufft_to_bitpoly<<<grid, block>>>(c64_poly, (uint64_t*) cModP1.data() + r * 2 * n64);
-    check_call("QuasiCyclic::encode 2\n");
-  }
+  cufftExecC2R(cPlan, c64_fft, c64_poly);
+  Mat cModP1({rows, 2 * mIn / sizeof(OTblock)});
+  cufft_to_bitpoly<<<grid, block>>>(c64_poly, (uint64_t*) cModP1.data());
 
   check_call("QuasiCyclic::encode mid\n");
 
@@ -151,9 +128,10 @@ void QuasiCyclic::encode(Vec &vector) {
   cudaFree(c64_poly);
   cudaFree(c64_fft);
 
-  cModP1.modp(nBlocks); // cModP1 = rows x nBlocks
-  cModP1.bit_transpose(); // cModP1 = mOut x 1
+  cModP1.modp(mOut / sizeof(OTblock));
+  cModP1.bit_transpose();
 
-  gpu_xor<<<16 * mOut / 1024, 1024>>>((uint8_t*) vector.data(), (uint8_t*) cModP1.data(), 16 * mOut);
+  vector.resize(mOut);
+  vector.load((uint8_t*)cModP1.data());
   check_call("QuasiCyclic::encode end\n");
 }

@@ -1,7 +1,7 @@
 #ifndef __AESENCRYPT_H__
 #define __AESENCRYPT_H__
 
-#include "gpu_utils.h"
+#include "gpu_define.h"
 
 __global__
 void aesEncrypt128(uint32_t *key, uint32_t *data);

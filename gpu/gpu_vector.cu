@@ -1,15 +1,15 @@
 #include "gpu_ops.h"
 #include "gpu_vector.h"
-#include <cstdio>
 #include <stdexcept>
+#include "gpu_tests.h"
 
 blk* Vec::data(uint64_t i) const {
-  if (i >= dim(1)) {
+  if (i >= dim(0)) {
     char msg[40];
-    sprintf(msg, "Accessing index %lu in Vec of len %lu\n", i, dim(1));
+    sprintf(msg, "Accessing index %lu in Vec of len %lu\n", i, dim(0));
     throw std::invalid_argument(msg);
   }
-  return Mat::data({0, i});
+  return Mat::data({i});
 }
 
 // nPartition: number of partitions to reduce to separate totals

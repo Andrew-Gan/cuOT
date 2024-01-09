@@ -16,19 +16,19 @@ class QuasiCyclic : public Compress {
 private:
   curandGenerator_t prng;
   const uint64_t rows = 128;
-  int mRole;
-  uint64_t mIn, mOut, nBlocks, n2Blocks, n64;
+  uint64_t mIn, mOut, nBlocks, n2Blocks, n64, bitlen;
   cufftHandle aPlan, bPlan, cPlan;
   cufftComplex *a64_fft;
+
 public:
-  QuasiCyclic(Role role, uint64_t in, uint64_t out);
+  QuasiCyclic(uint64_t in, uint64_t out);
   virtual ~QuasiCyclic();
   void encode(Vec &vector);
 };
 
 class ExpandAccumulate : public Compress {
 public:
-  ExpandAccumulate(Role role, uint64_t in, uint64_t out);
+  ExpandAccumulate(uint64_t in, uint64_t out);
   virtual ~ExpandAccumulate();
   void encode(Vec &vector);
 };

@@ -2,6 +2,7 @@
 #include "gpu_ops.h"
 #include "gpu_matrix.h"
 #include <stdexcept>
+#include "gpu_tests.h"
 
 Mat::Mat(std::vector<uint64_t> newDim) : GPUdata(listToSize(newDim)*sizeof(blk)) {
   mDim = newDim;
@@ -57,7 +58,7 @@ blk* Mat::data(std::vector<uint64_t> pos) const {
 
 void Mat::set(blk &val, std::vector<uint64_t> pos) {
   uint64_t offset = listToOffset(pos);
-  cudaMemcpy((blk*) mPtr + offset, &val, sizeof(blk), cudaMemcpyHostToDevice);
+  cudaMemcpy((blk*)mPtr + offset, &val, sizeof(blk), cudaMemcpyHostToDevice);
 }
 
 void Mat::resize(std::vector<uint64_t> newDim) {
@@ -85,7 +86,7 @@ void Mat::bit_transpose() {
     block.x = 32;
     grid.x = col * sizeof(blk) / 32;
   }
-  if (col) {
+  if (row / 8 < 32) {
     block.y = row / 8;
     grid.y = 1;
   }

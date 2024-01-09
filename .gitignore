@@ -1,4 +1,4 @@
-gpu-tools/*.o
+**/*.o
 .vscode
 results/
 data/

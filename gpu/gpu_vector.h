@@ -1,6 +1,7 @@
 #ifndef __GPU_VECTOR_H__
 #define __GPU_VECTOR_H__
 
+#include <iostream>
 #include "gpu_matrix.h"
 
 class Span;
@@ -11,11 +12,11 @@ public:
   using Mat::data;
 
   Vec() {}
-  Vec(uint64_t len) : Mat({1, len}) {}
-  uint64_t size() const { return dim(1); }
+  Vec(uint64_t len) : Mat({len}) {}
+  uint64_t size() const { return dim(0); }
   blk* data(uint64_t i) const;
-  void set(uint64_t i, blk &val) { Mat::set(val, {0, i}); }
-  void resize(uint64_t len) { Mat::resize({1, len}); }
+  void set(uint64_t i, blk &val) { Mat::set(val, {i}); }
+  void resize(uint64_t len) { Mat::resize({len}); }
   void sum(uint64_t nPartition, uint64_t blkPerPart);
   void xor_d(Vec &rhs, uint64_t offs);
   Span span(uint64_t start = 0, uint64_t end = 0);
