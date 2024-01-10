@@ -30,9 +30,8 @@ void xor_single(uint8_t *a, uint8_t *b, uint64_t size, uint64_t n) {
 
 __global__
 void bit_transposer(uint8_t *out, uint8_t *in, dim3 grid) {
-  dim3 blockId(blockIdx.x % grid.x, blockIdx.x / grid.x);
-  uint64_t i = blockDim.y * blockId.y + threadIdx.y;
-  uint64_t j = blockDim.x * blockId.x + threadIdx.x;
+  uint64_t i = blockDim.y * blockIdx.y + threadIdx.y;
+  uint64_t j = blockDim.x * blockIdx.x + threadIdx.x;
   uint64_t nRowBlocks = grid.y * blockDim.y;
   uint64_t bytesPerRow = grid.x * blockDim.x;
 
@@ -102,11 +101,28 @@ void xor_reduce(uint64_t *out, uint64_t *in) {
 }
 
 __global__
-void print(void *data, uint64_t n, uint64_t stride) {
-  uint8_t *uData = (uint8_t*) data;
+void print(uint8_t *data, uint64_t n, uint64_t stride) {
   for(int i = 0; i < n; i += 16) {
     for (int j = i; j < n && j < i + 16; j++)
-      printf("%02x ", uData[j * stride]);
+      printf("%02x ", data[j * stride]);
+    printf("\n");
+  }
+}
+
+__global__
+void print(float *data, uint64_t n, uint64_t stride) {
+  for(int i = 0; i < n; i += 32) {
+    for (int j = i; j < n && j < i + 32; j++)
+      printf("%.0f ", data[j * stride]);
+    printf("\n");
+  }
+}
+
+__global__
+void print(cuComplex *data, uint64_t n, uint64_t stride) {
+  for(int i = 0; i < n; i += 16) {
+    for (int j = i; j < n && j < i + 16; j++)
+      printf("%.2f + %.2fi ", data[j * stride].x, data[j * stride].y);
     printf("\n");
   }
 }

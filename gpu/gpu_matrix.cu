@@ -78,24 +78,14 @@ void Mat::bit_transpose() {
   uint8_t *tpBuffer;
   cudaMalloc(&tpBuffer, mNBytes);
   dim3 block, grid;
-  if (col * sizeof(blk) < 32) {
-    block.x = col * sizeof(blk);
-    grid.x = 1;
-  }
-  else {
-    block.x = 32;
-    grid.x = col * sizeof(blk) / 32;
-  }
-  if (row / 8 < 32) {
-    block.y = row / 8;
-    grid.y = 1;
-  }
-  else {
-    block.y = 32;
-    grid.y = row / 8 / 32;
-  }
-  // translate 2D grid into 1D due to CUDA limitations
-  bit_transposer<<<grid.x * grid.y, block>>>(tpBuffer, mPtr, grid);
+  uint64_t thread = col * sizeof(blk);
+  block.x = std::min(thread, 32UL);
+  grid.x = (thread + block.x - 1) / block.x;
+  thread = row / 8;
+  block.y = std::min(thread, 32UL);
+  grid.y = (thread + block.y - 1) / block.y;
+
+  bit_transposer<<<grid, block>>>(tpBuffer, mPtr, grid);
   check_call("Mat::bit_transpose\n");
   cudaFree(mPtr);
   mPtr = tpBuffer;

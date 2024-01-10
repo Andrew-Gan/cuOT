@@ -2,3 +2,7 @@
 .vscode
 results/
 data/
+silent/slurm*
+silent/ot
+ferret/slurm*
+ferret/emp-ot/bin

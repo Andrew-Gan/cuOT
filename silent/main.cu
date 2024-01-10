@@ -95,10 +95,6 @@ int main(int argc, char** argv) {
   assert(check_cot(sender->fullVector, recver->puncVector, recver->choiceVector, sender->delta));
   std::cout << "pre-LPN COT test successful" << std::endl;
 
-  std::cout << "full: " << std::endl << sender->fullVector << std::endl;
-  std::cout << "punc: " << std::endl << recver->puncVector << std::endl;
-  std::cout << "choice: " << std::endl << recver->choiceVector << std::endl;
-
   senderWorker = std::async([&sender, &config]() {
     cudaSetDevice(0);
     Log::start(Sender, LPN);
@@ -115,10 +111,6 @@ int main(int argc, char** argv) {
   });
   senderWorker.get();
   recverWorker.get();
-
-  std::cout << "full: " << std::endl << sender->fullVector << std::endl;
-  std::cout << "punc: " << std::endl << recver->puncVector << std::endl;
-  std::cout << "choice: " << std::endl << recver->choiceVector << std::endl;
 
   assert(check_cot(sender->fullVector, recver->puncVector, recver->choiceVector, sender->delta));
   std::cout << "post-LPN COT test successful" << std::endl;

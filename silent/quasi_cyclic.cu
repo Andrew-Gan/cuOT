@@ -33,10 +33,16 @@ void cufft_to_bitpoly(cufftReal *arr, uint64_t *bitPoly) {
   for (int j = 0; j < 64; j++) {
     if ((int) arr[offset++] & 1) {
       tmp |= setter;
-      setter <<= 1;
     }
+    setter <<= 1;
   }
   bitPoly[row * bitWidth + i] = tmp;
+}
+
+__global__
+void divider(cufftReal *data, int scale) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    data[i] /= scale;
 }
 
 __global__
@@ -76,8 +82,10 @@ QuasiCyclic::QuasiCyclic(uint64_t in, uint64_t out) : mIn(in), mOut(out) {
   uint64_t block = std::min(thread, 1024lu);
   uint64_t grid = (thread + block - 1) / block;
   bitpoly_to_cufft<<<grid, block>>>((uint64_t*)a64.data(), a64_poly);
+
   check_call("QuasiCyclic::QuasiCyclic\n");
   cufftExecR2C(aPlan, a64_poly, a64_fft);
+
   cudaFree(a64_poly);
 }
 
@@ -103,9 +111,6 @@ void QuasiCyclic::encode(Vec &vector) {
   cudaMalloc(&c64_fft, rows * 2 * mIn * sizeof(cufftComplex));
   check_call("QuasiCyclic::start\n");
 
-  std::cout << "b64: " << std::endl;
-  std::cout << b64 << std::endl;
-
   uint64_t thread = rows * 2 * mIn / 64;
   uint64_t block = std::min(thread, 1024UL);
   uint64_t grid = (thread + block - 1) / block;
@@ -116,11 +121,11 @@ void QuasiCyclic::encode(Vec &vector) {
   uint64_t block2 = std::min(threadPerRow, 1024UL);
   uint64_t grid2 = (threadPerRow + block - 1) / block;
   complex_dot_product<<<grid2, block2>>>(c64_fft, a64_fft, b64_fft);
-
   cufftExecC2R(cPlan, c64_fft, c64_poly);
+  divider<<<grid2, block2>>>(c64_poly, 2 * mIn);
+
   Mat cModP1({rows, 2 * mIn / sizeof(OTblock)});
   cufft_to_bitpoly<<<grid, block>>>(c64_poly, (uint64_t*) cModP1.data());
-
   check_call("QuasiCyclic::encode mid\n");
 
   cudaFree(b64_poly);
