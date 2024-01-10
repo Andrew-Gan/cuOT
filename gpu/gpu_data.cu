@@ -110,9 +110,11 @@ void GPUdata::xor_d(GPUdata &rhs) {
 std::ostream& operator<<(std::ostream &os, GPUdata &obj) {
   uint8_t *tmp = new uint8_t[obj.size_bytes()];
   cudaMemcpy(tmp, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
-  uint64_t size = std::min((uint64_t)1024, obj.size_bytes());
-  for (uint64_t i = 0; i < size; i += sizeof(OTblock)) {
-    os << std::hex << std::setw(2) << std::setfill('0') << int(tmp[i]) << " ";
+  for (uint64_t i = 0; i < obj.size_bytes(); i += 16 * sizeof(OTblock)) {
+    for (uint64_t j = 0; j < 16 * sizeof(OTblock); j += sizeof(OTblock)) {
+      os << std::hex << std::setw(2) << std::setfill('0') << int(tmp[i+j]) << " ";
+    }
+    os << std::endl;
   }
   os << std::endl;
   delete[] tmp;

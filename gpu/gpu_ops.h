@@ -34,6 +34,12 @@ __global__
 void xor_reduce(uint64_t *out, uint64_t *in);
 
 __global__
-void print(void *data, uint64_t n, uint64_t stride = 1);
+void print(uint8_t *data, uint64_t n, uint64_t stride = 1);
+
+__global__
+void print(float *data, uint64_t n, uint64_t stride = 1);
+
+__global__
+void print(cuComplex *data, uint64_t n, uint64_t stride = 1);
 
 #endif

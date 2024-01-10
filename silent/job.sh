@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd $SLURM_SUBMIT_DIR
-./ot 1 9 1
+./ot 1 20 8
 
 # for NUMTREE in 2 4 8 16 32 64 128 256
 # do
@@ -14,4 +14,4 @@ cd $SLURM_SUBMIT_DIR
 # done
 
 # valgrind ./ot 1 16 4 &> valgrind-out
-# compute-sanitizer --tool memcheck ./ot 1 20 8 &> memcheck-out
+# compute-sanitizer --tool memcheck ./ot 1 9 1 &> memcheck-out
