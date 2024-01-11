@@ -3,6 +3,8 @@
 #include "event_log.h"
 #include <future>
 
+#include "gpu_ops.h"
+
 std::array<std::atomic<SilentOTRecver*>, 16> silentOTRecvers;
 
 SilentOTRecver::SilentOTRecver(SilentOTConfig config) :
@@ -81,6 +83,7 @@ void SilentOTRecver::pprf_expand() {
     cudaStreamWaitEvent(0, other->expandEvents.at(d));
     leftBuffer.at(d).xor_d(choiceHash.at(d));
     rightBuffer.at(d).xor_d(choiceHash.at(d));
+    
     if (d == depth-1) {
       leftBuffer.at(d+1).xor_d(choiceHash.at(d));
       rightBuffer.at(d+1).xor_d(choiceHash.at(d));
@@ -103,6 +106,7 @@ void SilentOTRecver::pprf_expand() {
     }
 
     separated.sum(2 * mConfig.nTree, inWidth);
+
     uint64_t outWidth = 2 * inWidth;
     // insert active node value obtained from sum into output
     for (uint64_t t = 0; t < mConfig.nTree; t++) {

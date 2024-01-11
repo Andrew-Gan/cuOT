@@ -5,8 +5,8 @@
 #include "gpu_tests.h"
 #include "gpu_ops.h"
 
-// #define CHECK_ALLOC
-// #define CHECK_CALL
+#define CHECK_ALLOC
+#define CHECK_CALL
 
 void check_cuda() {
   int deviceCount = 0;
@@ -79,12 +79,10 @@ bool check_cot(Vec &full, Vec &punc, Vec &choice, blk *delta) {
 	cudaMemcpy(delta_d, delta, sizeof(*delta_d), cudaMemcpyHostToDevice);
 
 	Vec left(punc);
+	left ^= full;
 	Vec right(choice);
-	uint64_t nBlock = full.size_bytes() / 1024;
-	gpu_xor<<<nBlock, 1024>>>((uint8_t*) left.data(), (uint8_t*) full.data(), left.size_bytes());
-	and_single<<<nBlock, 1024>>>((uint8_t*) right.data(), (uint8_t*) delta_d, sizeof(*delta_d), right.size_bytes());
-	cudaDeviceSynchronize();
-	cudaFree(delta_d);
+	right &= delta_d;
 
+	cudaFree(delta_d);
 	return left == right;
 }

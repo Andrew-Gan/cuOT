@@ -30,7 +30,7 @@ void xor_single(uint8_t *a, uint8_t *b, uint64_t size, uint64_t n) {
 
 __global__
 void bit_transposer(uint8_t *out, uint8_t *in, dim3 grid) {
-  uint64_t i = blockDim.y * blockIdx.y + threadIdx.y;
+  uint64_t i = (blockIdx.z * gridDim.y + blockIdx.y) * blockDim.y + threadIdx.y;
   uint64_t j = blockDim.x * blockIdx.x + threadIdx.x;
   uint64_t nRowBlocks = grid.y * blockDim.y;
   uint64_t bytesPerRow = grid.x * blockDim.x;

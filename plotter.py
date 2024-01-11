@@ -23,47 +23,40 @@ def extract_data(filename):
           eventID = int(eventID)
           time = float(time)
           if eventID not in eventData:
-            eventData[eventID] = []
+            eventData[eventID] = [[], []]
           if startStop == 's':
-            eventData[eventID].append([time, 0])
+            eventData[eventID][0].append(time)
           elif startStop == 'e':
-            startTime = eventData[eventID][-1][0]
-            eventData[eventID][-1][1] = time - startTime
+            startTime = eventData[eventID][0][-1]
+            eventData[eventID][1].append(time - startTime)
   eventDuration = {}
   for eventID in eventList:
-    eventDuration[eventID] = 0
-    if eventID in eventData:
-      for event in eventData[eventID]:
-          eventDuration[eventID] += event[1]
+    eventDuration = {eventID: sum(eventData[eventID][1]) for eventID in eventData}
 
   return eventList, eventData, eventDuration
 
-def plot_pipeline(configData):
+def plot_pipeline(eventList, configData):
   plt.figure(figsize=(12, 6))
   plt.cla()
   colors=list(mcolors.TABLEAU_COLORS.keys()) # maximum 10 events
 
-  for i, data in enumerate(configData.values()):
-    eventList, eventData, eventDuration = data
-    # logOT = conf.split('-')[2]
-    # numTree = conf.split('-')[3]
-    for eventKey, eventRange in eventData.items():
-      widths = []
-      starts = []
-      for e in eventRange:
-        starts.append(e[0])
-        widths.append(e[1])
-      plt.barh(y=i, width=widths, height=0.5, left=starts, color=colors[eventKey])
+  for eventID in eventList.keys():
+    xStart = []
+    xLen = []
+    yVals = []
+    for y, data in enumerate(configData.values()):
+      if eventID not in data[0]:
+        continue
+      yVals += [y] * len(data[0][eventID][0])
+      xStart += data[0][eventID][0]
+      xLen += data[0][eventID][1]
 
-    plt.table([[eventList[i], f"{eventDuration[i]:.3f}"] for i in eventList],
-    colWidths=[0.2, 0.15], colLabels=['Operation', 'Duration (ms)'],
-    cellLoc='left', bbox=[1.01, 0.25 * i, .25, .2])
+    plt.barh(y=yVals, left=xStart, width=xLen, height=0.5, color=colors[eventID])
 
   plt.title('Pipeline Graph over Time')
-  # plt.xscale('log')
   plt.xlabel('Time (ms)')
   plt.yticks(range(len(configData.keys())), configData.keys())
-  plt.legend(configData['cpu-silent-send'][0].values(), loc='lower left', bbox_to_anchor=(-.2, .4))
+  plt.legend(eventList.values(), loc='lower left', bbox_to_anchor=(-.2, .4))
   plt.savefig(OUTPUT_FOLDER + 'pipeline.png', bbox_inches='tight')
 
 def plot_numtree_runtime(runConfig, eventList, eventDuration, eventID):
@@ -73,8 +66,8 @@ def plot_numtree_runtime(runConfig, eventList, eventDuration, eventID):
     numTree = run.split('-')[3]
     xVal.append(int(numTree))
     yVal.append(durationSend[eventID])
-  plt.figure(figsize=(12, 6))
   plt.cla()
+  plt.figure(figsize=(12, 12))
   plt.plot(xVal, yVal)
   plt.xscale('log', base=2)
   plt.title('Runtime of Sender %s vs Number of PPRF Trees' % eventList[eventID])
@@ -94,10 +87,15 @@ if __name__ == '__main__':
   selectedConfig = []
   configData = {}
 
-  for filename in runConfig:
-    configData[filename] = extract_data(OUTPUT_FOLDER + filename + '.txt')
+  eventList = []
 
-  plot_pipeline(configData)
+  for filename in runConfig:
+    ret = extract_data(OUTPUT_FOLDER + filename + '.txt')
+    if len(eventList) == 0:
+      eventList = ret[0]
+    configData[filename] = ret[1:]
+
+  plot_pipeline(eventList, configData)
 
   # eventList = configData[0][0]
   # plot_numtree_runtime(selectedConfig, eventList, eventDuration, 2)
