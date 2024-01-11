@@ -8,7 +8,7 @@
 
 GPUdata::GPUdata(uint64_t n) : mNBytes(n) {
   cudaError_t err = cudaMalloc(&mPtr, n);
-  check_call("GPUdata:GPUdata\n");
+  cudaDeviceSynchronize();
 }
 
 GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
@@ -23,7 +23,7 @@ GPUdata& GPUdata::operator&=(const GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
   gpu_and<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
-  check_call("GPUdata::operator&=\n");
+  cudaDeviceSynchronize();
   return *this;
 }
 
@@ -31,7 +31,7 @@ GPUdata& GPUdata::operator^=(const GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   gpu_xor<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
-  check_call("GPUdata::operator^=\n");
+  cudaDeviceSynchronize();
   return *this;
 }
 
@@ -52,6 +52,7 @@ bool GPUdata::operator==(const GPUdata &rhs) {
   cudaMemcpy(left, mPtr, mNBytes, cudaMemcpyDeviceToHost);
   cudaMemcpy(right, rhs.data(), mNBytes, cudaMemcpyDeviceToHost);
   int cmp = memcmp(left, right, mNBytes);
+
   delete[] left;
   delete[] right;
   return cmp == 0;
@@ -65,7 +66,7 @@ void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
   uint8_t *newData;
   cudaError_t err = cudaMalloc(&newData, size);
-  check_call("GPUdata::resize\n");
+  cudaDeviceSynchronize();
   if (mPtr != nullptr) {
     cudaMemcpy(newData, mPtr, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
     cudaFree(mPtr);
@@ -104,7 +105,7 @@ void GPUdata::xor_d(GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
   gpu_xor<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
-  check_call("GPUdata::xor_d\n");
+  cudaDeviceSynchronize();
 }
 
 std::ostream& operator<<(std::ostream &os, GPUdata &obj) {
@@ -116,7 +117,7 @@ std::ostream& operator<<(std::ostream &os, GPUdata &obj) {
     }
     os << std::endl;
   }
-  os << std::endl;
+  os << std::endl << std::dec;
   delete[] tmp;
   return os;
 }

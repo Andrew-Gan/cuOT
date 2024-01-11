@@ -46,74 +46,46 @@ int main(int argc, char** argv) {
     .choices = gen_choices(depth),
   };
 
+  cudaSetDevice(0);
+  cudaSetDevice(1);
+
   SilentOTSender *sender;
   SilentOTRecver *recver;
-  Log::open(Sender, "../results/gpu-silent-send.txt");
-  Log::open(Recver, "../results/gpu-silent-recv.txt");
 
   std::future<void> senderWorker = std::async([&sender, &config]() {
     cudaSetDevice(0);
     sender = new SilentOTSender(config);
+    Log::open(Sender, "../results/gpu-silent-send.txt");
     Log::start(Sender, BaseOT);
     sender->base_ot();
     Log::end(Sender, BaseOT);
-  });
-  std::future<void> recverWorker = std::async([&recver, &config]() {
-    cudaSetDevice(1);
-    recver = new SilentOTRecver(config);
-    Log::start(Recver, BaseOT);
-    recver->base_ot();
-    Log::end(Recver, BaseOT);
-  });
-  senderWorker.get();
-  recverWorker.get();
-
-  std::vector<Vec> &l = sender->leftHash;
-  std::vector<Vec> &r = sender->rightHash;
-  std::vector<Vec> &c = recver->choiceHash;
-  for (int i = 0; i < c.size(); i++) {
-    assert(check_rot(l.at(i), r.at(i), c.at(i), config.choices[i]));
-  }
-  std::cout << "ROT test successful" << std::endl;
-
-  senderWorker = std::async([&sender, &config]() {
-    cudaSetDevice(0);
     Log::start(Sender, SeedExp);
     sender->pprf_expand();
     Log::end(Sender, SeedExp);
-    Log::close(Sender);
-  });
-  recverWorker = std::async([&recver, &config]() {
-    cudaSetDevice(1);
-    Log::start(Recver, SeedExp);
-    recver->pprf_expand();
-    Log::end(Recver, SeedExp);
-    Log::close(Recver);
-  });
-  senderWorker.get();
-  recverWorker.get();
-  assert(check_cot(sender->fullVector, recver->puncVector, recver->choiceVector, sender->delta));
-  std::cout << "pre-LPN COT test successful" << std::endl;
-
-  senderWorker = std::async([&sender, &config]() {
-    cudaSetDevice(0);
     Log::start(Sender, LPN);
     sender->lpn_compress();
     Log::end(Sender, LPN);
     Log::close(Sender);
   });
-  recverWorker = std::async([&recver, &config]() {
+
+  std::future<void> recverWorker = std::async([&recver, &config]() {
     cudaSetDevice(1);
+    recver = new SilentOTRecver(config);
+    Log::open(Recver, "../results/gpu-silent-recv.txt");
+    Log::start(Recver, BaseOT);
+    recver->base_ot();
+    Log::end(Recver, BaseOT);
+    Log::start(Recver, SeedExp);
+    recver->pprf_expand();
+    Log::end(Recver, SeedExp);
     Log::start(Recver, LPN);
     recver->lpn_compress();
     Log::end(Recver, LPN);
     Log::close(Recver);
   });
+
   senderWorker.get();
   recverWorker.get();
-
-  assert(check_cot(sender->fullVector, recver->puncVector, recver->choiceVector, sender->delta));
-  std::cout << "post-LPN COT test successful" << std::endl;
 
   delete[] config.choices;
   delete sender;

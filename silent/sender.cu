@@ -2,6 +2,9 @@
 #include <future>
 #include "event_log.h"
 
+#include "gpu_ops.h"
+#include "cuda.h"
+
 std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 
 SilentOTSender::SilentOTSender(SilentOTConfig config) :
@@ -36,7 +39,6 @@ void SilentOTSender::base_ot() {
 }
 
 void SilentOTSender::pprf_expand() {
-  // init hash keys
   uint32_t k0_blk[4] = {3242342};
   uint32_t k1_blk[4] = {8993849};
   Expand *expander;
@@ -44,15 +46,14 @@ void SilentOTSender::pprf_expand() {
     case AesExpand_t:
       expander = new AesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
   }
+
   Vec separated(2 * numOT);
-  
   blk buff;
   for (int i = 0; i < 4; i++) {
     buff.data[i] = rand();
   }
   cudaMalloc(&delta, sizeof(*delta));
   cudaMemcpy(delta, &buff, sizeof(*delta), cudaMemcpyHostToDevice);
-  // init root
   for (int t = 0; t < mConfig.nTree; t++) {
     for (int i = 0; i < 4; i++) {
       buff.data[i] = rand();
@@ -63,6 +64,7 @@ void SilentOTSender::pprf_expand() {
   for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
     expander->expand(fullVector, separated, mConfig.nTree * inWidth);
     separated.sum(2 * mConfig.nTree, inWidth);
+
     leftHash.at(d).xor_d(separated, 0);
     rightHash.at(d).xor_d(separated, mConfig.nTree);
     other->leftBuffer.at(d) = leftHash.at(d);

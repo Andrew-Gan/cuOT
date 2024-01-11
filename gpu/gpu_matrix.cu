@@ -68,22 +68,24 @@ void Mat::resize(std::vector<uint64_t> newDim) {
 
 void Mat::bit_transpose() {
   if (mDim.size() != 2)
-    throw std::invalid_argument("Mat::bit_transpose() only 2D matrix supported\n");
+    throw std::invalid_argument("Mat::bit_transpose only 2D matrix supported\n");
 
   uint64_t row = dim(0);
   uint64_t col = dim(1);
   if (row < 8 * sizeof(blk)) 
-    throw std::invalid_argument("Mat::bit_transpose() insufficient rows to transpose\n");
+    throw std::invalid_argument("Mat::bit_transpose insufficient rows to transpose\n");
 
   uint8_t *tpBuffer;
   cudaMalloc(&tpBuffer, mNBytes);
   dim3 block, grid;
-  uint64_t thread = col * sizeof(blk);
-  block.x = std::min(thread, 32UL);
-  grid.x = (thread + block.x - 1) / block.x;
-  thread = row / 8;
-  block.y = std::min(thread, 32UL);
-  grid.y = (thread + block.y - 1) / block.y;
+  uint64_t threadX = col * sizeof(blk);
+  block.x = std::min(threadX, 32UL);
+  grid.x = (threadX + block.x - 1) / block.x;
+  uint64_t threadY = row / 8;
+  block.y = std::min(threadY, 32UL);
+  uint64_t yBlock = (threadY + block.y - 1) / block.y;
+  grid.y = std::min(yBlock, 32768UL);
+  grid.z = (yBlock + grid.y - 1) / grid.y;
 
   bit_transposer<<<grid, block>>>(tpBuffer, mPtr, grid);
   check_call("Mat::bit_transpose\n");
@@ -96,12 +98,13 @@ void Mat::bit_transpose() {
 
 void Mat::modp(uint64_t reducedCol) {
   if (mDim.size() != 2)
-    throw std::invalid_argument("Mat::bit_transpose() only 2D matrix supported\n");
+    throw std::invalid_argument("Mat::modp only 2D matrix supported\n");
 
   uint64_t row = dim(0);
   uint64_t col = dim(1);
   uint64_t block = std::min(reducedCol, 1024lu);
-  uint64_t grid = reducedCol < 1024 ? 1 : (reducedCol + 1023) / 1024;
+  uint64_t grid = (reducedCol + block - 1) / block;
+
   for (uint64_t i = 0; i < col / reducedCol - 1; i++) {
     gpu_xor<<<grid, block>>>(mPtr, mPtr + (i * reducedCol * sizeof(blk)), reducedCol);
   }
