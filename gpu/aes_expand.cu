@@ -28,8 +28,11 @@ void AesExpand::expand(Span &interleaved, Vec &separated, uint64_t inWidth) {
 	uint32_t *keyL, *keyR;
 	cudaGetSymbolAddress((void**)&keyL, keyLeft);
 	cudaGetSymbolAddress((void**)&keyR, keyRight);
-	aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved.data(),
-		separated.data(), inWidth);
+	int dev;
+	cudaGetDevice(&dev);
+	if (dev == 0)
+		aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved.data(),
+			separated.data(), inWidth);
 	check_call("AesExpand::expand\n");
 }
 

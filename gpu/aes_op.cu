@@ -8,16 +8,8 @@ union UByte4 {
   uint8_t ubval[4];
 };
 
-__device__
-void swap(UByte4 *&a, UByte4 *&b) {
-    UByte4 *tmp = a;
-    a = b;
-    b = tmp;
-}
-
 __global__
 void aesEncrypt128(uint32_t *key, uint32_t * aesData) {
-	// 7.42 ms
     uint32_t bx		= blockIdx.x;
     uint32_t tx		= threadIdx.x;
     uint32_t mod4tx = tx%4;
@@ -50,29 +42,21 @@ void aesEncrypt128(uint32_t *key, uint32_t * aesData) {
     tBox2Block[tx].uival	= TBox2[tx];
     tBox3Block[tx].uival	= TBox3[tx];
 
-	// __syncthreads();
-
-    // 71.1 ms
-    // key global read: 22.9 ms
-
 	//----------------------------------- 1st stage -----------------------------------
 
 	x = mod4tx;
     stageBlock2[tx].uival = stageBlock1[tx].uival ^ key[x];
 
-	// __syncthreads();
-
 	//-------------------------------- end of 1st stage --------------------------------
 
-    UByte4 *sbSrc = stageBlock2, *sbDes = stageBlock1;
     uint32_t op[4];
 
     #pragma unroll
-    for (int i = 1; i < 10; i++) {
-        op[0] = sbSrc[stageBlockIdx[0]].ubval[0];
-        op[1] = sbSrc[stageBlockIdx[1]].ubval[1];
-        op[2] = sbSrc[stageBlockIdx[2]].ubval[2];
-        op[3] = sbSrc[stageBlockIdx[3]].ubval[3];
+    for (int i = 1; i < 9; i+=2) {
+        op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
+        op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
+        op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
+        op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
 
         op[0] = tBox0Block[op[0]].uival;
         op[1] = tBox1Block[op[1]].uival;
@@ -80,32 +64,51 @@ void aesEncrypt128(uint32_t *key, uint32_t * aesData) {
         op[3] = tBox3Block[op[3]].uival;
 
         x += 4;
-        sbDes[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
+        stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
-        swap(sbSrc, sbDes);
+        op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
+        op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
+        op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
+        op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
+
+        op[0] = tBox0Block[op[0]].uival;
+        op[1] = tBox1Block[op[1]].uival;
+        op[2] = tBox2Block[op[2]].uival;
+        op[3] = tBox3Block[op[3]].uival;
+
+        x += 4;
+        stageBlock2[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
     }
 
-    // 2.4 ms
+    op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
+    op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
+    op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
+    op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
+
+    op[0] = tBox0Block[op[0]].uival;
+    op[1] = tBox1Block[op[1]].uival;
+    op[2] = tBox2Block[op[2]].uival;
+    op[3] = tBox3Block[op[3]].uival;
+
+    x += 4;
+    stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
 	//----------------------------------- 11th stage -----------------------------------
 
-    op[0] = sbSrc[stageBlockIdx[0]].ubval[0];
-	op[1] = sbSrc[stageBlockIdx[1]].ubval[1];
-	op[2] = sbSrc[stageBlockIdx[2]].ubval[2];
-	op[3] = sbSrc[stageBlockIdx[3]].ubval[3];
+    op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
+	op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
+	op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
+	op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
 
 	x += 4;
-	sbDes[tx].ubval[3] = tBox1Block[op[3]].ubval[3]^( key[x]>>24);
-	sbDes[tx].ubval[2] = tBox1Block[op[2]].ubval[3]^( (key[x]>>16) & 0x000000FF);
-	sbDes[tx].ubval[1] = tBox1Block[op[1]].ubval[3]^( (key[x]>>8)  & 0x000000FF);
-	sbDes[tx].ubval[0] = tBox1Block[op[0]].ubval[3]^( key[x]       & 0x000000FF);
-
-	// __syncthreads();
+	stageBlock2[tx].ubval[3] = tBox1Block[op[3]].ubval[3]^( key[x]>>24);
+	stageBlock2[tx].ubval[2] = tBox1Block[op[2]].ubval[3]^( (key[x]>>16) & 0x000000FF);
+	stageBlock2[tx].ubval[1] = tBox1Block[op[1]].ubval[3]^( (key[x]>>8)  & 0x000000FF);
+	stageBlock2[tx].ubval[0] = tBox1Block[op[0]].ubval[3]^( key[x]       & 0x000000FF);
 
 	//-------------------------------- end of 11th stage --------------------------------
 
-    // 21.6 ms
-	aesData[AES_BSIZE * bx + tx] = sbDes[tx].uival;
+	aesData[AES_BSIZE * bx + tx] = stageBlock2[tx].uival;
 }
 
 __global__
@@ -142,29 +145,21 @@ void aesDecrypt128(uint32_t *key, uint32_t *aesData) {
 	tBox3Block[tx].uival		= TBoxi3[tx];
 	invSBoxBlock[tx].ubval[0]	= inv_SBox[tx];
 
-	// __syncthreads();
-
 	//----------------------------------- 1st stage -----------------------------------
 
 	x = mod4tx;
     stageBlock2[tx].uival = stageBlock1[tx].uival ^ key[x];
 
-	// __syncthreads();
-
 	//-------------------------------- end of 1st stage --------------------------------
 
-    UByte4 *sbSrc, *sbDes;
     uint32_t op[4];
 
     #pragma unroll
-    for (int i = 1; i < 10; i++) {
-        sbSrc = i % 2 == 0 ? stageBlock1 : stageBlock2;
-        sbDes = i % 2 == 0 ? stageBlock2 : stageBlock1;
-
-        op[0] = sbSrc[stageBlockIdx[0]].ubval[0];
-        op[1] = sbSrc[stageBlockIdx[1]].ubval[1];
-        op[2] = sbSrc[stageBlockIdx[2]].ubval[2];
-        op[3] = sbSrc[stageBlockIdx[3]].ubval[3];
+    for (int i = 1; i < 9; i+=2) {
+        op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
+        op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
+        op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
+        op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
 
         op[0] = tBox0Block[op[0]].uival;
         op[1] = tBox1Block[op[1]].uival;
@@ -172,30 +167,51 @@ void aesDecrypt128(uint32_t *key, uint32_t *aesData) {
         op[3] = tBox3Block[op[3]].uival;
 
         x += 4;
-        sbDes[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
+        stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
-        swap(sbSrc, sbDes);
+        op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
+        op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
+        op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
+        op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
+
+        op[0] = tBox0Block[op[0]].uival;
+        op[1] = tBox1Block[op[1]].uival;
+        op[2] = tBox2Block[op[2]].uival;
+        op[3] = tBox3Block[op[3]].uival;
+
+        x += 4;
+        stageBlock2[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
     }
+
+    op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
+    op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
+    op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
+    op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
+
+    op[0] = tBox0Block[op[0]].uival;
+    op[1] = tBox1Block[op[1]].uival;
+    op[2] = tBox2Block[op[2]].uival;
+    op[3] = tBox3Block[op[3]].uival;
+
+    x += 4;
+    stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
 	//----------------------------------- 11th stage -----------------------------------
 
-    op[0] = sbSrc[stageBlockIdx[0]].ubval[0];
-    op[1] = sbSrc[stageBlockIdx[1]].ubval[1];
-    op[2] = sbSrc[stageBlockIdx[2]].ubval[2];
-    op[3] = sbSrc[stageBlockIdx[3]].ubval[3];
+    op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
+    op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
+    op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
+    op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
 
 	x += 4;
-
-	sbDes[tx].ubval[3] = invSBoxBlock[op[3]].ubval[0]^( key[x]>>24);
-	sbDes[tx].ubval[2] = invSBoxBlock[op[2]].ubval[0]^( key[x]>>16 & 0x000000FF);
-	sbDes[tx].ubval[1] = invSBoxBlock[op[1]].ubval[0]^( key[x]>>8  & 0x000000FF);
-	sbDes[tx].ubval[0] = invSBoxBlock[op[0]].ubval[0]^( key[x]     & 0x000000FF);
-
-	// __syncthreads();
+	stageBlock2[tx].ubval[3] = invSBoxBlock[op[3]].ubval[0]^( key[x]>>24);
+	stageBlock2[tx].ubval[2] = invSBoxBlock[op[2]].ubval[0]^( key[x]>>16 & 0x000000FF);
+	stageBlock2[tx].ubval[1] = invSBoxBlock[op[1]].ubval[0]^( key[x]>>8  & 0x000000FF);
+	stageBlock2[tx].ubval[0] = invSBoxBlock[op[0]].ubval[0]^( key[x]     & 0x000000FF);
 
 	//-------------------------------- end of 11th stage --------------------------------
 
-	aesData[AES_BSIZE * bx + tx] = sbDes[tx].uival;
+	aesData[AES_BSIZE * bx + tx] = stageBlock2[tx].uival;
 }
 
 __global__
@@ -211,12 +227,16 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     int expandDir = blockIdx.y;
     uint32_t *key = expandDir == 0 ? keyLeft : keyRight;
 
+    // 18 ms
+
     uint32_t stageBlockIdx[4] = {
         posIdx_E[mod4tx*4] + idx2,
         posIdx_E[mod4tx*4+1] + idx2,
         posIdx_E[mod4tx*4+2] + idx2,
         posIdx_E[mod4tx*4+3] + idx2
     };
+
+    // 27 ms
 
     uint64_t parentId =  (bx * AES_BSIZE + tx) / 4;
     uint64_t childId = 2 * parentId + expandDir;
@@ -230,35 +250,34 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     __shared__ UByte4 tBox3Block[256];
 
     // input caricati in memoria
-    stageBlock1[tx].uival    = interleaved[(bx * blockDim.x + tx) / 4].data[mod4tx];
+    stageBlock1[tx].uival = interleaved[(bx*blockDim.x+tx) / 4].data[mod4tx];
 
     tBox0Block[tx].uival    = TBox0[tx];
     tBox1Block[tx].uival    = TBox1[tx];
     tBox2Block[tx].uival    = TBox2[tx];
     tBox3Block[tx].uival    = TBox3[tx];
 
-    if (parentId >= inWidth) return;
+    // 42 ms
 
-    // __syncthreads();
+    if (parentId >= inWidth) return;
 
     //----------------------------------- 1st stage -----------------------------------
 
     x = mod4tx;
     stageBlock2[tx].uival = stageBlock1[tx].uival ^ key[x];
 
-    // __syncthreads();
-
     //-------------------------------- end of 1st stage --------------------------------
 
-    UByte4 *sbSrc = stageBlock2, *sbDes = stageBlock1;
     uint32_t op[4];
 
+    //50 ms
+
     #pragma unroll
-    for (int i = 1; i < 10; i++) {
-        op[0] = sbSrc[stageBlockIdx[0]].ubval[0];
-        op[1] = sbSrc[stageBlockIdx[1]].ubval[1];
-        op[2] = sbSrc[stageBlockIdx[2]].ubval[2];
-        op[3] = sbSrc[stageBlockIdx[3]].ubval[3];
+    for (int i = 1; i < 9; i+=2) {
+        op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
+        op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
+        op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
+        op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
 
         op[0] = tBox0Block[op[0]].uival;
         op[1] = tBox1Block[op[1]].uival;
@@ -266,29 +285,53 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
         op[3] = tBox3Block[op[3]].uival;
 
         x += 4;
-        sbDes[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
+        stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
-        swap(sbSrc, sbDes);
+        op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
+        op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
+        op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
+        op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
+
+        op[0] = tBox0Block[op[0]].uival;
+        op[1] = tBox1Block[op[1]].uival;
+        op[2] = tBox2Block[op[2]].uival;
+        op[3] = tBox3Block[op[3]].uival;
+
+        x += 4;
+        stageBlock2[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
     }
+
+    op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
+    op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
+    op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
+    op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
+
+    op[0] = tBox0Block[op[0]].uival;
+    op[1] = tBox1Block[op[1]].uival;
+    op[2] = tBox2Block[op[2]].uival;
+    op[3] = tBox3Block[op[3]].uival;
+
+    x += 4;
+    stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
+
+    // 229 ms
 
     //----------------------------------- 11th stage -----------------------------------
 
-    op[0] = sbSrc[stageBlockIdx[0]].ubval[0];
-    op[1] = sbSrc[stageBlockIdx[1]].ubval[1];
-    op[2] = sbSrc[stageBlockIdx[2]].ubval[2];
-    op[3] = sbSrc[stageBlockIdx[3]].ubval[3];
+    op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
+    op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
+    op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
+    op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
 
     x += 4;
-    sbDes[tx].ubval[3] = tBox1Block[op[3]].ubval[3]^( key[x]>>24);
-    sbDes[tx].ubval[2] = tBox1Block[op[2]].ubval[3]^( (key[x]>>16) & 0x000000FF);
-    sbDes[tx].ubval[1] = tBox1Block[op[1]].ubval[3]^( (key[x]>>8)  & 0x000000FF);
-    sbDes[tx].ubval[0] = tBox1Block[op[0]].ubval[3]^( key[x]       & 0x000000FF);
-
-    // __syncthreads();
+    stageBlock2[tx].ubval[3] = tBox1Block[op[3]].ubval[3]^( key[x]>>24);
+    stageBlock2[tx].ubval[2] = tBox1Block[op[2]].ubval[3]^( (key[x]>>16) & 0x000000FF);
+    stageBlock2[tx].ubval[1] = tBox1Block[op[1]].ubval[3]^( (key[x]>>8)  & 0x000000FF);
+    stageBlock2[tx].ubval[0] = tBox1Block[op[0]].ubval[3]^( key[x]       & 0x000000FF);
 
     //-------------------------------- end of 11th stage --------------------------------
 
-    interleaved[childId].data[mod4tx] = sbDes[tx].uival;
+    interleaved[childId].data[mod4tx] = stageBlock2[tx].uival;
     uint64_t offs = expandDir * inWidth;
-    separated[parentId + offs].data[mod4tx] = sbDes[tx].uival;
-}
+    separated[parentId + offs].data[mod4tx] = stageBlock2[tx].uival;
+} // 290 ms

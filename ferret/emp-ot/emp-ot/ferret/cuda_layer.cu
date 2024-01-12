@@ -1,6 +1,7 @@
 #include "aes_op.h"
 #include "expand.h"
 #include "cuda_layer.h"
+#include "gpu_tests.h"
 #include <cstdio>
 #include <stdexcept>
 

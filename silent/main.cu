@@ -3,7 +3,7 @@
 #include <future>
 #include <thread>
 
-#include "event_log.h"
+#include "logger.h"
 #include "roles.h"
 #include "gpu_tests.h"
 
@@ -26,15 +26,16 @@ void cuda_init() {
 }
 
 int main(int argc, char** argv) {
-  if (argc < 4) {
-    fprintf(stderr, "Usage: ./ot protocol logOT numTrees\n");
+  if (argc < 5) {
+    fprintf(stderr, "Usage: ./ot protocol logOT numTrees bandwidth(mbps)\n");
     return EXIT_FAILURE;
   }
   check_cuda();
   int protocol = atoi(argv[1]);
   int logOT = atoi(argv[2]);
   int numTrees = atoi(argv[3]);
-  printf("log OTs: %lu, Trees: %d\n", logOT, numTrees);
+  int bandwidth = atoi(argv[4]);
+  printf("logOT: %d, numTrees: %d, bandwidth: %d mbps\n", logOT, numTrees, bandwidth);
   uint64_t depth = logOT - log2((float) numTrees) + 1;
   SilentOTConfig config = {
     .id = 0,
@@ -42,8 +43,9 @@ int main(int argc, char** argv) {
     .nTree = numTrees,
     .baseOT = SimplestOT_t,
     .expander = AesExpand_t,
+    .leftKey = {3242342},
+    .rightKey = {8993849},
     .compressor = QuasiCyclic_t,
-    .choices = gen_choices(depth),
   };
 
   cudaSetDevice(0);
@@ -52,26 +54,35 @@ int main(int argc, char** argv) {
   SilentOTSender *sender;
   SilentOTRecver *recver;
 
-  std::future<void> senderWorker = std::async([&sender, &config]() {
+  char senderFile[60];
+  sprintf(senderFile, "../results/gpu-silent-send-%d-%d-%d.txt", logOT, numTrees, bandwidth);
+  char recverFile[60];
+  sprintf(recverFile, "../results/gpu-silent-recv-%d-%d-%d.txt", logOT, numTrees, bandwidth);
+
+  std::future<void> senderWorker = std::async([&sender, &config, &bandwidth, &senderFile]() {
     cudaSetDevice(0);
     sender = new SilentOTSender(config);
-    Log::open(Sender, "../results/gpu-silent-send.txt");
+    Log::open(Sender, senderFile, bandwidth);
     Log::start(Sender, BaseOT);
     sender->base_ot();
     Log::end(Sender, BaseOT);
+    Log::comm(BaseOT, 2 * sender->depth * config.nTree * sizeof(OTblock));
     Log::start(Sender, SeedExp);
     sender->pprf_expand();
     Log::end(Sender, SeedExp);
+    Log::comm(SeedExp, 2 * sender->depth * config.nTree * sizeof(OTblock));
     Log::start(Sender, LPN);
     sender->lpn_compress();
     Log::end(Sender, LPN);
     Log::close(Sender);
   });
 
-  std::future<void> recverWorker = std::async([&recver, &config]() {
+  config.choices = gen_choices(depth);
+
+  std::future<void> recverWorker = std::async([&recver, &config, &bandwidth, &recverFile]() {
     cudaSetDevice(1);
     recver = new SilentOTRecver(config);
-    Log::open(Recver, "../results/gpu-silent-recv.txt");
+    Log::open(Recver, recverFile, bandwidth);
     Log::start(Recver, BaseOT);
     recver->base_ot();
     Log::end(Recver, BaseOT);

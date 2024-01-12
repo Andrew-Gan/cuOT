@@ -24,8 +24,10 @@ if [ ! -d "REPO" ]; then
 fi
 cd REPO
 cmake -DCMAKE_INSTALL_PREFIX=../lib -DCMAKE_PREFIX_PATH=$CONDA_PREFIX \
-    -DCMAKE_CXX_FLAGS='-g -I../gpu' \
-    -DCMAKE_CUDA_FLAGS='-g -G -I../gpu'
+    -DCMAKE_C_FLAGS='-g' \
+    -DCMAKE_CUDA_FLAGS='-g -G' \
+	-DCMAKE_C_COMPILER='/apps/spack/gilbreth/apps/gcc/12.3.0-gcc-4.8.5-wfta2lq/bin/gcc'
+
 make -j4
 make install
 cd ..

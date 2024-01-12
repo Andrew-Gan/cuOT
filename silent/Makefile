@@ -2,8 +2,9 @@ CC := nvcc
 CUFLG := -g -G -std=c++20
 CCFLG := -g -std=c++20 -gdwarf-4 -w
 LIB := -lcurand -lcufft -lcuda
-INC := -I../gpu -I./lib
+INC := -I../gpu -I../logger -I./lib
 GPU := ../gpu/gpu.o
+LOG := ../logger/logger.o
 EXE := ot
 
 ############################################################
@@ -20,15 +21,15 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 ############################################################
 
 QUEUE=standby #zghodsi-b
-CPU_PER_NODE=8
+CPU_PER_NODE=32
 GPU_PER_NODE=2
-CONSTRAINT=#--constraint=K
+CONSTRAINT=--constraint=K
 
 ############################################################
 
 .PHONY: all clean
 
-$(EXE): $(GPU) $(OBJ) $(LIB_OBJ)
+$(EXE): $(GPU) $(LOG) $(OBJ) $(LIB_OBJ)
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $^ -o $(EXE)
 
 run: $(EXE)

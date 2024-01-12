@@ -1,7 +1,8 @@
 #Testing macro
 macro (add_test_executable_with_lib _name libs)
-	add_executable(test_${_name} "../../../gpu_tools.o" "${_name}.cpp" "../emp-ot/ferret/cuda_layer.cu")
-	target_link_libraries(test_${_name} ${EMP-TOOL_LIBRARIES} "cuda" "cudart" "curand" "cufft")
+	add_executable(test_${_name} ../../../logger/logger.o ../../../gpu/gpu.o ${_name}.cpp ../emp-ot/ferret/cuda_layer.cu)
+	target_include_directories(test_${_name} PUBLIC ../../../gpu ../../../logger)
+	target_link_libraries(test_${_name} ${EMP-TOOL_LIBRARIES} "cuda" "cudart" "curand")
 endmacro()
 
 macro (add_test_case _name)

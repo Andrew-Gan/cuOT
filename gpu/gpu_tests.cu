@@ -5,8 +5,9 @@
 #include "gpu_tests.h"
 #include "gpu_ops.h"
 
-#define CHECK_ALLOC
-#define CHECK_CALL
+// comment out during benchmarking
+// #define CHECK_ALLOC
+// #define CHECK_CALL
 
 void check_cuda() {
   int deviceCount = 0;
@@ -25,7 +26,7 @@ void check_cuda() {
   assert(dev < deviceCount);
 }
 
-void check_alloc(blk *ptr) {
+void check_alloc(void *ptr) {
 #ifdef CHECK_ALLOC
 	uint64_t size = 0;
 	int dev = 0;

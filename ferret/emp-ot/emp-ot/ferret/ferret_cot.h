@@ -5,6 +5,9 @@
 #include "emp-ot/ferret/lpn_f2.h"
 #include "emp-ot/ferret/constants.h"
 
+#include "cuda_layer.h"
+#include "logger.h"
+
 namespace emp {
 
 /*

@@ -15,12 +15,15 @@ private:
   static struct timespec initTime[2];
   static float eventStart[2][NUM_EVENTS];
   static float eventDuration[2][NUM_EVENTS];
+  static uint64_t commBytes[NUM_EVENTS];
+  static uint64_t bandwidth_mbps;
 
 public:
-  static void open(int role, const char *filename);
+  static void open(int role, const char *filename, uint64_t mbps);
   static void close(int role);
   static void start(int role, Event event);
   static void end(int role, Event event);
+  static void comm(Event event, uint64_t bytes);
 };
 
 #endif

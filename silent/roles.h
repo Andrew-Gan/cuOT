@@ -19,7 +19,10 @@ struct SilentOTConfig {
   int id, logOT, nTree;
   BaseOTType baseOT;
   ExpandType expander;
+  uint32_t leftKey[4];
+  uint32_t rightKey[4];
   CompressType compressor;
+  // recver only
   uint64_t *choices;
 };
 

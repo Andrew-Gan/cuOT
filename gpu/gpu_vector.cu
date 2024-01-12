@@ -18,7 +18,7 @@ void Vec::sum(uint64_t nPartition, uint64_t blkPerPart) {
   uint64_t blockSize, nBlocks, mem;
 
   uint8_t *buffer;
-  cudaMalloc(&buffer, mNBytes);
+  cudaMallocAsync(&buffer, mNBytes, 0);
 
   uint64_t *in = (uint64_t*) buffer;
   uint64_t *out = (uint64_t*) this->mPtr;
@@ -33,17 +33,17 @@ void Vec::sum(uint64_t nPartition, uint64_t blkPerPart) {
   }
 
   if (out != (uint64_t*) this->mPtr) {
-    cudaMemcpy(this->mPtr, out, nPartition * sizeof(blk), cudaMemcpyDeviceToDevice);
+    cudaMemcpyAsync(this->mPtr, out, nPartition * sizeof(blk), cudaMemcpyDeviceToDevice);
   }
 
   check_call("Vec::sum");
-  cudaFree(buffer);
+  cudaFreeAsync(buffer, 0);
 }
 
 void Vec::xor_d(Vec &rhs, uint64_t offs) {
   uint64_t min = std::min(this->mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
-  gpu_xor<<<nBlock, 1024>>>(this->mPtr, (uint8_t*) (rhs.data(offs)), min);
+  gpu_xor<<<nBlock, 1024>>>(this->mPtr, (uint8_t*)rhs.data(offs), min);
   check_call("Vec::xor_d\n");
 }
 
@@ -78,5 +78,5 @@ void Span::operator=(const Span& other) {
   if (size() != other.size())
     throw std::invalid_argument("Span::operator=() Unequal span len is unsupported\n");
 
-  cudaMemcpy(data(), other.data(), size()*sizeof(blk), cudaMemcpyDeviceToDevice);
+  cudaMemcpyAsync(data(), other.data(), size()*sizeof(blk), cudaMemcpyDeviceToDevice);
 }

@@ -1,8 +1,3 @@
-CC := nvcc
-CUFLG := -g -G -std=c++20
-CCFLG := -g -std=c++20 -gdwarf-4 -w
-LIB := -lcurand -lcufft
-INC := -I./silent/lib
 GPU_TOOLS := ../gpu/gpu.o
 
 ############################################################

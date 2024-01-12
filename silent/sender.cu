@@ -1,6 +1,5 @@
 #include "roles.h"
 #include <future>
-#include "event_log.h"
 
 #include "gpu_ops.h"
 #include "cuda.h"
@@ -13,6 +12,18 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) :
   for (auto &event : expandEvents) {
     cudaEventCreate(&event);
   }
+
+  blk buff;
+  for (int i = 0; i < 4; i++)
+    buff.data[i] = rand();
+  cudaMalloc(&delta, sizeof(*delta));
+  cudaMemcpy(delta, &buff, sizeof(*delta), cudaMemcpyHostToDevice);
+  for (int t = 0; t < mConfig.nTree; t++) {
+    for (int i = 0; i < 4; i++)
+      buff.data[i] = rand();
+    fullVector.set(t, buff);
+  }
+
   silentOTSenders[config.id] = this;
   while(silentOTRecvers[config.id] == nullptr);
   other = silentOTRecvers[config.id];
@@ -39,44 +50,24 @@ void SilentOTSender::base_ot() {
 }
 
 void SilentOTSender::pprf_expand() {
-  uint32_t k0_blk[4] = {3242342};
-  uint32_t k1_blk[4] = {8993849};
   Expand *expander;
   switch (mConfig.expander) {
     case AesExpand_t:
-      expander = new AesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
+      expander = new AesExpand((uint8_t*)mConfig.leftKey, (uint8_t*)mConfig.rightKey);
   }
 
   Vec separated(2 * numOT);
-  blk buff;
-  for (int i = 0; i < 4; i++) {
-    buff.data[i] = rand();
-  }
-  cudaMalloc(&delta, sizeof(*delta));
-  cudaMemcpy(delta, &buff, sizeof(*delta), cudaMemcpyHostToDevice);
-  for (int t = 0; t < mConfig.nTree; t++) {
-    for (int i = 0; i < 4; i++) {
-      buff.data[i] = rand();
-    }
-    fullVector.set(t, buff);
-  }
-
   for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
     expander->expand(fullVector, separated, mConfig.nTree * inWidth);
     separated.sum(2 * mConfig.nTree, inWidth);
-
     leftHash.at(d).xor_d(separated, 0);
     rightHash.at(d).xor_d(separated, mConfig.nTree);
-    other->leftBuffer.at(d) = leftHash.at(d);
-    other->rightBuffer.at(d) = rightHash.at(d);
 
     if (d == depth-1) {
       leftHash.at(d+1).xor_d(separated, mConfig.nTree);
       leftHash.at(d+1).xor_scalar(delta);
       rightHash.at(d+1).xor_d(separated, 0);
       rightHash.at(d+1).xor_scalar(delta);
-      other->leftBuffer.at(d+1) = leftHash.at(d+1);
-      other->rightBuffer.at(d+1) = rightHash.at(d+1);
     }
 
     cudaEventRecord(expandEvents.at(d));

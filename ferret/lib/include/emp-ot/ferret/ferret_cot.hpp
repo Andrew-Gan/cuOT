@@ -1,6 +1,3 @@
-#include "cuda_layer.h"
-#include "event_log.h"
-
 template<typename T>
 FerretCOT<T>::FerretCOT(int party, T *ios,
 		bool malicious, bool run_setup, PrimalLPNParameter param, std::string pre_file) {
@@ -14,11 +11,10 @@ FerretCOT<T>::FerretCOT(int party, T *ios,
 	// pool = new ThreadPool(threads);
 	this->param = param;
 	this->extend_initialized = false;
-
 	cuda_init(party);
 
-	if (party==ALICE) Log::open(0, "results/gpu-ferret-send.txt");
-	if (party==BOB) Log::open(1, "results/gpu-ferret-recv.txt");
+	if (party==ALICE) Log::open(0, "../results/gpu-ferret-send.txt", 1);
+	if (party==BOB) Log::open(1, "../results/gpu-ferret-recv.txt", 1);
 
 	if(run_setup) {
 		if(party == ALICE) {
@@ -71,9 +67,9 @@ void FerretCOT<T>::extend(Span &ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
 	if(party == ALICE) mpcot->sender_init(Delta_blk);
 	else mpcot->recver_init();
 
-	Log::start(party-1, Expand);
+	Log::start(party-1, SeedExp);
 	mpcot->mpcot(ot_output, preot, ot_input);
-	Log::end(party-1, Expand);
+	Log::end(party-1, SeedExp);
 
 	Log::start(party-1, LPN);
 	Span kSpan = ot_input.span(mpcot->consist_check_cot_num);

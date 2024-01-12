@@ -4,6 +4,7 @@
 #include "cufft.h"
 #include <cstdint>
 #include <type_traits>
+#include "gpu_define.h"
 
 __global__
 void gpu_and(uint8_t *a, uint8_t *b, uint64_t n);

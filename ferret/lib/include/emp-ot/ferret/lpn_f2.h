@@ -31,7 +31,7 @@ class LpnF2 { public:
 	}
 
 	void init(int num_iter) {
-		pubMat.resize({num_iter, n / 4, d});
+		pubMat.resize({(uint64_t)num_iter, (uint64_t)n / 4, (uint64_t)d});
 
 		uint8_t* key_d;
 		uint64_t keySize = 11 * AES_KEYLEN;
@@ -53,7 +53,7 @@ class LpnF2 { public:
 		int k_0 = kk.size();
 
 		// bench(nn, kk);
-		cuda_lpn_f2_compute(pubMat.data({iter, 0, 0}), d, n_0, k_0, nn, kk);
+		cuda_lpn_f2_compute(pubMat.data({(uint64_t)iter, 0, 0}), d, n_0, k_0, nn, kk);
 	}
 
 	void compute(Vec &nn, Vec &kk, uint64_t consist_check_cot_num) {

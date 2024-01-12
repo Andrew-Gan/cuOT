@@ -27,7 +27,7 @@ public:
 		this->depth = depth_in;
 		this->leave_n = 1<<(depth_in-1);
 		// m = new block[depth];
-		cSum.resize({depth-1, tree_n});
+		cSum.resize({(uint64_t)depth-1, (uint64_t)tree_n});
 		b = new bool[tree_n*(depth-1)];
 	}
 

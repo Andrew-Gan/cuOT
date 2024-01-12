@@ -18,7 +18,7 @@ public:
   void set(uint64_t i, blk &val) { Mat::set(val, {i}); }
   void resize(uint64_t len) { Mat::resize({len}); }
   void sum(uint64_t nPartition, uint64_t blkPerPart);
-  void xor_d(Vec &rhs, uint64_t offs);
+  void xor_d(Vec &rhs, uint64_t offs = 0);
   Span span(uint64_t start = 0, uint64_t end = 0);
 };
 

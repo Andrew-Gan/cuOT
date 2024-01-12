@@ -34,8 +34,8 @@ public:
 		this->io = io;
 		this->depth = depth_in;
 		this->leave_n = 1<<(this->depth);
-		lSum.resize({depth-1, tree_n});
-		rSum.resize({depth-1, tree_n});
+		lSum.resize({(uint64_t)depth-1, (uint64_t)tree_n});
+		rSum.resize({(uint64_t)depth-1, (uint64_t)tree_n});
 	}
 	
 	// generate GGM tree, transfer secret, F2^k
