@@ -22,7 +22,7 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 QUEUE=standby #zghodsi-b
 CPU_PER_NODE=8
 GPU_PER_NODE=2
-CONSTRAINT=#--constraint=K
+CONSTRAINT=--constraint=K
 
 ############################################################
 

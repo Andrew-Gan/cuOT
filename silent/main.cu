@@ -42,8 +42,9 @@ int main(int argc, char** argv) {
     .nTree = numTrees,
     .baseOT = SimplestOT_t,
     .expander = AesExpand_t,
+    .leftKey = {3242342},
+    .rightKey = {8993849},
     .compressor = QuasiCyclic_t,
-    .choices = gen_choices(depth),
   };
 
   cudaSetDevice(0);
@@ -67,6 +68,8 @@ int main(int argc, char** argv) {
     Log::end(Sender, LPN);
     Log::close(Sender);
   });
+
+  config.choices = gen_choices(depth);
 
   std::future<void> recverWorker = std::async([&recver, &config]() {
     cudaSetDevice(1);

@@ -37,11 +37,11 @@ GPUdata& GPUdata::operator^=(const GPUdata &rhs) {
 
 GPUdata& GPUdata::operator=(const GPUdata &rhs) {
   if (mNBytes != rhs.size_bytes()) {
-    cudaFree(mPtr);
-    cudaMalloc(&mPtr, rhs.size_bytes());
+    cudaFreeAsync(mPtr, 0);
+    cudaMallocAsync(&mPtr, rhs.size_bytes(), 0);
     mNBytes = rhs.size_bytes();
   }
-  cudaMemcpy(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice);
+  cudaMemcpyAsync(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice);
   return *this;
 }
 
@@ -105,7 +105,6 @@ void GPUdata::xor_d(GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
   gpu_xor<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
-  cudaDeviceSynchronize();
 }
 
 std::ostream& operator<<(std::ostream &os, GPUdata &obj) {
