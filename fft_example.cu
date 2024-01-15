@@ -32,7 +32,7 @@ int main() {
     cufftReal *outH = new cufftReal[2 * FFT_SIZE];
 
     cufftReal *in;
-    cudaMalloc(&in, 2 * FFT_SIZE * sizeof(cufftReal));
+    cudaMalloc(&in, FFT_SIZE * sizeof(cufftReal));
     cufftComplex *mid;
     cudaMalloc(&mid, 2 * FFT_SIZE * sizeof(cufftComplex));
     cufftReal *out;

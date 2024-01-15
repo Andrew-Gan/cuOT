@@ -8,12 +8,10 @@
 __global__
 void make_block(blk *blocks) {
 	int x = blockDim.x;
-    int y = blockDim.y;
-    int i = blockIdx.z * blockDim.z + threadIdx.z;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
-	int k = blockIdx.x * blockDim.x + threadIdx.x;
-    blocks[i*y+j*x+k].data[0] = 4*j;
-    blocks[i*y+j*x+k].data[2] = k;
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int j = blockIdx.x * blockDim.x + threadIdx.x;
+    blocks[i*x+j].data[0] = 4*i;
+    blocks[i*x+j].data[2] = j;
 }
 
 __global__
@@ -49,6 +47,29 @@ void cuda_free(void *ptr) {
 	cudaFree(ptr);
 }
 
+__device__
+void blk_xor(blk *a, blk *b) {
+  for (int i = 0; i < 4; i++) {
+    a->data[i] ^= b->data[i];
+  }
+}
+
+__global__
+void fill_punc_tree(blk *cSum, uint64_t outWidth, uint64_t *activeParent,
+	bool *choice, blk *puncSum, blk *layer, int numTree) {
+		
+	uint64_t t = blockIdx.x * blockDim.x + threadIdx.x;
+	if (t >= numTree) return;
+	uint8_t c = choice[t];
+
+	uint64_t fillIndex = t * outWidth + 2 * activeParent[t] + c;
+	blk val = layer[fillIndex];
+	blk_xor(&val, &cSum[t]);
+	blk_xor(&val, &puncSum[c * numTree + t]);
+	layer[fillIndex] = val;
+	activeParent[t] = 2 * activeParent[t] + (1-c);
+}
+
 void cuda_spcot_sender_compute(Span &tree, int t, int depth, Mat &lSum, Mat &rSum) {
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
@@ -58,11 +79,12 @@ void cuda_spcot_sender_compute(Span &tree, int t, int depth, Mat &lSum, Mat &rSu
 	for (uint64_t d = 0, w = 1; d < depth-1; d++, w *= 2) {
 		aesExpand.expand(tree, separated, w*t);
 		separated.sum(2*t, w);
-		cudaMemcpy(lSum.data({d, 0}), separated.data(0), t*sizeof(blk), cudaMemcpyDeviceToDevice);
-		cudaMemcpy(rSum.data({d, 0}), separated.data(t), t*sizeof(blk), cudaMemcpyDeviceToDevice);
+		cudaMemcpyAsync(lSum.data({d, 0}), separated.data(0), t*sizeof(blk), cudaMemcpyDeviceToDevice);
+		cudaMemcpyAsync(rSum.data({d, 0}), separated.data(t), t*sizeof(blk), cudaMemcpyDeviceToDevice);
 	}
 
 	check_call("spcot_sender\n");
+	cudaDeviceSynchronize();
 }
 
 void cuda_spcot_recver_compute(Span &tree, int t, int depth, Mat &cSum, bool *b) {
@@ -70,53 +92,45 @@ void cuda_spcot_recver_compute(Span &tree, int t, int depth, Mat &cSum, bool *b)
 	uint32_t k1_blk[4] = {8993849};
 	AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
 	Vec separated(tree.size());
-	uint64_t *activeParent = new uint64_t[t]();
-	uint8_t choice;
-	uint64_t offset;
+	uint64_t *activeParent;
+	cudaMallocAsync(&activeParent, t*sizeof(uint64_t), 0);
+	cudaMemsetAsync(activeParent, 0, t*sizeof(uint64_t));
+	bool *choice_d;
+	cudaMallocAsync(&choice_d, depth*t*sizeof(bool), 0);
+	cudaMemcpyAsync(choice_d, b, depth*t*sizeof(bool), cudaMemcpyHostToDevice);
+
+	int block = std::min(t, 1024);
+	int grid = (t + block - 1) / block;
 
 	for (uint64_t d = 0, w = 1; d < depth-1; d++, w *= 2) {
 		aesExpand.expand(tree, separated, w*t);
-		for (uint64_t i = 0; i < t; i++) {
-			// sum in separated
-			choice = b[d*t+i];
-			offset = choice * (t*w) + (i*w) + activeParent[i];
-			cudaMemcpy(separated.data(offset), cSum.data({d, i}), sizeof(blk), cudaMemcpyDeviceToDevice);
-			if (d == depth-2) {
-				offset = (t*w/2) * (1-choice) + (i*w/2) + activeParent[i];
-				cudaMemcpy(separated.data(offset), cSum.data({d, i}), sizeof(blk), cudaMemcpyDeviceToDevice);
-			}
-		}
-
-		separated.sum(2*t, w/2);
-
-		for (uint64_t i = 0; i < t; i++) {
-			offset = 2 * activeParent[i] + choice;
-			cudaMemcpy(tree.data(offset), separated.data(t*choice+i), sizeof(blk), cudaMemcpyDeviceToDevice);
-			if (d == depth-2) {
-				offset = 2 * activeParent[i] + (1-choice);
-				cudaMemcpy(tree.data(offset), separated.data(t*(1-choice)+i), sizeof(blk), cudaMemcpyDeviceToDevice);
-			}
-			activeParent[i] *= 2;
-			activeParent[i] += 1 - choice;
+		separated.sum(2*t, w);
+		fill_punc_tree<<<grid, block>>>(cSum.data({d, 0}), 2*w, activeParent, &choice_d[d*t],
+			separated.data(), tree.data(), t);
+		if (d == depth-2) {
+			fill_punc_tree<<<grid, block>>>(cSum.data({d, 0}), 2*w, activeParent, &choice_d[d*t],
+			separated.data(), tree.data(), t);
 		}
 	}
 
-	delete[] activeParent;
+	cudaFreeAsync(choice_d, 0);
+	cudaFreeAsync(activeParent, 0);
 	check_call("spcot_recver\n");
+	cudaDeviceSynchronize();
 }
 
 void cuda_gen_matrices(Mat &pubMat, uint32_t *key) {
-	dim3 grid(pubMat.dim(2), pubMat.dim(1) / 1024, pubMat.dim(0));
-	dim3 block(1, 1024, 1);
+	dim3 grid(pubMat.dim(1), pubMat.dim(0) / 1024);
+	dim3 block(1, 1024);
 	make_block<<<grid, block>>>(pubMat.data());
-	grid = dim3(4*pubMat.dim(1)*pubMat.dim(2)/AES_BSIZE, pubMat.dim(0));
-	aesEncrypt128<<<grid, AES_BSIZE>>>(key, (uint32_t*)pubMat.data());
-	
+	uint64_t grid2 = 4*pubMat.dim(0)*pubMat.dim(1)/AES_BSIZE;
+	aesEncrypt128<<<grid2, AES_BSIZE>>>(key, (uint32_t*)pubMat.data());
 	check_call("cuda_gen_matrices\n");
+	cudaDeviceSynchronize();
 }
 
 void cuda_lpn_f2_compute(blk *pubMat, int d, int n, int k, Span &nn, Span &kk) {
 	lpn_single_row<<<n/1024, 1024>>>((uint32_t*)pubMat, d, k, nn.data(), kk.data());
-
 	check_call("cuda_lpn_f2_compute\n");
+	cudaDeviceSynchronize();
 }

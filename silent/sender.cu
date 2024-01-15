@@ -1,18 +1,25 @@
 #include "roles.h"
 #include <future>
 
+#include "logger.h"
 #include "gpu_ops.h"
-#include "cuda.h"
 
 std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 
 SilentOTSender::SilentOTSender(SilentOTConfig config) :
   SilentOT(config), fullVector(2 * numOT) {
+
   expandEvents.resize(depth);
   for (auto &event : expandEvents) {
     cudaEventCreate(&event);
   }
 
+  // pairing
+  silentOTSenders[config.id] = this;
+  while(silentOTRecvers[config.id] == nullptr);
+  other = silentOTRecvers[config.id];
+
+  // seed expansion init
   blk buff;
   for (int i = 0; i < 4; i++)
     buff.data[i] = rand();
@@ -24,12 +31,16 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) :
     fullVector.set(t, buff);
   }
 
-  silentOTSenders[config.id] = this;
-  while(silentOTRecvers[config.id] == nullptr);
-  other = silentOTRecvers[config.id];
+  // lpn init
+  switch (mConfig.compressor) {
+    case QuasiCyclic_t:
+      lpn = new QuasiCyclic(Sender, 2 * numOT, numOT);
+  }
 }
 
 void SilentOTSender::base_ot() {
+  Log::mem(Sender, BaseOT);
+
   std::vector<std::future<std::array<Vec, 2>>> workers;
   for (int d = 0; d < depth; d++) {
     workers.push_back(std::async([d, this]() {
@@ -47,14 +58,20 @@ void SilentOTSender::base_ot() {
   }
   leftHash.push_back(leftHash.back());
   rightHash.push_back(rightHash.back());
+
+  Log::mem(Sender, BaseOT);
 }
 
 void SilentOTSender::pprf_expand() {
+  Log::mem(Sender, SeedExp);
+
   Expand *expander;
   switch (mConfig.expander) {
     case AesExpand_t:
       expander = new AesExpand((uint8_t*)mConfig.leftKey, (uint8_t*)mConfig.rightKey);
   }
+
+  Log::mem(Sender, SeedExp);
 
   Vec separated(2 * numOT);
   for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
@@ -73,17 +90,16 @@ void SilentOTSender::pprf_expand() {
     cudaEventRecord(expandEvents.at(d));
   }
 
-  other->eventsRecorded = true;
-  cudaDeviceSynchronize();
+  other->expandReady = true;
+  Log::mem(Sender, SeedExp);
 
   delete expander;
+  cudaDeviceSynchronize();
+  
+  Log::mem(Sender, SeedExp);
 }
 
 void SilentOTSender::lpn_compress() {
-  switch (mConfig.compressor) {
-    case QuasiCyclic_t:
-      QuasiCyclic code(2 * numOT, numOT);
-      code.encode(fullVector);
-    // case ExpandAccumulate:
-  }
+  lpn->encode(fullVector);
+  cudaDeviceSynchronize();
 }

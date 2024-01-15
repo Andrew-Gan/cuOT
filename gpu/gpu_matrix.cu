@@ -88,6 +88,7 @@ void Mat::bit_transpose() {
   grid.z = (yBlock + grid.y - 1) / grid.y;
 
   bit_transposer<<<grid, block>>>(tpBuffer, mPtr, grid);
+  cudaDeviceSynchronize();
   check_call("Mat::bit_transpose\n");
   cudaFree(mPtr);
   mPtr = tpBuffer;
@@ -109,8 +110,6 @@ void Mat::modp(uint64_t reducedCol) {
     gpu_xor<<<grid, block>>>(mPtr, mPtr + (i * reducedCol * sizeof(blk)), reducedCol);
   }
   check_call("Mat::modp\n");
-
-  col = reducedCol;
 }
 
 void Mat::xor_scalar(blk *rhs) {

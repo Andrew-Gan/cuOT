@@ -1,10 +1,9 @@
 CC := nvcc
-CUFLG := -g -G -std=c++20
+CUFLG := -g -G -std=c++20 -arch=sm_80
 CCFLG := -g -std=c++20 -gdwarf-4 -w
 LIB := -lcurand -lcufft -lcuda
-INC := -I../gpu -I../logger -I./lib
+INC := -I../gpu -I./lib
 GPU := ../gpu/gpu.o
-LOG := ../logger/logger.o
 EXE := ot
 
 ############################################################
@@ -15,7 +14,6 @@ OBJ 	:= $(patsubst %.cu, %.o, $(SRC))
 LIB_SRC := $(shell find lib -name '*.c*')
 LIB_OBJ := $(patsubst %.c, %.o, $(LIB_SRC))
 LIB_OBJ := $(patsubst %.cpp, %.o, $(LIB_OBJ))
-
 FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 
 ############################################################
@@ -23,18 +21,18 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 QUEUE=standby #zghodsi-b
 CPU_PER_NODE=32
 GPU_PER_NODE=2
-CONSTRAINT=--constraint=K
+CONSTRAINT="I|K"
 
 ############################################################
 
 .PHONY: all clean
 
-$(EXE): $(GPU) $(LOG) $(OBJ) $(LIB_OBJ)
+$(EXE): $(GPU) $(OBJ) $(LIB_OBJ)
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $^ -o $(EXE)
 
 run: $(EXE)
 	rm -f slurm*.out report*sqlite report*nsys-rep
-	sbatch -n $(CPU_PER_NODE) -N 1 --gpus-per-node=$(GPU_PER_NODE) -A $(QUEUE) $(CONSTRAINT) job.sh
+	sbatch -n $(CPU_PER_NODE) -N 1 --gpus-per-node=$(GPU_PER_NODE) -A $(QUEUE) --constraint=$(CONSTRAINT) job.sh
 
 %.o: %.cu $(HDR)
 	$(CC) $(CUFLG) $(LIB) $(INC) -c -o $@ $<

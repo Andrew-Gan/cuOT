@@ -2,8 +2,8 @@
 #include "roles.h"
 #include <future>
 
+#include "logger.h"
 #include "gpu_ops.h"
-#include "gpu_tests.h"
 
 std::array<std::atomic<SilentOTRecver*>, 16> silentOTRecvers;
 
@@ -11,13 +11,23 @@ SilentOTRecver::SilentOTRecver(SilentOTConfig config) :
   SilentOT(config), puncVector(2 * numOT), choiceVector(2 * numOT),
   leftBuffer(std::vector<Vec>(depth+1, Vec(mConfig.nTree))),
   rightBuffer(std::vector<Vec>(depth+1, Vec(mConfig.nTree))) {
+
+  // pairing
   silentOTRecvers[mConfig.id] = this;
   while(silentOTSenders[mConfig.id] == nullptr);
   other = silentOTSenders[mConfig.id];
   get_choice_vector();
+
+  // lpn init
+  switch (mConfig.compressor) {
+    case QuasiCyclic_t:
+      lpn = new QuasiCyclic(Recver, 2 * numOT, numOT);
+  }
 }
 
 void SilentOTRecver::base_ot() {
+  Log::mem(Recver, BaseOT);
+
   std::vector<std::future<Vec>> workers;
   for (int d = 0; d < depth; d++) {
     workers.push_back(std::async([d, this]() {
@@ -27,10 +37,13 @@ void SilentOTRecver::base_ot() {
       return Vec();
     }));
   }
+
   for (auto &worker : workers) {
     auto res = worker.get();
     choiceHash.push_back(res);
   }
+
+  Log::mem(Recver, BaseOT);
 }
 
 __global__
@@ -67,33 +80,37 @@ void blk_xor(blk *a, blk *b) {
 }
 
 __global__
-void fill_punc_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeParent,
-  uint64_t choice, blk *puncSum, blk *layer) {
+void fill_punc_tree(blk *leftSum, blk *rightSum, uint64_t outWidth,
+  uint64_t *activeParent, uint64_t choice, blk *puncSum, blk *layer) {
   
   uint64_t numTree = gridDim.x * blockDim.x;
   uint64_t t = blockIdx.x * blockDim.x + threadIdx.x;
   int c = (choice >> t) & 1;
   blk *fullSum = c == 0 ? leftSum : rightSum;
 
-  blk val = layer[t * outWidth + 2 * activeParent[t] + c];
+  uint64_t fillIndex = t * outWidth + 2 * activeParent[t] + c;
+  blk val = layer[fillIndex];
   blk_xor(&val, &fullSum[t]);
   blk_xor(&val, &puncSum[c * numTree + t]);
-  layer[t * outWidth + (2 * activeParent[t] + c)] = val;
+  layer[fillIndex] = val;
   activeParent[t] = 2 * activeParent[t] + (1-c);
 }
 
 void SilentOTRecver::pprf_expand() {
+  Log::mem(Recver, SeedExp);
+
   Expand *expander;
   switch (mConfig.expander) {
     case AesExpand_t:
       expander = new AesExpand((uint8_t*)mConfig.leftKey, (uint8_t*)mConfig.rightKey);
   }
 
+  Log::mem(Recver, SeedExp);
+
   Vec separated(2 * numOT);
   uint64_t *activeParent;
   cudaMalloc(&activeParent, mConfig.nTree * sizeof(uint64_t));
   cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
-  while(!eventsRecorded);
 
   for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
     expander->expand(puncVector, separated, mConfig.nTree * inWidth);
@@ -121,19 +138,16 @@ void SilentOTRecver::pprf_expand() {
     }
   }
 
-  eventsRecorded = false;
-  cudaDeviceSynchronize();
+  Log::mem(Recver, SeedExp);
 
   cudaFree(activeParent);
   delete expander;
+  cudaDeviceSynchronize();
+
+  Log::mem(Recver, SeedExp);
 }
 
 void SilentOTRecver::lpn_compress() {
-  switch (mConfig.compressor) {
-    case QuasiCyclic_t:
-      QuasiCyclic code(2 * numOT, numOT);
-      code.encode(puncVector);
-      code.encode(choiceVector);
-    // case ExpandAccumulate:
-  }
+  lpn->encode(puncVector);
+  cudaDeviceSynchronize();
 }

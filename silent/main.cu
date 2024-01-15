@@ -48,9 +48,6 @@ int main(int argc, char** argv) {
     .compressor = QuasiCyclic_t,
   };
 
-  cudaSetDevice(0);
-  cudaSetDevice(1);
-
   SilentOTSender *sender;
   SilentOTRecver *recver;
 
@@ -58,40 +55,65 @@ int main(int argc, char** argv) {
   sprintf(senderFile, "../results/gpu-silent-send-%d-%d-%d.txt", logOT, numTrees, bandwidth);
   char recverFile[60];
   sprintf(recverFile, "../results/gpu-silent-recv-%d-%d-%d.txt", logOT, numTrees, bandwidth);
+  
+  // do not allow simultaneous operation to prevent 2 GPUs on same card from congested PCIe
+  std::atomic<int> step = 0;
 
-  std::future<void> senderWorker = std::async([&sender, &config, &bandwidth, &senderFile]() {
+  std::future<void> senderWorker = std::async([&sender, &step, &config, &bandwidth, &senderFile]() {
     cudaSetDevice(0);
+    Log::open(Sender, senderFile, bandwidth, true);
+
+    Log::start(Sender, CudaInit);
     sender = new SilentOTSender(config);
-    Log::open(Sender, senderFile, bandwidth);
+    Log::mem(Sender, CudaInit);
+    Log::end(Sender, CudaInit);
+    
     Log::start(Sender, BaseOT);
     sender->base_ot();
     Log::end(Sender, BaseOT);
-    Log::comm(BaseOT, 2 * sender->depth * config.nTree * sizeof(OTblock));
+
     Log::start(Sender, SeedExp);
     sender->pprf_expand();
     Log::end(Sender, SeedExp);
-    Log::comm(SeedExp, 2 * sender->depth * config.nTree * sizeof(OTblock));
+
+    // step = 1;
+    // while(step < 2);
     Log::start(Sender, LPN);
     sender->lpn_compress();
     Log::end(Sender, LPN);
+
+    // step = 3;
     Log::close(Sender);
   });
 
   config.choices = gen_choices(depth);
 
-  std::future<void> recverWorker = std::async([&recver, &config, &bandwidth, &recverFile]() {
+  std::future<void> recverWorker = std::async([&recver, &step, &config, &bandwidth, &recverFile]() {
     cudaSetDevice(1);
+    Log::open(Recver, recverFile, bandwidth, true);
+
+    Log::start(Recver, CudaInit);
     recver = new SilentOTRecver(config);
-    Log::open(Recver, recverFile, bandwidth);
+    Log::mem(Recver, CudaInit);
+    Log::end(Recver, CudaInit);
+
     Log::start(Recver, BaseOT);
     recver->base_ot();
     Log::end(Recver, BaseOT);
+
+    // while(step < 1);
+    while(!recver->expandReady);
     Log::start(Recver, SeedExp);
     recver->pprf_expand();
     Log::end(Recver, SeedExp);
+
+    // step = 2;
+    // while(step < 3);
+
     Log::start(Recver, LPN);
     recver->lpn_compress();
     Log::end(Recver, LPN);
+
     Log::close(Recver);
   });
 

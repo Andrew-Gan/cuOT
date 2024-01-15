@@ -8,7 +8,7 @@ int port, party;
 
 void test_ferret(int party, NetIO *ios, int64_t num_ot, bool malicious) {
 	auto start = clock_start();
-	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, ios, malicious, true, ferret_b13, "");
+	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, ios, malicious, true, ferret_cuda, "");
 	double timeused = time_from(start);
 	std::cout << party << "\tsetup\t" << timeused/1000 << "ms" << std::endl;
 
@@ -22,6 +22,7 @@ void test_ferret(int party, NetIO *ios, int64_t num_ot, bool malicious) {
 	// Get the buffer size needed by calling byte_memory_need_inplace()
 	// uint64_t batch_size = ferretcot->ot_limit;
 	// cout <<"Active FERRET RCOT inplace\t"<<double(batch_size)/test_rcot<FerretCOT<NetIO>>(ferretcot, ios, party, batch_size, true)*1e6<<" OTps"<<endl;
+
 	delete ferretcot;
 }
 

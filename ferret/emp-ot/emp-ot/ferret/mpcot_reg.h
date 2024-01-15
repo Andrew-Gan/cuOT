@@ -6,6 +6,7 @@
 #include "emp-ot/ferret/spcot_sender.h"
 #include "emp-ot/ferret/spcot_recver.h"
 #include "emp-ot/ferret/preot.h"
+#include "logger.h"
 
 using namespace emp;
 using std::future;
@@ -95,8 +96,13 @@ public:
 	}
 
 	void exec_f2k_sender(SPCOT_Sender<IO> &sender, OTPre<IO> *ot, Span &tree, IO *io) {
+		Log::start(0, SeedExp);
 		sender.compute(tree, Delta_f2k);
+		Log::mem(0, SeedExp);
+		Log::end(0, SeedExp);
+
 		sender.template send_f2k<OTPre<IO>>(ot, io);
+
 		io->flush();
 		// to do: all tree joint consistency check
 		if(is_malicious)
@@ -105,7 +111,11 @@ public:
 
 	void exec_f2k_recver(SPCOT_Recver<IO> &recver, OTPre<IO> *ot, Span &tree, IO *io) {
 		recver.template recv_f2k<OTPre<IO>>(ot, io);
+
+		Log::start(1, SeedExp);
 		recver.compute(tree);
+		Log::mem(1, SeedExp);
+		Log::end(1, SeedExp);
 
 		// to do: all tree joint consistency check
 		if(is_malicious)

@@ -6,6 +6,7 @@
 void check_cuda();
 void check_alloc(void *ptr);
 void check_call(const char* msg);
+void check_mem();
 bool check_rot(Vec &m0, Vec &m1, Vec &mc, uint64_t c);
 bool check_cot(Vec &full, Vec &punc, Vec &choice, blk *delta);
 

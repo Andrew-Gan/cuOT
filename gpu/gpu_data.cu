@@ -65,25 +65,24 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
 void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
   uint8_t *newData;
-  cudaError_t err = cudaMalloc(&newData, size);
-  cudaDeviceSynchronize();
+  cudaError_t err = cudaMallocAsync(&newData, size, 0);
   if (mPtr != nullptr) {
-    cudaMemcpy(newData, mPtr, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
-    cudaFree(mPtr);
+    cudaMemcpyAsync(newData, mPtr, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
+    cudaFreeAsync(mPtr, 0);
   }
   mPtr = newData;
   mNBytes = size;
 }
 
-void GPUdata::load(const uint8_t *data) {
-  cudaMemcpy(mPtr, data, mNBytes, cudaMemcpyDeviceToDevice);
+void GPUdata::load(const uint8_t *data, uint64_t size) {
+  cudaMemcpyAsync(mPtr, data, size = 0 ? mNBytes : size, cudaMemcpyDeviceToDevice);
 }
 
 void GPUdata::load(const char *filename) {
   std::ifstream ifs(filename, std::ios::in | std::ios::binary);
   char *buffer = new char[mNBytes];
   ifs.read(buffer, mNBytes);
-  cudaMemcpy(mPtr, buffer, mNBytes, cudaMemcpyHostToDevice);
+  cudaMemcpyAsync(mPtr, buffer, mNBytes, cudaMemcpyHostToDevice);
   ifs.close();
   delete[] buffer;
 }

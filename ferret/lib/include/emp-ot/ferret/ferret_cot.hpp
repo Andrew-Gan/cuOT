@@ -1,6 +1,7 @@
 template<typename T>
 FerretCOT<T>::FerretCOT(int party, T *ios,
 		bool malicious, bool run_setup, PrimalLPNParameter param, std::string pre_file) {
+	
 	this->party = party;
 	io = ios;
 	this->ios = ios;
@@ -12,9 +13,7 @@ FerretCOT<T>::FerretCOT(int party, T *ios,
 	this->param = param;
 	this->extend_initialized = false;
 	cuda_init(party);
-
-	if (party==ALICE) Log::open(0, "../results/gpu-ferret-send.txt", 1);
-	if (party==BOB) Log::open(1, "../results/gpu-ferret-recv.txt", 1);
+	ot_pre_data.resize(param.n_pre);
 
 	if(run_setup) {
 		if(party == ALICE) {
@@ -30,17 +29,15 @@ FerretCOT<T>::FerretCOT(int party, T *ios,
 template<typename T>
 FerretCOT<T>::~FerretCOT() {
 	block *tmp = new block[param.n_pre];
-	cuda_memcpy(tmp, ot_pre_data.data(), param.n_pre*sizeof(blk), D2H);
+	cuda_memcpy(tmp, ot_pre_data.data(), param.n_pre*sizeof(block), D2H);
 	if (ot_pre_data.size() > 0) {
 		if(party == ALICE) write_pre_data128_to_file((void*)tmp, (__uint128_t)Delta, pre_ot_filename);
 		else write_pre_data128_to_file((void*)tmp, (__uint128_t)0, pre_ot_filename);
-		delete[] tmp;
 	}
+	delete[] tmp;
 	delete base_cot;
 	if(lpn_f2 != nullptr) delete lpn_f2;
 	if(mpcot != nullptr) delete mpcot;
-
-	Log::close(party-1);
 }
 
 template<typename T>
@@ -67,13 +64,13 @@ void FerretCOT<T>::extend(Span &ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
 	if(party == ALICE) mpcot->sender_init(Delta_blk);
 	else mpcot->recver_init();
 
-	Log::start(party-1, SeedExp);
 	mpcot->mpcot(ot_output, preot, ot_input);
-	Log::end(party-1, SeedExp);
 
 	Log::start(party-1, LPN);
 	Span kSpan = ot_input.span(mpcot->consist_check_cot_num);
+	Log::mem(party-1, LPN);
 	lpn->compute(ot_output, kSpan);
+	Log::mem(party-1, LPN);
 	Log::end(party-1, LPN);
 }
 
@@ -132,7 +129,8 @@ void FerretCOT<T>::setup(std::string pre_file) {
 		extend_initialization();
 	});
 
-	ot_pre_data.resize(param.n_pre);
+	cuda_init(party);
+
 	bool hasfile = file_exists(pre_ot_filename), hasfile2;
 	if(party == ALICE) {
 		io->send_data(&hasfile, sizeof(bool));
@@ -164,7 +162,7 @@ void FerretCOT<T>::setup(std::string pre_file) {
 		base_cot->cot_gen(pre_data_ini, param.k_pre+mpcot_ini.consist_check_cot_num);
 		Vec tmp(param.k_pre+mpcot_ini.consist_check_cot_num);
 		cuda_memcpy(tmp.data(), pre_data_ini, tmp.size_bytes(), H2D);
-		lpn.init(1);
+		lpn.init();
 		extend(ot_pre_data, &mpcot_ini, &pre_ot_ini, &lpn, tmp);
 		delete[] pre_data_ini;
 	}
@@ -197,12 +195,14 @@ void FerretCOT<T>::rcot(Vec &data) {
 	bool round_memcpy = last_round_ot>ot_limit?true:false;
 	if(round_memcpy) last_round_ot -= ot_limit;
 
-	lpn_f2->init(round_inplace + 2);
+	lpn_f2->init();
 
-	printf("Pre-OT done. Ferret starts...\n");
 	printf("num OT requested = %ld\n", num);
 	printf("OT per iteration = %ld\n", ot_limit);
 	printf("iterations = %ld\n", round_inplace);
+
+	if (party==ALICE) Log::open(0, "../results/gpu-ferret-send.txt", 1);
+	if (party==BOB) Log::open(1, "../results/gpu-ferret-recv.txt", 1);
 
 	for(int64_t i = 0; i < round_inplace; ++i) {
 		Span dataSpan = data.span(pt, pt + ot_limit + M);
@@ -220,6 +220,8 @@ void FerretCOT<T>::rcot(Vec &data) {
 		cuda_memcpy(data.data(pt), ot_data.data(), last_round_ot*sizeof(blk), D2D);
 		ot_used = last_round_ot;
 	}
+
+	Log::close(party-1);
 }
 
 template<typename T>
@@ -231,7 +233,10 @@ template<typename T>
 void FerretCOT<T>::write_pre_data128_to_file(void* loc, __uint128_t delta, std::string filename) {
 	std::ofstream outfile(filename);
 	if(outfile.is_open()) outfile.close();
-	else error("create a directory to store pre-OT data");
+	else {
+		printf("Attempted to create directory at %s\n", filename.c_str());
+		error("create a directory to store pre-OT data");
+	}
 	FileIO fio(filename.c_str(), false);
 	fio.send_data(&party, sizeof(int64_t));
 	if(party == ALICE) fio.send_data(&delta, 16);

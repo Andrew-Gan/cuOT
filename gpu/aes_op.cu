@@ -16,8 +16,6 @@ void aesEncrypt128(uint32_t *key, uint32_t * aesData) {
     uint32_t int4tx = tx/4;
     uint32_t idx2	= int4tx*4;
 	int x;
-    uint32_t y      = blockIdx.y * blockDim.y + threadIdx.y;
-    key += y * 11 * AES_KEYLEN / sizeof(*key);
 
     uint32_t stageBlockIdx[4] = {
         posIdx_E[mod4tx*4]   + idx2,
@@ -227,16 +225,12 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     int expandDir = blockIdx.y;
     uint32_t *key = expandDir == 0 ? keyLeft : keyRight;
 
-    // 18 ms
-
     uint32_t stageBlockIdx[4] = {
         posIdx_E[mod4tx*4] + idx2,
         posIdx_E[mod4tx*4+1] + idx2,
         posIdx_E[mod4tx*4+2] + idx2,
         posIdx_E[mod4tx*4+3] + idx2
     };
-
-    // 27 ms
 
     uint64_t parentId =  (bx * AES_BSIZE + tx) / 4;
     uint64_t childId = 2 * parentId + expandDir;
@@ -257,8 +251,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     tBox2Block[tx].uival    = TBox2[tx];
     tBox3Block[tx].uival    = TBox3[tx];
 
-    // 42 ms
-
     if (parentId >= inWidth) return;
 
     //----------------------------------- 1st stage -----------------------------------
@@ -269,8 +261,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     //-------------------------------- end of 1st stage --------------------------------
 
     uint32_t op[4];
-
-    //50 ms
 
     #pragma unroll
     for (int i = 1; i < 9; i+=2) {
@@ -314,8 +304,6 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     x += 4;
     stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
 
-    // 229 ms
-
     //----------------------------------- 11th stage -----------------------------------
 
     op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
@@ -334,4 +322,4 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     interleaved[childId].data[mod4tx] = stageBlock2[tx].uival;
     uint64_t offs = expandDir * inWidth;
     separated[parentId + offs].data[mod4tx] = stageBlock2[tx].uival;
-} // 290 ms
+}

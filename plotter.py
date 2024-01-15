@@ -56,7 +56,7 @@ def plot_pipeline(eventList, configData):
   plt.title('Pipeline Graph over Time')
   plt.xlabel('Time (ms)')
   plt.yticks(range(len(configData.keys())), configData.keys())
-  plt.legend(eventList.values(), loc='lower left', bbox_to_anchor=(-.2, .4))
+  plt.legend(eventList.values(), loc='upper right', bbox_to_anchor=(1, 1))
   plt.savefig(OUTPUT_FOLDER + 'pipeline.png', bbox_inches='tight')
 
 def plot_numtree_runtime(runConfig, eventList, eventDuration, eventID):

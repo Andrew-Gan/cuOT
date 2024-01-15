@@ -28,14 +28,21 @@ void check_cuda() {
 
 void check_alloc(void *ptr) {
 #ifdef CHECK_ALLOC
-	uint64_t size = 0;
 	int dev = 0;
 	cudaGetDevice(&dev);
-	CUresult res = cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr);
-	if (res != CUDA_SUCCESS) {
-		printf("ptr %p, dev %d, alloc %ld\n", ptr, dev, size);
-		throw std::runtime_error("something went wrong!\n");
-	}
+	printf("currently on device: %d\n", dev);
+	cudaDeviceSynchronize();
+
+	cudaPointerAttributes attr;
+	uint64_t size = 0;
+
+	if (cudaSuccess != cudaPointerGetAttributes(&attr, ptr))
+		printf("Failed to get attribute\n");
+
+	if (CUDA_SUCCESS != cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr))
+		printf("Failed to get range\n");
+
+	printf("ptr %p, dev %d, alloc %ld\n", ptr, attr.device, size);
 	fflush(stdout);
 #endif
 }
@@ -48,6 +55,24 @@ void check_call(const char* msg) {
 		throw std::runtime_error(cudaGetErrorString(err));
 	}
 #endif
+}
+
+void check_mem() {
+	cudaDeviceSynchronize();
+
+	int dev = 0;
+	cudaGetDevice(&dev);
+	size_t free, total;
+	cudaMemGetInfo(&free, &total);
+	printf("dev %d: CUDA free memory: ", dev);
+	if ((free >> 30) > 0)
+		printf("%lu / %lu GB\n", free >> 30, total >> 30);
+	else if ((free >> 20) > 0)
+		printf("%lu / %lu MB\n", free >> 20, total >> 20);
+	else if ((free >> 10) > 0)
+		printf("%lu / %lu KB\n", free >> 10, total >> 10);
+	else
+		printf("%lu / %lu B\n", free, total);
 }
 
 bool check_rot(Vec &m0, Vec &m1, Vec &mc, uint64_t c) {

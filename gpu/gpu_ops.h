@@ -29,9 +29,6 @@ void cast(S *input, T *output) {
 }
 
 __global__
-void complex_dot_product(cufftComplex *c, cufftComplex *a, cufftComplex *b);
-
-__global__
 void xor_reduce(uint64_t *out, uint64_t *in);
 
 __global__

@@ -26,7 +26,7 @@ public:
 	int64_t ot_used, ot_limit;
 
 	FerretCOT(int party, T *ios, bool malicious = false, bool run_setup = true,
-PrimalLPNParameter param = ferret_b13, std::string pre_file="");
+PrimalLPNParameter param = ferret_cuda, std::string pre_file="");
 
 
 	~FerretCOT();

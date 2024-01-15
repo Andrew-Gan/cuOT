@@ -1,6 +1,7 @@
 #ifndef __CUDA_LAYER_H__
 #define __CUDA_LAYER_H__
 
+#include "gpu_tests.h"
 #include "gpu_vector.h"
 
 typedef enum { H2H, H2D, D2H, D2D } cudaMemcpy_t;

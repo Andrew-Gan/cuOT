@@ -131,9 +131,6 @@ double test_rot(T* ot, NetIO *io, int party, int64_t length) {
 
 template <typename T>
 double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
-	struct timespec tp[2];
-	clock_gettime(CLOCK_MONOTONIC, &tp[0]);
-
 	block *b;
 	Vec bVec;
 	PRG prg;
@@ -157,15 +154,10 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
 		ot->rcot_inplace(bVec);
 	}
 
-	return 0.0f;
+	return 0.0f; //debug
 
 	b = new block[bVec.size()];
 	cuda_memcpy(b, bVec.data(), bVec.size_bytes(), D2H);
-
-	clock_gettime(CLOCK_MONOTONIC, &tp[1]);
-	float duration = (tp[1].tv_sec-tp[0].tv_sec) * 1000.0f;
-	duration += (tp[1].tv_nsec-tp[0].tv_nsec) / 1000000.0f;
-	printf("total: %.2f ms\n", duration);
 
 	long long t = time_from(start);
 	io->sync();

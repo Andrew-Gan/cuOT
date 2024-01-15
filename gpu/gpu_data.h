@@ -15,7 +15,7 @@ public:
   uint8_t* data() const { return mPtr; }
   uint64_t size_bytes() const { return mNBytes; }
   void resize(uint64_t size);
-  void load(const uint8_t *data);
+  void load(const uint8_t *data, uint64_t size = 0);
   void load(const char *filename);
   void save(const char *filename);
   void clear();

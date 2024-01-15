@@ -15,7 +15,6 @@ class LpnF2 { public:
 	int k, mask;
 	block seed;
 	Mat pubMat;
-	int iter = 0;
 	bool isInit = false;
 
 	LpnF2 (int party, int64_t n, int k, IO *io) {
@@ -30,17 +29,15 @@ class LpnF2 { public:
 		}
 	}
 
-	void init(int num_iter) {
-		pubMat.resize({(uint64_t)num_iter, (uint64_t)n / 4, (uint64_t)d});
+	void init() {
+		pubMat.resize({(uint64_t)n / 4, (uint64_t)d});
 
 		uint8_t* key_d;
 		uint64_t keySize = 11 * AES_KEYLEN;
 		PRP prp;
-		cuda_malloc((void**)&key_d, keySize * num_iter);
-		for (int i = 0; i < num_iter; i++) {
-			prp.aes_set_key(seed_gen());
-			cuda_memcpy(key_d + i * keySize, prp.aes.rd_key, keySize, H2D);
-		}
+		cuda_malloc((void**)&key_d, keySize);
+		prp.aes_set_key(seed_gen());
+		cuda_memcpy(key_d, prp.aes.rd_key, keySize, H2D);
 
 		cuda_gen_matrices(pubMat, (uint32_t*) key_d);
 		cuda_free(key_d);
@@ -53,7 +50,7 @@ class LpnF2 { public:
 		int k_0 = kk.size();
 
 		// bench(nn, kk);
-		cuda_lpn_f2_compute(pubMat.data({(uint64_t)iter, 0, 0}), d, n_0, k_0, nn, kk);
+		cuda_lpn_f2_compute(pubMat.data(), d, n_0, k_0, nn, kk);
 	}
 
 	void compute(Vec &nn, Vec &kk, uint64_t consist_check_cot_num) {

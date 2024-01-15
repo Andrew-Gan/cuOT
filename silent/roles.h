@@ -8,7 +8,7 @@
 #include "gpu_matrix.h"
 #include "base_ot.h"
 #include "expand.h"
-#include "compress.h"
+#include "lpn.h"
 
 #define CHUNK_SIDE (1<<18)
 
@@ -21,7 +21,7 @@ struct SilentOTConfig {
   ExpandType expander;
   uint32_t leftKey[4];
   uint32_t rightKey[4];
-  CompressType compressor;
+  LPNType compressor;
   // recver only
   uint64_t *choices;
 };
@@ -30,12 +30,14 @@ class SilentOT {
 public:
   SilentOTConfig mConfig;
   uint64_t depth, numOT, numLeaves;
+  Lpn *lpn;
   
   SilentOT(SilentOTConfig config) : mConfig(config) {
     depth = mConfig.logOT - log2((float) mConfig.nTree) + 1;
     numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, depth);
   }
+  virtual ~SilentOT() { delete lpn; }
   virtual void base_ot() = 0;
   virtual void pprf_expand() = 0;
   virtual void lpn_compress() = 0;
@@ -61,9 +63,9 @@ public:
   Vec puncVector, choiceVector;
   std::vector<Vec> leftBuffer;
   std::vector<Vec> rightBuffer;
-  std::atomic<bool> eventsRecorded = false;
   SilentOTSender *other = nullptr;
   std::vector<Vec> choiceHash;
+  std::atomic<bool> expandReady = false;
 
   SilentOTRecver(SilentOTConfig config);
   virtual void base_ot();
