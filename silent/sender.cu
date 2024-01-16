@@ -32,7 +32,7 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) :
     }};
     cudaMalloc(&delta[gpu], sizeof(**delta));
     cudaMemcpy(delta[gpu], &buff, sizeof(**delta), cudaMemcpyHostToDevice);
-    for (int t = 0; t < mConfig.nTree; t++) {
+    for (int t = 0; t < mConfig.nTree / NGPU; t++) {
       for (int i = 0; i < 4; i++) buff.data[i] = rand();
       fullVector[gpu].set(t, buff);
     }
@@ -93,15 +93,10 @@ void SilentOTSender::pprf_expand() {
   Log::mem(Sender, SeedExp);
   int nTreePerGPU = mConfig.nTree / NGPU;
   Vec separated[NGPU];
-  
+
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(gpu);
     separated[gpu] = Vec(2 * numOT / NGPU);
-  }
-
-  for (int gpu = 0; gpu < 1; gpu++) {
-    cudaSetDevice(gpu);
-    
     for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
       expander[gpu]->expand(fullVector[gpu], separated[gpu], nTreePerGPU * inWidth);
       separated[gpu].sum(2 * nTreePerGPU, inWidth);
@@ -124,11 +119,12 @@ void SilentOTSender::pprf_expand() {
   cudaSetDevice(0);
   Log::mem(Sender, SeedExp);
 
-  // for (int gpu = 1; gpu < NGPU; gpu++) {
-  //   uint64_t offset = gpu * fullVector[gpu].size();
-  //   cudaMemcpy(fullVector[0].data(), fullVector[gpu].data(),
-  //     fullVector[gpu].size_bytes(), cudaMemcpyDeviceToDevice);
-  // }
+  for (int gpu = 1; gpu < NGPU; gpu++) {
+    uint64_t offset = gpu * fullVector[gpu].size();
+    printf("%p <- %p\n", fullVector[0].data(), fullVector[gpu].data());
+    cudaMemcpy(fullVector[0].data(), fullVector[gpu].data(),
+      fullVector[gpu].size_bytes(), cudaMemcpyDeviceToDevice);
+  }
 }
 
 void SilentOTSender::lpn_compress() {
