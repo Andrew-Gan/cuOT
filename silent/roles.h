@@ -10,8 +10,6 @@
 #include "expand.h"
 #include "lpn.h"
 
-#define NGPU 2
-
 class SilentOTSender;
 class SilentOTRecver;
 
@@ -22,7 +20,6 @@ struct SilentOTConfig {
   uint32_t leftKey[4];
   uint32_t rightKey[4];
   LPNType compressor;
-  // recver only
   uint64_t *choices;
 };
 

@@ -3,7 +3,6 @@
 
 #include <curand_kernel.h>
 #include <cufft.h>
-#include <cuda_fp16.h>
 #include "gpu_vector.h"
 
 enum LPNType { QuasiCyclic_t, ExpandAccumulate_t };
@@ -16,14 +15,14 @@ public:
 class QuasiCyclic : public Lpn {
 private:
   Role mRole;
-  curandGenerator_t prng;
+  curandGenerator_t prng[2];
   const uint64_t rows = 8*sizeof(OTblock);
   uint64_t mIn, mOut;
-  void *workArea = nullptr;
+  void *workArea[2];
   int fftsizeLog = -1;
-  cufftHandle aPlan, bPlan, cPlan;
-  cufftReal *a64_poly, *b64_poly, *c64_poly;
-  cufftComplex *a64_fft, *b64_fft, *c64_fft;
+  cufftHandle aPlan[2], bPlan[2], cPlan[2];
+  cufftReal *a64_poly[2], *b64_poly[2], *c64_poly[2];
+  cufftComplex *a64_fft[2], *b64_fft[2], *c64_fft[2];
 
 public:
   QuasiCyclic(Role role, uint64_t in, uint64_t out);

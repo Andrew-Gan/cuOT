@@ -48,7 +48,7 @@ blk* Mat::data(std::vector<uint64_t> pos) const {
   for (int i = 0; i < pos.size(); i++) {
     if (pos.at(i) >= mDim.at(i)) {
       char msg[40];
-      sprintf(msg, "Requested dim exceed matrix dim at %d\n", i);
+      sprintf(msg, "Mat::data: exceed dim at %d, accessing %lu when max is %lu\n", i, pos.at(i), mDim.at(i));
       throw std::invalid_argument(msg);
     }
   }
@@ -88,7 +88,6 @@ void Mat::bit_transpose() {
   grid.z = (yBlock + grid.y - 1) / grid.y;
 
   bit_transposer<<<grid, block>>>(tpBuffer, mPtr, grid);
-  cudaDeviceSynchronize();
   check_call("Mat::bit_transpose\n");
   cudaFree(mPtr);
   mPtr = tpBuffer;
