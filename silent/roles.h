@@ -10,7 +10,7 @@
 #include "expand.h"
 #include "lpn.h"
 
-#define CHUNK_SIDE (1<<18)
+#define NGPU 2
 
 class SilentOTSender;
 class SilentOTRecver;
@@ -30,6 +30,7 @@ class SilentOT {
 public:
   SilentOTConfig mConfig;
   uint64_t depth, numOT, numLeaves;
+  Expand *expander[NGPU];
   Lpn *lpn;
   
   SilentOT(SilentOTConfig config) : mConfig(config) {
@@ -37,7 +38,6 @@ public:
     numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, depth);
   }
-  virtual ~SilentOT() { delete lpn; }
   virtual void base_ot() = 0;
   virtual void pprf_expand() = 0;
   virtual void lpn_compress() = 0;
@@ -45,14 +45,15 @@ public:
 
 class SilentOTSender : public SilentOT {
 public:
-  Vec fullVector;
-  blk *delta = nullptr;
+  Vec fullVector[NGPU];
+  blk *delta[NGPU];
   SilentOTRecver *other = nullptr;
-  std::vector<Vec> leftHash;
-  std::vector<Vec> rightHash;
-  std::vector<cudaEvent_t> expandEvents;
+  std::vector<Vec> leftHash[NGPU];
+  std::vector<Vec> rightHash[NGPU];
+  std::vector<std::vector<cudaEvent_t>> expandEvents;
 
   SilentOTSender(SilentOTConfig config);
+  virtual ~SilentOTSender();
   virtual void base_ot();
   virtual void pprf_expand();
   virtual void lpn_compress();
@@ -64,7 +65,7 @@ public:
   std::vector<Vec> leftBuffer;
   std::vector<Vec> rightBuffer;
   SilentOTSender *other = nullptr;
-  std::vector<Vec> choiceHash;
+  std::vector<Vec> choiceHash[NGPU];
   std::atomic<bool> expandReady = false;
 
   SilentOTRecver(SilentOTConfig config);
