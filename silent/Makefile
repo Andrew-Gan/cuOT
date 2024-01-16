@@ -1,5 +1,5 @@
 CC := nvcc
-CUFLG := -g -G -std=c++20 -arch=sm_80
+CUFLG := -g -G -std=c++20
 CCFLG := -g -std=c++20 -gdwarf-4 -w
 LIB := -lcurand -lcufft -lcuda
 INC := -I../gpu -I./lib
@@ -21,7 +21,7 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 QUEUE=standby #zghodsi-b
 CPU_PER_NODE=32
 GPU_PER_NODE=2
-CONSTRAINT="I|K"
+CONSTRAINT=A100
 
 ############################################################
 

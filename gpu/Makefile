@@ -10,16 +10,6 @@ SRC := $(shell find . -name '*.cu')
 HDR := $(shell find . -name '*.h*')
 OBJ := $(patsubst %.cu, %.o, $(SRC))
 
-FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
-
-############################################################
-
-QUEUE=standby #zghodsi-b
-CPU_PER_NODE=8
-GPU_PER_NODE=2
-NUM_NODE=1
-CLUSTER=K
-
 ############################################################
 
 .PHONY: all clean

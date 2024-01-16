@@ -5,7 +5,7 @@
 #include "gpu_ops.h"
 #include "logger.h"
 
-#define FFT_BATCHSIZE 128
+#define FFT_BATCHSIZE 32
 
 __global__
 void bit_to_float(uint64_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, uint64_t outRealWidth) {
@@ -107,13 +107,13 @@ QuasiCyclic::~QuasiCyclic() {
 void QuasiCyclic::encode(Vec &vector) {
   Log::mem(mRole, LPN);
   
-  Mat b64({mIn, 1});
+  Mat b64({mOut, 1});
   b64.clear();
   b64.load((uint8_t*) vector.data(), mOut * sizeof(OTblock));
   b64.bit_transpose();
 
   // bitpoly to fft
-  uint64_t thread1 = mIn / 64;
+  uint64_t thread1 = mOut / 64;
   uint64_t block1(std::min(thread1, 1024UL));
   dim3 grid1((thread1 + block1 - 1) / block1, FFT_BATCHSIZE);
   // complex dot product and divider
@@ -126,13 +126,15 @@ void QuasiCyclic::encode(Vec &vector) {
   dim3 grid3((thread3 + block3 - 1) / block3, FFT_BATCHSIZE);
 
   Log::mem(mRole, LPN);
-
   Mat cModP1({rows, mIn / (8 * sizeof(OTblock))});
-  bit_to_float<<<grid1, block1>>>((uint64_t*) b64.data(), b64_poly, mIn, mIn);
-  cufftExecR2C(bPlan, b64_poly, b64_fft);
-  complex_dot_product<<<grid2, block2>>>(a64_fft, b64_fft, mIn / 2 + 1);
-  cufftExecC2R(cPlan, b64_fft, b64_poly);
-  float_to_bit<<<grid3, block3>>>(b64_poly, (uint64_t*) cModP1.data(), mIn, fftsizeLog);
+
+  for (uint64_t i = 0; i < rows; i += FFT_BATCHSIZE) {
+    bit_to_float<<<grid1, block1>>>((uint64_t*) b64.data({i, 0}), b64_poly, mOut, mIn);
+    cufftExecR2C(bPlan, b64_poly, b64_fft);
+    complex_dot_product<<<grid2, block2>>>(a64_fft, b64_fft, mIn / 2 + 1);
+    cufftExecC2R(cPlan, b64_fft, b64_poly);
+    float_to_bit<<<grid3, block3>>>(b64_poly, (uint64_t*) cModP1.data({i, 0}), mIn, fftsizeLog);
+  }
 
   Log::mem(mRole, LPN);
 

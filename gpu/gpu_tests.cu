@@ -10,20 +10,23 @@
 // #define CHECK_CALL
 
 void check_cuda() {
-  int deviceCount = 0;
-  cudaGetDeviceCount(&deviceCount);
-  assert(deviceCount >= 2);
+	int deviceCount = 0;
+	cudaGetDeviceCount(&deviceCount);
+	assert(deviceCount >= 2);
 
-  int dev;
-  for (dev = 0; dev < deviceCount; ++dev) {
-    cudaDeviceProp deviceProp;
-    cudaGetDeviceProperties(&deviceProp, dev);
-    if (deviceProp.major >= 1)
-      break;
-  }
-  if (dev == deviceCount)
-    fprintf(stderr, "There is no device supporting CUDA.\n");
-  assert(dev < deviceCount);
+	bool foundDev = false;
+	int dev;
+	printf("Found following devices:\n");
+	for (dev = 0; dev < deviceCount; dev++) {
+		cudaDeviceProp deviceProp;
+		cudaGetDeviceProperties(&deviceProp, dev);
+		if (deviceProp.major >= 1) {
+			printf("%d: %s\n", dev, deviceProp.name);
+			foundDev = true;
+		}
+	}
+	if (!foundDev)
+		fprintf(stderr, "There is no device supporting CUDA.\n");
 }
 
 void check_alloc(void *ptr) {
