@@ -28,19 +28,24 @@ SilentOTRecver::SilentOTRecver(SilentOTConfig config) :
 void SilentOTRecver::base_ot() {
   Log::mem(Recver, BaseOT);
 
-  std::vector<std::future<Vec>> workers;
-  for (int d = 0; d < depth; d++) {
-    workers.push_back(std::async([d, this]() {
-      switch (mConfig.baseOT) {
-        case SimplestOT_t: return SimplestOT(Recver, d, mConfig.nTree).recv(mConfig.choices[d]);
-      }
-      return Vec();
-    }));
+  std::vector<std::future<Vec>> workers[NGPU];
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    for (int d = 0; d < depth; d++) {
+      workers[gpu].push_back(std::async([d, gpu, this]() {
+        switch (mConfig.baseOT) {
+          case SimplestOT_t:
+            return SimplestOT(Recver, gpu*this->depth+d, mConfig.nTree / NGPU).recv(mConfig.choices[d]);
+        }
+        return Vec();
+      }));
+    }
   }
 
-  for (auto &worker : workers) {
-    auto res = worker.get();
-    choiceHash.push_back(res);
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    for (auto &worker : workers[gpu]) {
+      auto res = worker.get();
+      choiceHash[gpu].push_back(res);
+    }
   }
 
   Log::mem(Recver, BaseOT);
@@ -97,51 +102,51 @@ void fill_punc_tree(blk *leftSum, blk *rightSum, uint64_t outWidth,
 }
 
 void SilentOTRecver::pprf_expand() {
-  Log::mem(Recver, SeedExp);
+  // Log::mem(Recver, SeedExp);
 
-  Expand *expander;
-  switch (mConfig.expander) {
-    case AesExpand_t:
-      expander = new AesExpand((uint8_t*)mConfig.leftKey, (uint8_t*)mConfig.rightKey);
-  }
+  // Expand *expander;
+  // switch (mConfig.expander) {
+  //   case AesExpand_t:
+  //     expander = new AesExpand((uint8_t*)mConfig.leftKey, (uint8_t*)mConfig.rightKey);
+  // }
 
-  Log::mem(Recver, SeedExp);
+  // Log::mem(Recver, SeedExp);
 
-  Vec separated(2 * numOT);
-  uint64_t *activeParent;
-  cudaMalloc(&activeParent, mConfig.nTree * sizeof(uint64_t));
-  cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
+  // Vec separated(2 * numOT);
+  // uint64_t *activeParent;
+  // cudaMalloc(&activeParent, mConfig.nTree * sizeof(uint64_t));
+  // cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
 
-  for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
-    expander->expand(puncVector, separated, mConfig.nTree * inWidth);
-    separated.sum(2 * mConfig.nTree, inWidth);
-    cudaStreamWaitEvent(0, other->expandEvents.at(d));
+  // for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
+  //   expander->expand(puncVector, separated, mConfig.nTree * inWidth);
+  //   separated.sum(2 * mConfig.nTree, inWidth);
+  //   cudaStreamWaitEvent(0, other->expandEvents.at(d));
 
-    leftBuffer.at(d) = other->leftHash.at(d);
-    rightBuffer.at(d) = other->rightHash.at(d);
+  //   leftBuffer.at(d) = other->leftHash.at(d);
+  //   rightBuffer.at(d) = other->rightHash.at(d);
 
-    leftBuffer.at(d).xor_d(choiceHash.at(d));
-    rightBuffer.at(d).xor_d(choiceHash.at(d));
+  //   leftBuffer.at(d).xor_d(choiceHash.at(d));
+  //   rightBuffer.at(d).xor_d(choiceHash.at(d));
 
-    fill_punc_tree<<<1, mConfig.nTree>>>(leftBuffer.at(d).data(),
-      rightBuffer.at(d).data(), 2 * inWidth, activeParent,
-      mConfig.choices[d], separated.data(), puncVector.data());
+  //   fill_punc_tree<<<1, mConfig.nTree>>>(leftBuffer.at(d).data(),
+  //     rightBuffer.at(d).data(), 2 * inWidth, activeParent,
+  //     mConfig.choices[d], separated.data(), puncVector.data());
     
-    if (d == depth-1) {
-      leftBuffer.at(d+1) = other->leftHash.at(d+1);
-      rightBuffer.at(d+1) = other->rightHash.at(d+1);
-      leftBuffer.at(d+1).xor_d(choiceHash.at(d));
-      rightBuffer.at(d+1).xor_d(choiceHash.at(d));
-      fill_punc_tree<<<1, mConfig.nTree>>>(leftBuffer.at(d+1).data(),
-        rightBuffer.at(d+1).data(), 2 * inWidth, activeParent,
-        mConfig.choices[d], separated.data(), puncVector.data());
-    }
-  }
+  //   if (d == depth-1) {
+  //     leftBuffer.at(d+1) = other->leftHash.at(d+1);
+  //     rightBuffer.at(d+1) = other->rightHash.at(d+1);
+  //     leftBuffer.at(d+1).xor_d(choiceHash.at(d));
+  //     rightBuffer.at(d+1).xor_d(choiceHash.at(d));
+  //     fill_punc_tree<<<1, mConfig.nTree>>>(leftBuffer.at(d+1).data(),
+  //       rightBuffer.at(d+1).data(), 2 * inWidth, activeParent,
+  //       mConfig.choices[d], separated.data(), puncVector.data());
+  //   }
+  // }
 
   Log::mem(Recver, SeedExp);
 
-  cudaFree(activeParent);
-  delete expander;
+  // cudaFree(activeParent);
+  // delete expander;
   cudaDeviceSynchronize();
 
   Log::mem(Recver, SeedExp);

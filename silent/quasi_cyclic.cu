@@ -77,7 +77,8 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out) :
   cudaMalloc(&a64_fft, (mIn / 2 + 1) * sizeof(cufftComplex));
   cudaMalloc(&b64_poly, FFT_BATCHSIZE * mIn * sizeof(cufftReal));
   cudaMalloc(&b64_fft, FFT_BATCHSIZE * (mIn / 2 + 1) * sizeof(cufftComplex));
-  
+
+
   uint64_t thread = mIn / 64;
   uint64_t block = std::min(thread, 1024UL);
   uint64_t grid = (thread + block - 1) / block;
