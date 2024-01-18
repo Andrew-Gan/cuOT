@@ -6,7 +6,6 @@
 #include "gpu_ops.h"
 
 // comment out during benchmarking
-// #define CHECK_ALLOC
 // #define CHECK_CALL
 
 void check_cuda() {
@@ -30,10 +29,9 @@ void check_cuda() {
 }
 
 void check_alloc(void *ptr) {
-#ifdef CHECK_ALLOC
 	int dev = 0;
 	cudaGetDevice(&dev);
-	printf("currently on device: %d\n", dev);
+	printf("on device: %d\n", dev);
 	cudaDeviceSynchronize();
 
 	cudaPointerAttributes attr;
@@ -41,13 +39,17 @@ void check_alloc(void *ptr) {
 
 	if (cudaSuccess != cudaPointerGetAttributes(&attr, ptr))
 		printf("Failed to get attribute\n");
+	
+	if (dev != attr.device) {
+		printf("ptr %p, dev %d\n", ptr, attr.device);
+		return;
+	}
 
 	if (CUDA_SUCCESS != cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr))
 		printf("Failed to get range\n");
 
 	printf("ptr %p, dev %d, alloc %ld\n", ptr, attr.device, size);
 	fflush(stdout);
-#endif
 }
 
 void check_call(const char* msg) {
@@ -58,24 +60,6 @@ void check_call(const char* msg) {
 		throw std::runtime_error(cudaGetErrorString(err));
 	}
 #endif
-}
-
-void check_mem() {
-	cudaDeviceSynchronize();
-
-	int dev = 0;
-	cudaGetDevice(&dev);
-	size_t free, total;
-	cudaMemGetInfo(&free, &total);
-	printf("dev %d: CUDA free memory: ", dev);
-	if ((free >> 30) > 0)
-		printf("%lu / %lu GB\n", free >> 30, total >> 30);
-	else if ((free >> 20) > 0)
-		printf("%lu / %lu MB\n", free >> 20, total >> 20);
-	else if ((free >> 10) > 0)
-		printf("%lu / %lu KB\n", free >> 10, total >> 10);
-	else
-		printf("%lu / %lu B\n", free, total);
 }
 
 bool check_rot(Vec &m0, Vec &m1, Vec &mc, uint64_t c) {

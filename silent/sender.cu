@@ -3,6 +3,7 @@
 
 #include "logger.h"
 #include "gpu_ops.h"
+#include "gpu_tests.h"
 
 std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 
@@ -91,20 +92,20 @@ void SilentOTSender::base_ot() {
 
 void SilentOTSender::pprf_expand() {
   Log::mem(Sender, SeedExp);
-  int nTreePerGPU = mConfig.nTree / NGPU;
+  int treePerGPU = mConfig.nTree / NGPU;
   Vec separated[NGPU];
 
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(gpu);
     separated[gpu] = Vec(2 * numOT / NGPU);
     for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
-      expander[gpu]->expand(fullVector[gpu], separated[gpu], nTreePerGPU * inWidth);
-      separated[gpu].sum(2 * nTreePerGPU, inWidth);
+      expander[gpu]->expand(fullVector[gpu], separated[gpu], treePerGPU*inWidth);
+      separated[gpu].sum(2 * treePerGPU, inWidth);
       leftHash[gpu].at(d).xor_d(separated[gpu], 0);
-      rightHash[gpu].at(d).xor_d(separated[gpu], nTreePerGPU);
+      rightHash[gpu].at(d).xor_d(separated[gpu], treePerGPU);
 
       if (d == depth-1) {
-        leftHash[gpu].at(d+1).xor_d(separated[gpu], nTreePerGPU);
+        leftHash[gpu].at(d+1).xor_d(separated[gpu], treePerGPU);
         leftHash[gpu].at(d+1).xor_scalar(delta[gpu]);
         rightHash[gpu].at(d+1).xor_d(separated[gpu], 0);
         rightHash[gpu].at(d+1).xor_scalar(delta[gpu]);
@@ -115,16 +116,15 @@ void SilentOTSender::pprf_expand() {
   }
 
   other->expandReady = true;
-  cudaDeviceSynchronize();
   cudaSetDevice(0);
   Log::mem(Sender, SeedExp);
 
   for (int gpu = 1; gpu < NGPU; gpu++) {
     uint64_t offset = gpu * fullVector[gpu].size();
-    printf("%p <- %p\n", fullVector[0].data(), fullVector[gpu].data());
-    cudaMemcpy(fullVector[0].data(), fullVector[gpu].data(),
-      fullVector[gpu].size_bytes(), cudaMemcpyDeviceToDevice);
+    cudaMemcpyPeerAsync(fullVector[0].data(offset), 0,
+    fullVector[gpu].data(), gpu, fullVector[gpu].size_bytes());
   }
+  cudaDeviceSynchronize();
 }
 
 void SilentOTSender::lpn_compress() {
