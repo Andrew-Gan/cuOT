@@ -41,6 +41,13 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
+	char senderFilename[60], recverFilename[60];
+	sprintf(senderFilename, "../results/gpu-ferret-send-%ld-%ld.txt", length, ferret_b13.t);
+	sprintf(recverFilename, "../results/gpu-ferret-recv-%ld-%ld.txt", length, ferret_b13.t);
+
+	if (party==ALICE) Log::open(0, senderFilename, 1, true);
+	if (party==BOB) Log::open(1, recverFilename, 1, true);
+
 	// cout << "Semi-Honest" << endl;
 	test_ferret(party, &ios, length, false);
 

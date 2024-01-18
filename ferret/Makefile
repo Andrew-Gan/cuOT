@@ -5,7 +5,7 @@ GPU_TOOLS := ../gpu/gpu.o
 QUEUE=standby #zghodsi-b
 CPU_PER_NODE=32
 GPU_PER_NODE=2
-CONSTRAINT="I|K"
+CONSTRAINT=A100
 
 ############################################################
 

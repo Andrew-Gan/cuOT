@@ -201,9 +201,6 @@ void FerretCOT<T>::rcot(Vec &data) {
 	printf("OT per iteration = %ld\n", ot_limit);
 	printf("iterations = %ld\n", round_inplace);
 
-	if (party==ALICE) Log::open(0, "../results/gpu-ferret-send.txt", 1);
-	if (party==BOB) Log::open(1, "../results/gpu-ferret-recv.txt", 1);
-
 	for(int64_t i = 0; i < round_inplace; ++i) {
 		Span dataSpan = data.span(pt, pt + ot_limit + M);
 		extend_f2k(dataSpan);
