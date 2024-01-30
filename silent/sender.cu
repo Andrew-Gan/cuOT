@@ -3,23 +3,19 @@
 
 #include "logger.h"
 #include "gpu_ops.h"
-#include "gpu_tests.h"
 
 std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 
 SilentOTSender::SilentOTSender(SilentOTConfig config) :
   SilentOT(config) {
 
-  expandEvents.resize(NGPU);
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(gpu);
-    if (gpu == 0)
-      fullVector[gpu].resize(2 * numOT); // main vector
-    else
-      fullVector[gpu].resize(2 * numOT / NGPU);
-    expandEvents.at(gpu).resize(depth);
-    for (cudaEvent_t &e : expandEvents.at(gpu)) {
-      cudaEventCreate(&e);
+    fullVector[gpu].resize(2 * numOT / NGPU);
+    std::vector<cudaEvent_t> &events = expandEvents[gpu];
+    events.resize(depth);
+    for (uint64_t i = 0; i < depth; i++) {
+      cudaEventCreate(&events.at(i));
     }
 
     // pairing
@@ -27,10 +23,8 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) :
     while(silentOTRecvers[config.id] == nullptr);
     other = silentOTRecvers[config.id];
 
-    // seed expansion init
-    blk buff = {.data = {
-      (uint32_t)rand(), (uint32_t)rand(), (uint32_t)rand(), (uint32_t)rand()
-    }};
+    blk buff;
+    for (int i = 0; i < 4; i++) buff.data[i] = rand();
     cudaMalloc(&delta[gpu], sizeof(**delta));
     cudaMemcpy(delta[gpu], &buff, sizeof(**delta), cudaMemcpyHostToDevice);
     for (int t = 0; t < mConfig.nTree / NGPU; t++) {
@@ -41,22 +35,23 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) :
       case AesExpand_t:
         expander[gpu] = new AesExpand((uint8_t*)mConfig.leftKey, (uint8_t*)mConfig.rightKey);
     }
+    switch (mConfig.compressor) {
+      case QuasiCyclic_t:
+        lpn[gpu] = new QuasiCyclic(Sender, 2 * numOT / NGPU, numOT / NGPU, NGPU);
+    }
   }
-
   cudaSetDevice(0);
-  
-  // lpn init
-  switch (mConfig.compressor) {
-    case QuasiCyclic_t:
-      lpn = new QuasiCyclic(Sender, 2 * numOT, numOT);
-  }
 }
 
 SilentOTSender::~SilentOTSender() {
   for (int gpu = 0; gpu < NGPU; gpu++) {
+    cudaSetDevice(gpu);
     delete expander[gpu];
+    delete lpn[gpu];
+    for (uint64_t d = 0; d < depth; d++)
+      cudaEventDestroy(expandEvents[gpu].at(d));
+    cudaFree(delta[gpu]);
   }
-  delete lpn;
 }
 
 void SilentOTSender::base_ot() {
@@ -80,11 +75,11 @@ void SilentOTSender::base_ot() {
     cudaSetDevice(gpu);
     for (auto &worker : workers[gpu]) {
       std::array<Vec, 2> res = worker.get();
-      leftHash[gpu].push_back(res[0]);
-      rightHash[gpu].push_back(res[1]);
+      m0[gpu].push_back(res[0]);
+      m1[gpu].push_back(res[1]);
     }
-    leftHash[gpu].push_back(leftHash[gpu].back());
-    rightHash[gpu].push_back(rightHash[gpu].back());
+    m0[gpu].push_back(m0[gpu].back());
+    m1[gpu].push_back(m1[gpu].back());
   }
 
   Log::mem(Sender, BaseOT);
@@ -101,33 +96,39 @@ void SilentOTSender::pprf_expand() {
     for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
       expander[gpu]->expand(fullVector[gpu], separated[gpu], treePerGPU*inWidth);
       separated[gpu].sum(2 * treePerGPU, inWidth);
-      leftHash[gpu].at(d).xor_d(separated[gpu], 0);
-      rightHash[gpu].at(d).xor_d(separated[gpu], treePerGPU);
+      m0[gpu].at(d).xor_d(separated[gpu], 0);
+      m1[gpu].at(d).xor_d(separated[gpu], treePerGPU);
 
       if (d == depth-1) {
-        leftHash[gpu].at(d+1).xor_d(separated[gpu], treePerGPU);
-        leftHash[gpu].at(d+1).xor_scalar(delta[gpu]);
-        rightHash[gpu].at(d+1).xor_d(separated[gpu], 0);
-        rightHash[gpu].at(d+1).xor_scalar(delta[gpu]);
+        m0[gpu].at(d+1).xor_d(separated[gpu], treePerGPU);
+        m0[gpu].at(d+1).xor_scalar(delta[gpu]);
+        m1[gpu].at(d+1).xor_d(separated[gpu], 0);
+        m1[gpu].at(d+1).xor_scalar(delta[gpu]);
       }
 
-      cudaEventRecord(expandEvents.at(gpu).at(d));
+      cudaEventRecord(expandEvents[gpu].at(d));
     }
   }
-
   other->expandReady = true;
-  cudaSetDevice(0);
   Log::mem(Sender, SeedExp);
 
-  for (int gpu = 1; gpu < NGPU; gpu++) {
-    uint64_t offset = gpu * fullVector[gpu].size();
-    cudaMemcpyPeerAsync(fullVector[0].data(offset), 0,
-    fullVector[gpu].data(), gpu, fullVector[gpu].size_bytes());
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    cudaSetDevice(gpu);
+    cudaDeviceSynchronize();
   }
-  cudaDeviceSynchronize();
+  cudaSetDevice(0);
 }
 
 void SilentOTSender::lpn_compress() {
-  lpn->encode(fullVector[0]);
-  cudaDeviceSynchronize();
+  Log::mem(Sender, LPN);
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    cudaSetDevice(gpu);
+    lpn[gpu]->encode(fullVector[gpu]);
+  }
+
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    cudaSetDevice(gpu);
+    cudaDeviceSynchronize();
+  }
+  cudaSetDevice(0);
 }

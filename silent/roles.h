@@ -10,6 +10,8 @@
 #include "expand.h"
 #include "lpn.h"
 
+#define NGPU 2
+
 class SilentOTSender;
 class SilentOTRecver;
 
@@ -28,7 +30,9 @@ public:
   SilentOTConfig mConfig;
   uint64_t depth, numOT, numLeaves;
   Expand *expander[NGPU];
-  Lpn *lpn;
+  Lpn *lpn[NGPU];
+  std::vector<Vec> m0[NGPU];
+  std::vector<Vec> m1[NGPU];
   
   SilentOT(SilentOTConfig config) : mConfig(config) {
     depth = mConfig.logOT - log2((float) mConfig.nTree) + 1;
@@ -45,9 +49,7 @@ public:
   Vec fullVector[NGPU];
   blk *delta[NGPU];
   SilentOTRecver *other = nullptr;
-  std::vector<Vec> leftHash[NGPU];
-  std::vector<Vec> rightHash[NGPU];
-  std::vector<std::vector<cudaEvent_t>> expandEvents;
+  std::vector<cudaEvent_t> expandEvents[NGPU];
 
   SilentOTSender(SilentOTConfig config);
   virtual ~SilentOTSender();
@@ -58,14 +60,15 @@ public:
 
 class SilentOTRecver : public SilentOT {
 public:
-  Vec puncVector, choiceVector;
-  std::vector<Vec> leftBuffer;
-  std::vector<Vec> rightBuffer;
+  Vec puncVector[NGPU];
+  uint64_t *choiceVector;
   SilentOTSender *other = nullptr;
-  std::vector<Vec> choiceHash[NGPU];
+  std::vector<Vec> mc[NGPU];
   std::atomic<bool> expandReady = false;
+  uint64_t *activeParent[2];
 
   SilentOTRecver(SilentOTConfig config);
+  virtual ~SilentOTRecver();
   virtual void base_ot();
   virtual void pprf_expand();
   virtual void lpn_compress();

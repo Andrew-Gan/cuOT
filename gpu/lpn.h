@@ -15,17 +15,20 @@ public:
 class QuasiCyclic : public Lpn {
 private:
   Role mRole;
-  curandGenerator_t prng[2];
+  curandGenerator_t prng;
   const uint64_t rows = 8*sizeof(OTblock);
   uint64_t mIn, mOut;
-  void *workArea[2];
+  Mat b64;
+  void *workArea;
+  int mPartition = 1;
   int fftsizeLog = -1;
-  cufftHandle aPlan[2], bPlan[2], cPlan[2];
-  cufftReal *a64_poly[2], *b64_poly[2], *c64_poly[2];
-  cufftComplex *a64_fft[2], *b64_fft[2], *c64_fft[2];
+  cufftHandle bPlan, cPlan;
+  cufftReal *b64_poly;
+  cufftComplex *a64_fft, *b64_fft;
+  Mat cModP1;
 
 public:
-  QuasiCyclic(Role role, uint64_t in, uint64_t out);
+  QuasiCyclic(Role role, uint64_t in, uint64_t out, int partition);
   virtual ~QuasiCyclic();
   void encode(Vec &vector);
 };

@@ -19,16 +19,16 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 ############################################################
 
 QUEUE=standby #zghodsi-b
-CPU_PER_NODE=8
+CPU_PER_NODE=16#32
 GPU_PER_NODE=2
-CONSTRAINT=#A100
+CONSTRAINT=V100#A100
 
 ############################################################
 
 .PHONY: all clean
 
 $(EXE): $(GPU) $(OBJ) $(LIB_OBJ)	
-	cd ../gpu && make -j && cd ../silent && $(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $^ -o $(EXE)
+	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $^ -o $(EXE)
 
 run: $(EXE)
 	rm -f slurm*.out report*sqlite report*nsys-rep
