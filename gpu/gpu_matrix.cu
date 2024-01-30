@@ -77,6 +77,7 @@ void Mat::bit_transpose() {
 
   uint8_t *tpBuffer;
   cudaMalloc(&tpBuffer, mNBytes);
+  cudaMemcpyAsync(tpBuffer, mPtr, mNBytes, cudaMemcpyDeviceToDevice);
   dim3 block, grid;
   uint64_t threadX = col * sizeof(blk);
   block.x = std::min(threadX, 32UL);
@@ -86,11 +87,9 @@ void Mat::bit_transpose() {
   uint64_t yBlock = (threadY + block.y - 1) / block.y;
   grid.y = std::min(yBlock, 32768UL);
   grid.z = (yBlock + grid.y - 1) / grid.y;
-
-  bit_transposer<<<grid, block>>>(tpBuffer, mPtr, grid);
+  bit_transposer<<<grid, block>>>(mPtr, tpBuffer);
   check_call("Mat::bit_transpose\n");
-  cudaFree(mPtr);
-  mPtr = tpBuffer;
+  cudaFreeAsync(tpBuffer, 0);
   uint64_t tpRows = col * 8 * sizeof(blk);
   col = row / (8 * sizeof(blk));
   row = tpRows;

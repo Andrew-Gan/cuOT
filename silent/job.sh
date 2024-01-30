@@ -22,6 +22,6 @@ $EXE 1 $LOGOT 8 1000
 #     $EXE 1 $LOGOT 8 $BW
 # done
 
-# valgrind $EXE 1 $LOGOT 8
+# valgrind $EXE 1 $LOGOT 8 1000
 # compute-sanitizer --tool memcheck $EXE 1 $LOGOT 8 1000
 # nsys profile --stats=true $EXE 1 $LOGOT 8 1000

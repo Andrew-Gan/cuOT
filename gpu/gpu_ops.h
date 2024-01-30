@@ -19,7 +19,7 @@ __global__
 void xor_single(uint8_t *a, uint8_t *b, uint64_t size, uint64_t n);
 
 __global__
-void bit_transposer(uint8_t *out, uint8_t *in, dim3 grid);
+void bit_transposer(uint8_t *out, uint8_t *in);
 
 template<typename S, typename T>
 __global__

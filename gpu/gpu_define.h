@@ -7,8 +7,6 @@
 #define AES_KEYLEN 16
 #define AES_PADDING (AES_BSIZE / 4 * 16)
 
-#define NGPU 2
-
 enum Role { Sender, Recver };
 
 struct OTblock {

@@ -50,11 +50,10 @@ int main(int argc, char** argv) {
   sprintf(senderFile, "../results/gpu-silent-send-%d-%d-%d.txt", logOT, numTrees, bandwidth);
   sprintf(recverFile, "../results/gpu-silent-recv-%d-%d-%d.txt", logOT, numTrees, bandwidth);
   
-  // do not allow simultaneous operation to prevent 2 GPUs on same card from congested PCIe
+  // prevent simultaneous operation from congesting PCIe
   std::atomic<int> step = 0;
 
   std::future<void> senderWorker = std::async([&sender, &step, &config, &bandwidth, &senderFile]() {
-    cudaSetDevice(0);
     Log::open(Sender, senderFile, bandwidth, true);
     Log::start(Sender, CudaInit);
     sender = new SilentOTSender(config);
@@ -76,7 +75,6 @@ int main(int argc, char** argv) {
   config.choices = gen_choices(depth);
 
   std::future<void> recverWorker = std::async([&recver, &step, &config, &bandwidth, &recverFile]() {
-    cudaSetDevice(1);
     Log::open(Recver, recverFile, bandwidth, true);
     Log::start(Recver, CudaInit);
     recver = new SilentOTRecver(config);

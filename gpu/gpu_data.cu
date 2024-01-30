@@ -64,17 +64,18 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
 
 void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
-  uint8_t *newData;
-  cudaError_t err = cudaMallocAsync(&newData, size, 0);
-  if (mPtr != nullptr) {
-    cudaMemcpyAsync(newData, mPtr, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
-    cudaFreeAsync(mPtr, 0);
+  if (mPtr == nullptr)
+    cudaMallocAsync(&mPtr, size, 0);
+  else {
+    uint8_t *oldData = mPtr;
+    cudaMallocAsync(&mPtr, size, 0);
+    cudaMemcpyAsync(mPtr, oldData, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
+    cudaFreeAsync(oldData, 0);
   }
-  mPtr = newData;
   mNBytes = size;
 }
 
-void GPUdata::load(const uint8_t *data, uint64_t size) {
+void GPUdata::load(const void *data, uint64_t size) {
   cudaMemcpyAsync(mPtr, data, size = 0 ? mNBytes : size, cudaMemcpyDeviceToDevice);
 }
 
