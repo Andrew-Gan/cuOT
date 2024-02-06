@@ -15,11 +15,11 @@ typedef uint8_t state_t[4][4];
 __constant__ uint8_t keyLeft[11*AES_KEYLEN];
 __constant__ uint8_t keyRight[11*AES_KEYLEN];
 
-AesExpand::AesExpand(uint8_t *leftUnexp, uint8_t *rightUnexp) {
+AesExpand::AesExpand(void *leftUnexp, void *rightUnexp) {
 	AES_ctx leftExpKey, rightExpKey;
-	expand_encKey(leftExpKey.roundKey, leftUnexp);
+	expand_encKey(leftExpKey.roundKey, (uint8_t*)leftUnexp);
 	cudaMemcpyToSymbol(keyLeft, leftExpKey.roundKey, sizeof(keyLeft));
-	expand_encKey(rightExpKey.roundKey, rightUnexp);
+	expand_encKey(rightExpKey.roundKey, (uint8_t*)rightUnexp);
 	cudaMemcpyToSymbol(keyRight, rightExpKey.roundKey, sizeof(keyRight));
 }
 

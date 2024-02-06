@@ -33,11 +33,11 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) :
     }
     switch (mConfig.expander) {
       case AesExpand_t:
-        expander[gpu] = new AesExpand((uint8_t*)mConfig.leftKey, (uint8_t*)mConfig.rightKey);
+        expander[gpu] = new AesExpand(mConfig.leftKey, mConfig.rightKey);
     }
     switch (mConfig.compressor) {
       case QuasiCyclic_t:
-        lpn[gpu] = new QuasiCyclic(Sender, 2 * numOT / NGPU, numOT / NGPU, NGPU);
+        lpn[gpu] = new QuasiCyclic(Sender, 2 * numOT, numOT, NGPU);
     }
   }
   cudaSetDevice(0);
@@ -121,9 +121,32 @@ void SilentOTSender::pprf_expand() {
 
 void SilentOTSender::lpn_compress() {
   Log::mem(Sender, LPN);
+
+  Mat tmp[NGPU];
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(gpu);
-    lpn[gpu]->encode(fullVector[gpu]);
+    tmp[gpu].resize({numOT / NGPU, 1});
+    tmp[gpu].load(fullVector[gpu].data(), numOT / NGPU * sizeof(OTblock));
+    tmp[gpu].bit_transpose();
+  }
+
+  Mat b64[NGPU];
+  uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
+  for (int des = 0; des < NGPU; des++) {
+    cudaSetDevice(des);
+    b64[des].resize({rowsPerGPU, numOT / BLOCK_BITS});
+    for (int src = 0; src < NGPU; src++) {
+      cudaMemcpy2DPeer(
+        b64[des].data({0, src*tmp[src].dim(1)}), b64[des].dim(1)*sizeof(blk), des,
+        tmp[src].data({des*b64[des].dim(0), 0}), tmp[src].dim(1)*sizeof(blk), src,
+        tmp[src].dim(1)*sizeof(blk), b64[des].dim(0)
+      );
+    }
+  }
+
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    cudaSetDevice(gpu);
+    lpn[gpu]->encode(b64[gpu]);
   }
 
   for (int gpu = 0; gpu < NGPU; gpu++) {

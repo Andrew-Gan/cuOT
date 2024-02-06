@@ -21,7 +21,7 @@ private:
   void expand_decKey(uint8_t *decExpKey, uint8_t *key);
 
 public:
-  AesExpand(uint8_t *leftUnexp, uint8_t *rightUnexp);
+  AesExpand(void *leftUnexp, void *rightUnexp);
   virtual void expand(Span &interleaved, Vec &separated, uint64_t inWidth);
   virtual void expand(Vec &interleaved, Vec &separated, uint64_t inWidth);
 };

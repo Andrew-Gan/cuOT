@@ -21,13 +21,6 @@ void xor_single(uint8_t *a, uint8_t *b, uint64_t size, uint64_t n);
 __global__
 void bit_transposer(uint8_t *out, uint8_t *in);
 
-template<typename S, typename T>
-__global__
-void cast(S *input, T *output) {
-  uint64_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  output[tid] = (T) (input[tid]);
-}
-
 __global__
 void xor_reduce(uint64_t *out, uint64_t *in);
 
@@ -39,5 +32,8 @@ void print(float *data, uint64_t n, uint64_t stride = 1);
 
 __global__
 void print(cuComplex *data, uint64_t n, uint64_t stride = 1);
+
+cudaError_t cudaMemcpy2DPeer(void *dst, size_t dpitch, int dstDevice,
+  const void *src, size_t spitch, int srcDevice, size_t width, size_t height);
 
 #endif

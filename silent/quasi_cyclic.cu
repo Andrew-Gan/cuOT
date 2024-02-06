@@ -5,7 +5,7 @@
 #include "gpu_ops.h"
 #include "logger.h"
 
-#define FFT_BATCHSIZE 8
+#define FFT_BATCHSIZE 32
 
 __global__
 void bit_to_float(uint64_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, uint64_t outFloatWidth) {
@@ -50,8 +50,8 @@ void float_to_bit(cufftReal *fftReal, uint64_t *bitPoly, uint64_t mIn, uint64_t 
   bitPoly[row * (mIn / 64) + col] ^= tmp;
 }
 
-QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int partition) :
-  mRole(role), mIn(in), mOut(out), mPartition(partition) {
+QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
+  mRole(role), mIn(in), mOut(out), mRows(rows) {
 
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_DEFAULT);
   curandSetPseudoRandomGeneratorSeed(prng, 1234);
@@ -72,25 +72,22 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int partition) :
   cufftSetWorkArea(cPlan, workArea);
   
   Vec a64(mIn / (8*sizeof(OTblock)));
-  cufftReal *a64_poly = nullptr;
-  b64.resize({mOut, 1});
+  cufftReal *a64_poly;
   cudaMalloc(&a64_poly, mIn * sizeof(cufftReal));
-  cudaMalloc(&a64_fft, mPartition * (mIn / 2 + 1) * sizeof(cufftComplex));
+  cudaMalloc(&a64_fft, (mIn / 2 + 1) * sizeof(cufftComplex));
   cudaMalloc(&b64_poly, FFT_BATCHSIZE * mIn * sizeof(cufftReal));
   cudaMalloc(&b64_fft, FFT_BATCHSIZE * (mIn / 2 + 1) * sizeof(cufftComplex));
 
-  for (int part = 0; part < mPartition; part++) {
-    curandGenerate(prng, (uint32_t*)a64.data(), 4 * a64.size());
-    uint64_t thread = mIn / 64;
-    uint64_t block = std::min(thread, 1024UL);
-    uint64_t grid = (thread + block - 1) / block;
-    bit_to_float<<<grid, block>>>((uint64_t*)a64.data(), a64_poly, mIn, mIn);
-    cufftExecR2C(aPlan, a64_poly, &a64_fft[part*(mIn / 2 + 1)]);
-  }
+  curandGenerate(prng, (uint32_t*)a64.data(), 4 * a64.size());
+  uint64_t thread = mIn / 64;
+  uint64_t block = std::min(thread, 1024UL);
+  uint64_t grid = (thread + block - 1) / block;
+  bit_to_float<<<grid, block>>>((uint64_t*)a64.data(), a64_poly, mIn, mIn);
+  cufftExecR2C(aPlan, a64_poly, a64_fft);
 
   cudaFree(a64_poly);
   cufftDestroy(aPlan);
-  cModP1.resize({rows, (mPartition+1)*mOut / mPartition / (8*sizeof(OTblock))});
+  cModP1.resize({mRows, mOut / (8*sizeof(OTblock))});
   cModP1.clear();
 
   uint64_t tmp = mIn;
@@ -110,11 +107,8 @@ QuasiCyclic::~QuasiCyclic() {
   cudaFree(b64_fft);
 }
 
-void QuasiCyclic::encode(Vec &vector) {
+void QuasiCyclic::encode(Mat &b64) {
   Log::mem(mRole, LPN);
-  
-  b64.load(vector.data(), mOut * sizeof(OTblock));
-  b64.bit_transpose();
 
   // bitpoly to fft
   uint64_t thread1 = mOut / 64;
@@ -131,23 +125,16 @@ void QuasiCyclic::encode(Vec &vector) {
 
   Log::mem(mRole, LPN);
 
-  for (uint64_t i = 0; i < rows; i += FFT_BATCHSIZE) {
+  for (uint64_t i = 0; i < mRows; i += FFT_BATCHSIZE) {
     bit_to_float<<<grid1, block1>>>((uint64_t*) b64.data({i, 0}), b64_poly, mOut, mIn);
     cufftExecR2C(bPlan, b64_poly, b64_fft);
-    for (int p = 0; p < mPartition; p++) {
-      uint64_t startPow = p * mIn / mPartition;
-      complex_dot_product<<<grid2, block2>>>(&a64_fft[p*thread2], b64_fft, thread2);
-      cufftExecC2R(cPlan, b64_fft, b64_poly);
-      float_to_bit<<<grid3, block3>>>(b64_poly, (uint64_t*) cModP1.data({i, startPow / 128}), mIn, fftsizeLog);
-    }
+    complex_dot_product<<<grid2, block2>>>(a64_fft, b64_fft, thread2);
+    cufftExecC2R(cPlan, b64_fft, b64_poly);
+    float_to_bit<<<grid3, block3>>>(b64_poly, (uint64_t*) cModP1.data({i, 0}), mIn, fftsizeLog);
   }
 
   check_call("QuasiCyclic::fft\n");
-  // regrouping of distributed polynomials
-  cModP1.modp(mOut / (8 * sizeof(OTblock)));
-  cModP1.bit_transpose();
-  vector.resize(mOut);
-  vector.load((uint8_t*)cModP1.data());
+  cModP1.modp(mOut / BLOCK_BITS);
 
   Log::mem(mRole, LPN);
 }

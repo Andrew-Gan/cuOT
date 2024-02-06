@@ -9,35 +9,33 @@ enum LPNType { QuasiCyclic_t, ExpandAccumulate_t };
 
 class Lpn {
 public:
-  virtual void encode(Vec &vector) = 0;
+  virtual void encode(Mat &b64) = 0;
 };
 
 class QuasiCyclic : public Lpn {
 private:
   Role mRole;
   curandGenerator_t prng;
-  const uint64_t rows = 8*sizeof(OTblock);
   uint64_t mIn, mOut;
-  Mat b64;
   void *workArea;
-  int mPartition = 1;
   int fftsizeLog = -1;
   cufftHandle bPlan, cPlan;
   cufftReal *b64_poly;
   cufftComplex *a64_fft, *b64_fft;
   Mat cModP1;
+  uint64_t mRows = 8*sizeof(OTblock);
 
 public:
-  QuasiCyclic(Role role, uint64_t in, uint64_t out, int partition);
+  QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows);
   virtual ~QuasiCyclic();
-  void encode(Vec &vector);
+  void encode(Mat &b64);
 };
 
 class ExpandAccumulate : public Lpn {
 public:
   ExpandAccumulate(Role role, uint64_t in, uint64_t out);
   virtual ~ExpandAccumulate();
-  void encode(Vec &vector);
+  void encode(Mat &b64);
 };
 
 #endif
