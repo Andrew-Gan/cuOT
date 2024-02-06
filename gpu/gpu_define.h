@@ -15,4 +15,6 @@ struct OTblock {
 
 using blk = OTblock;
 
+#define BLOCK_BITS (8 * sizeof(blk))
+
 #endif
