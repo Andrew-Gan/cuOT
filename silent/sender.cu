@@ -37,10 +37,9 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) :
     }
     switch (mConfig.compressor) {
       case QuasiCyclic_t:
-        lpn[gpu] = new QuasiCyclic(Sender, 2 * numOT, numOT, BLOCK_BITS / NGPU);
+        lpn[gpu] = new QuasiCyclic(Sender, 2*numOT, numOT, BLOCK_BITS/NGPU);
     }
   }
-  cudaSetDevice(0);
 }
 
 SilentOTSender::~SilentOTSender() {
@@ -116,7 +115,6 @@ void SilentOTSender::pprf_expand() {
     cudaSetDevice(gpu);
     cudaDeviceSynchronize();
   }
-  cudaSetDevice(0);
 }
 
 void SilentOTSender::lpn_compress() {
@@ -154,5 +152,4 @@ void SilentOTSender::lpn_compress() {
     cudaSetDevice(gpu);
     cudaDeviceSynchronize();
   }
-  cudaSetDevice(0);
 }

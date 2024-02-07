@@ -23,6 +23,7 @@ struct SilentOTConfig {
   uint32_t rightKey[4];
   LPNType compressor;
   uint64_t *choices;
+  int ngpuAvail;
 };
 
 class SilentOT {

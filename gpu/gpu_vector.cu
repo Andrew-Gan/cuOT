@@ -35,8 +35,6 @@ void Vec::sum(uint64_t nPartition, uint64_t blkPerPart) {
   if (out != (uint64_t*) this->mPtr) {
     cudaMemcpyAsync(this->mPtr, out, nPartition * sizeof(blk), cudaMemcpyDeviceToDevice);
   }
-
-  check_call("Vec::sum");
   cudaFreeAsync(buffer, 0);
 }
 
@@ -44,7 +42,6 @@ void Vec::xor_d(Vec &rhs, uint64_t offs) {
   uint64_t min = std::min(this->mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
   gpu_xor<<<nBlock, 1024>>>(this->mPtr, (uint8_t*)rhs.data(offs), min);
-  check_call("Vec::xor_d\n");
 }
 
 Span Vec::span(uint64_t start, uint64_t end) {
