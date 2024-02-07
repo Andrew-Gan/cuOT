@@ -5,9 +5,6 @@
 #include "gpu_tests.h"
 #include "gpu_ops.h"
 
-// comment out during benchmarking
-// #define CHECK_CALL
-
 void check_cuda() {
 	int deviceCount = 0;
 	cudaGetDeviceCount(&deviceCount);
@@ -53,13 +50,11 @@ void check_alloc(void *ptr) {
 }
 
 void check_call(const char* msg) {
-#ifdef CHECK_CALL
 	cudaError_t err = cudaDeviceSynchronize();
 	if (err != cudaSuccess) {
 		fprintf(stderr, msg);
 		throw std::runtime_error(cudaGetErrorString(err));
 	}
-#endif
 }
 
 bool check_rot(Vec &m0, Vec &m1, Vec &mc, uint64_t c) {
