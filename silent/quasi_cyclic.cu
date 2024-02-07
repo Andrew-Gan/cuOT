@@ -5,7 +5,7 @@
 #include "gpu_ops.h"
 #include "logger.h"
 
-#define FFT_BATCHSIZE 32
+#define FFT_BATCHSIZE 16
 
 __global__
 void bit_to_float(uint64_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, uint64_t outFloatWidth) {
@@ -87,7 +87,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
 
   cudaFree(a64_poly);
   cufftDestroy(aPlan);
-  cModP1.resize({mRows, mOut / (8*sizeof(OTblock))});
+  cModP1.resize({mRows, mIn / BLOCK_BITS});
   cModP1.clear();
 
   uint64_t tmp = mIn;
@@ -125,12 +125,12 @@ void QuasiCyclic::encode(Mat &b64) {
 
   Log::mem(mRole, LPN);
 
-  for (uint64_t i = 0; i < mRows; i += FFT_BATCHSIZE) {
-    bit_to_float<<<grid1, block1>>>((uint64_t*) b64.data({i, 0}), b64_poly, mOut, mIn);
+  for (uint64_t r = 0; r < mRows; r += FFT_BATCHSIZE) {
+    bit_to_float<<<grid1, block1>>>((uint64_t*) b64.data({r, 0}), b64_poly, mOut, mIn);
     cufftExecR2C(bPlan, b64_poly, b64_fft);
     complex_dot_product<<<grid2, block2>>>(a64_fft, b64_fft, thread2);
     cufftExecC2R(cPlan, b64_fft, b64_poly);
-    float_to_bit<<<grid3, block3>>>(b64_poly, (uint64_t*) cModP1.data({i, 0}), mIn, fftsizeLog);
+    float_to_bit<<<grid3, block3>>>(b64_poly, (uint64_t*) cModP1.data({r, 0}), mIn, fftsizeLog);
   }
 
   check_call("QuasiCyclic::fft\n");

@@ -10,7 +10,7 @@
 #include "expand.h"
 #include "lpn.h"
 
-#define NGPU 2
+#define NGPU 1
 
 class SilentOTSender;
 class SilentOTRecver;
