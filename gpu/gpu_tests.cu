@@ -5,10 +5,9 @@
 #include "gpu_tests.h"
 #include "gpu_ops.h"
 
-void check_cuda() {
+int check_cuda() {
 	int deviceCount = 0;
 	cudaGetDeviceCount(&deviceCount);
-	assert(deviceCount >= 2);
 
 	bool foundDev = false;
 	int dev;
@@ -23,6 +22,8 @@ void check_cuda() {
 	}
 	if (!foundDev)
 		fprintf(stderr, "There is no device supporting CUDA.\n");
+	
+	return deviceCount;
 }
 
 void check_alloc(void *ptr) {

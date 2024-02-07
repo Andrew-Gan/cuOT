@@ -15,22 +15,13 @@ uint64_t* gen_choices(int depth) {
   return choices;
 }
 
-void cuda_init() {
-  cudaFree(0);
-  curandGenerator_t prng;
-  curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_XORWOW);
-  curandDestroyGenerator(prng);
-  cufftHandle initPlan;
-  cufftCreate(&initPlan);
-  cufftDestroy(initPlan);
-}
-
 int main(int argc, char** argv) {
   if (argc < 5) {
     fprintf(stderr, "Usage: ./ot protocol logOT numTrees bandwidth(mbps)\n");
     return EXIT_FAILURE;
   }
-  check_cuda();
+  int devCount = check_cuda();
+  assert(devCount >= NGPU);
   int protocol = atoi(argv[1]);
   int logOT = atoi(argv[2]);
   int numTrees = atoi(argv[3]);
@@ -40,7 +31,7 @@ int main(int argc, char** argv) {
   SilentOTConfig config = {
     .id = 0, .logOT = logOT, .nTree = numTrees, .baseOT = SimplestOT_t,
     .expander = AesExpand_t, .leftKey = {3242342}, .rightKey = {8993849},
-    .compressor = QuasiCyclic_t,
+    .compressor = QuasiCyclic_t, .ngpuAvail = devCount,
   };
 
   SilentOTSender *sender;
