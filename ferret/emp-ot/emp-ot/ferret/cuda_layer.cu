@@ -82,8 +82,6 @@ void cuda_spcot_sender_compute(Span &tree, int t, int depth, Mat &lSum, Mat &rSu
 		cudaMemcpyAsync(lSum.data({d, 0}), separated.data(0), t*sizeof(blk), cudaMemcpyDeviceToDevice);
 		cudaMemcpyAsync(rSum.data({d, 0}), separated.data(t), t*sizeof(blk), cudaMemcpyDeviceToDevice);
 	}
-
-	check_call("spcot_sender\n");
 	cudaDeviceSynchronize();
 }
 
@@ -93,10 +91,10 @@ void cuda_spcot_recver_compute(Span &tree, int t, int depth, Mat &cSum, bool *b)
 	AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
 	Vec separated(tree.size());
 	uint64_t *activeParent;
-	cudaMallocAsync(&activeParent, t*sizeof(uint64_t), 0);
+	cudaMalloc(&activeParent, t*sizeof(uint64_t), 0);
 	cudaMemsetAsync(activeParent, 0, t*sizeof(uint64_t));
 	bool *choice_d;
-	cudaMallocAsync(&choice_d, depth*t*sizeof(bool), 0);
+	cudaMalloc(&choice_d, depth*t*sizeof(bool), 0);
 	cudaMemcpyAsync(choice_d, b, depth*t*sizeof(bool), cudaMemcpyHostToDevice);
 
 	int block = std::min(t, 1024);
@@ -115,7 +113,6 @@ void cuda_spcot_recver_compute(Span &tree, int t, int depth, Mat &cSum, bool *b)
 
 	cudaFreeAsync(choice_d, 0);
 	cudaFreeAsync(activeParent, 0);
-	check_call("spcot_recver\n");
 	cudaDeviceSynchronize();
 }
 
@@ -125,12 +122,10 @@ void cuda_gen_matrices(Mat &pubMat, uint32_t *key) {
 	make_block<<<grid, block>>>(pubMat.data());
 	uint64_t grid2 = 4*pubMat.dim(0)*pubMat.dim(1)/AES_BSIZE;
 	aesEncrypt128<<<grid2, AES_BSIZE>>>(key, (uint32_t*)pubMat.data());
-	check_call("cuda_gen_matrices\n");
 	cudaDeviceSynchronize();
 }
 
 void cuda_lpn_f2_compute(blk *pubMat, int d, int n, int k, Span &nn, Span &kk) {
 	lpn_single_row<<<n/1024, 1024>>>((uint32_t*)pubMat, d, k, nn.data(), kk.data());
-	check_call("cuda_lpn_f2_compute\n");
 	cudaDeviceSynchronize();
 }

@@ -11,9 +11,10 @@ void gpu_and(uint8_t *a, uint8_t *b, uint64_t n) {
 }
 
 __global__
-void gpu_xor(uint8_t *a, uint8_t *b, uint64_t n) {
+void gpu_xor(uint8_t *a, uint8_t *b, uint64_t n, uint64_t rowBytes) {
   uint64_t x = blockIdx.x * blockDim.x + threadIdx.x;
-  if (x < n) a[x] ^= b[x];
+  uint64_t y = blockIdx.y;
+  if (x < n) a[y * rowBytes + x] ^= b[y * rowBytes + x];
 }
 
 __global__
@@ -36,14 +37,14 @@ void bit_transposer(uint8_t *out, uint8_t *in) {
   uint64_t bytesPerRow = gridDim.x * blockDim.x;
 
   uint64_t x =
-    ( uint64_t( in[   i * 8       * bytesPerRow + j ] ) << 56 ) |
-    ( uint64_t( in[ ( i * 8 + 1 ) * bytesPerRow + j ] ) << 48 ) |
-    ( uint64_t( in[ ( i * 8 + 2 ) * bytesPerRow + j ] ) << 40 ) |
-    ( uint64_t( in[ ( i * 8 + 3 ) * bytesPerRow + j ] ) << 32 ) |
-    ( uint64_t( in[ ( i * 8 + 4 ) * bytesPerRow + j ] ) << 24 ) |
-    ( uint64_t( in[ ( i * 8 + 5 ) * bytesPerRow + j ] ) << 16 ) |
-    ( uint64_t( in[ ( i * 8 + 6 ) * bytesPerRow + j ] ) <<  8 ) |
-    ( uint64_t( in[ ( i * 8 + 7 ) * bytesPerRow + j ] ) );
+    ( uint64_t( in[   i * 8       * bytesPerRow + j ] ) << 0  ) |
+    ( uint64_t( in[ ( i * 8 + 1 ) * bytesPerRow + j ] ) << 8  ) |
+    ( uint64_t( in[ ( i * 8 + 2 ) * bytesPerRow + j ] ) << 16 ) |
+    ( uint64_t( in[ ( i * 8 + 3 ) * bytesPerRow + j ] ) << 24 ) |
+    ( uint64_t( in[ ( i * 8 + 4 ) * bytesPerRow + j ] ) << 32 ) |
+    ( uint64_t( in[ ( i * 8 + 5 ) * bytesPerRow + j ] ) << 40 ) |
+    ( uint64_t( in[ ( i * 8 + 6 ) * bytesPerRow + j ] ) << 48 ) |
+    ( uint64_t( in[ ( i * 8 + 7 ) * bytesPerRow + j ] ) << 56 );
   uint64_t y =
     (x & 0x8040201008040201LL) |
     ((x & 0x0080402010080402LL) <<  7) |
@@ -60,14 +61,14 @@ void bit_transposer(uint8_t *out, uint8_t *in) {
     ((x >> 35) & 0x0000000000804020LL) |
     ((x >> 42) & 0x0000000000008040LL) |
     ((x >> 49) & 0x0000000000000080LL);
-    out[ ( j * 8 ) * nRowBlocks + i ]     = uint8_t( ( y >> 56 ) & 0xFF );
-    out[ ( j * 8 + 1 ) * nRowBlocks + i ] = uint8_t( ( y >> 48 ) & 0xFF );
-    out[ ( j * 8 + 2 ) * nRowBlocks + i ] = uint8_t( ( y >> 40 ) & 0xFF );
-    out[ ( j * 8 + 3 ) * nRowBlocks + i ] = uint8_t( ( y >> 32 ) & 0xFF );
-    out[ ( j * 8 + 4 ) * nRowBlocks + i ] = uint8_t( ( y >> 24 ) & 0xFF );
-    out[ ( j * 8 + 5 ) * nRowBlocks + i ] = uint8_t( ( y >> 16 ) & 0xFF );
-    out[ ( j * 8 + 6 ) * nRowBlocks + i ] = uint8_t( ( y >> 8 ) & 0xFF );
-    out[ ( j * 8 + 7 ) * nRowBlocks + i ] = uint8_t( y & 0xFF );
+    out[ ( j * 8 ) * nRowBlocks + i ]     = uint8_t( ( y >> 0  ) & 0xFF );
+    out[ ( j * 8 + 1 ) * nRowBlocks + i ] = uint8_t( ( y >> 8  ) & 0xFF );
+    out[ ( j * 8 + 2 ) * nRowBlocks + i ] = uint8_t( ( y >> 16 ) & 0xFF );
+    out[ ( j * 8 + 3 ) * nRowBlocks + i ] = uint8_t( ( y >> 24 ) & 0xFF );
+    out[ ( j * 8 + 4 ) * nRowBlocks + i ] = uint8_t( ( y >> 32 ) & 0xFF );
+    out[ ( j * 8 + 5 ) * nRowBlocks + i ] = uint8_t( ( y >> 40 ) & 0xFF );
+    out[ ( j * 8 + 6 ) * nRowBlocks + i ] = uint8_t( ( y >> 48 ) & 0xFF );
+    out[ ( j * 8 + 7 ) * nRowBlocks + i ] = uint8_t( ( y >> 56 ) & 0xFF );
 }
 
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
@@ -113,7 +114,7 @@ __global__
 void print(float *data, uint64_t n, uint64_t stride) {
   for(int i = 0; i < n; i += 32) {
     for (int j = i; j < n && j < i + 32; j++)
-      printf("%.0f ", data[j * stride]);
+      printf("%.2f ", data[j * stride]);
     printf("\n");
   }
 }
@@ -127,11 +128,11 @@ void print(cuComplex *data, uint64_t n, uint64_t stride) {
   }
 }
 
-cudaError_t cudaMemcpy2DPeer(void *dst, size_t dpitch, int dstDevice,
+cudaError_t cudaMemcpy2DPeerAsync(void *dst, size_t dpitch, int dstDevice,
   const void *src, size_t spitch, int srcDevice, size_t width, size_t height) {
   cudaError_t err;
   for (size_t r = 0; r < height; r++) {
-    err = cudaMemcpyPeer((uint8_t*)dst+r*dpitch, dstDevice,
+    err = cudaMemcpyPeerAsync((uint8_t*)dst+r*dpitch, dstDevice,
       (uint8_t*)src+r*spitch, srcDevice, width);
   }
   return err;

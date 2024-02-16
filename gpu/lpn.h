@@ -9,7 +9,8 @@ enum LPNType { QuasiCyclic_t, ExpandAccumulate_t };
 
 class Lpn {
 public:
-  virtual void encode(Mat &b64) = 0;
+  virtual void encode_dense(Mat &b64) = 0;
+  virtual void encode_sparse(Vec &out, uint64_t *sparsePos, int weight) = 0;
 };
 
 class QuasiCyclic : public Lpn {
@@ -19,8 +20,9 @@ private:
   uint64_t mIn, mOut;
   void *workArea;
   int fftsizeLog = -1;
+  Vec a64;
   cufftHandle bPlan, cPlan;
-  cufftReal *b64_poly;
+  cufftReal *b64_poly, *c64_poly;
   cufftComplex *a64_fft, *b64_fft;
   Mat cModP1;
   uint64_t mRows = 8*sizeof(OTblock);
@@ -28,14 +30,16 @@ private:
 public:
   QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows);
   virtual ~QuasiCyclic();
-  void encode(Mat &b64);
+  void encode_dense(Mat &b64);
+  void encode_sparse(Vec &out, uint64_t *sparsePos, int weight);
 };
 
 class ExpandAccumulate : public Lpn {
 public:
   ExpandAccumulate(Role role, uint64_t in, uint64_t out);
   virtual ~ExpandAccumulate();
-  void encode(Mat &b64);
+  void encode_dense(Mat &b64);
+  void encode_sparse(Vec &out, uint64_t *sparsePos, int weight);
 };
 
 #endif

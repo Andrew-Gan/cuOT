@@ -20,6 +20,8 @@ public:
   void sum(uint64_t nPartition, uint64_t blkPerPart);
   void xor_d(Vec &rhs, uint64_t offs = 0);
   Span span(uint64_t start = 0, uint64_t end = 0);
+  uint8_t *buffer = nullptr;
+  size_t bufferSize = 0;
 };
 
 class Span {

@@ -22,7 +22,6 @@ int check_cuda() {
 	}
 	if (!foundDev)
 		fprintf(stderr, "There is no device supporting CUDA.\n");
-	
 	return deviceCount;
 }
 
@@ -38,16 +37,18 @@ void check_alloc(void *ptr) {
 	if (cudaSuccess != cudaPointerGetAttributes(&attr, ptr))
 		printf("Failed to get attribute\n");
 	
+	printf("ptr %p, dev %d, ", ptr, attr.device);
+
 	if (dev != attr.device) {
-		printf("ptr %p, dev %d\n", ptr, attr.device);
-		return;
+		cudaSetDevice(attr.device);
 	}
 
 	if (CUDA_SUCCESS != cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr))
 		printf("Failed to get range\n");
 
-	printf("ptr %p, dev %d, alloc %ld\n", ptr, attr.device, size);
+	printf("alloc %ld\n", size);
 	fflush(stdout);
+	cudaSetDevice(dev);
 }
 
 void check_call(const char* msg) {
@@ -61,11 +62,9 @@ void check_call(const char* msg) {
 bool check_rot(Vec &m0, Vec &m1, Vec &mc, uint64_t c) {
 	int numTree = mc.size();
 	blk *b0 = new blk[numTree], *b1 = new blk[numTree], *bc = new blk[numTree];
-
 	cudaMemcpy(b0, m0.data(), m0.size_bytes(), cudaMemcpyDeviceToHost);
 	cudaMemcpy(b1, m1.data(), m1.size_bytes(), cudaMemcpyDeviceToHost);
 	cudaMemcpy(bc, mc.data(), mc.size_bytes(), cudaMemcpyDeviceToHost);
-
 	for (int t = 0; t < numTree; t++) {
 		uint8_t choiceBit = c & 1;
 		if (choiceBit == 0 && memcmp(&b0[t], &bc[t], sizeof(blk)) != 0
@@ -75,23 +74,31 @@ bool check_rot(Vec &m0, Vec &m1, Vec &mc, uint64_t c) {
 		}
 		c >>= 1;
 	}
-
 	delete[] b0;
 	delete[] b1;
 	delete[] bc;
 	return true;
 }
 
+__global__
+void _unpack_choice_bits(blk *out, uint64_t *choice, blk *delta) {
+	uint64_t x = blockIdx.x * blockDim.x + threadIdx.x;
+	if (choice[x / 64] >> (x % 64) & 1)
+		out[x] = *delta;
+}
+
 bool check_cot(Vec &full, Vec &punc, Vec &choice, blk *delta) {
-	blk *delta_d;
-	cudaMalloc(&delta_d, sizeof(*delta_d));
-	cudaMemcpy(delta_d, delta, sizeof(*delta_d), cudaMemcpyHostToDevice);
-
-	Vec left(punc);
-	left ^= full;
-	Vec right(choice);
-	right &= delta_d;
-
-	cudaFree(delta_d);
+	Vec left(full);
+	left ^= punc;
+	Vec right(8*choice.size_bytes());
+	right.clear();
+	uint64_t threads = choice.size() * BLOCK_BITS;
+	uint64_t block = std::min(1024UL, threads);
+	uint64_t grid = (threads + block - 1) / block;
+	_unpack_choice_bits<<<grid, block>>>(right.data(), (uint64_t*) choice.data(), delta);
+	// std::cout << "full\n" << full << std::endl;
+	// std::cout << "punc\n" << punc << std::endl;
+	// std::cout << "left\n" << left << std::endl;
+	// std::cout << "right\n" << right << std::endl;
 	return left == right;
 }

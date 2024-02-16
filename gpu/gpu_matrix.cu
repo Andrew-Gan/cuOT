@@ -1,3 +1,4 @@
+#include <iomanip>
 #include <bitset>
 #include "gpu_ops.h"
 #include "gpu_matrix.h"
@@ -88,38 +89,55 @@ void Mat::bit_transpose() {
   grid.y = std::min(yBlock, 32768UL);
   grid.z = (yBlock + grid.y - 1) / grid.y;
   bit_transposer<<<grid, block>>>(mPtr, tpBuffer);
-  check_call("Mat::bit_transpose\n");
   cudaFreeAsync(tpBuffer, 0);
   uint64_t tpRows = col * 8 * sizeof(blk);
-  col = row / (8 * sizeof(blk));
-  row = tpRows;
+  mDim.at(1) = row / (8 * sizeof(blk));
+  mDim.at(0) = tpRows;
 }
 
 void Mat::modp(uint64_t reducedCol) {
-  if (mDim.size() != 2)
-    throw std::invalid_argument("Mat::modp only 2D matrix supported\n");
+  if (mDim.size() > 2)
+    throw std::invalid_argument("Mat::modp only 1D or 2D matrix supported\n");
 
-  uint64_t row = dim(0);
-  uint64_t col = dim(1);
-  uint64_t block = std::min(reducedCol, 1024lu);
-  uint64_t grid = (reducedCol + block - 1) / block;
+  uint64_t col = mDim.back();
+  uint64_t threads = reducedCol * sizeof(blk);
+  uint64_t block = std::min(threads, 1024lu);
+  uint64_t rows = mDim.size() == 2 ? mDim.front() : 1;
+  dim3 grid = dim3((threads + block - 1) / block, rows);
 
-  for (uint64_t i = 0; i < col / reducedCol - 1; i++) {
-    gpu_xor<<<grid, block>>>(mPtr, mPtr + (i * reducedCol * sizeof(blk)), reducedCol);
-  }
-  check_call("Mat::modp\n");
+  for (uint64_t i = 1; i < col / reducedCol; i++)
+    gpu_xor<<<grid, block>>>(mPtr, mPtr + (i*threads), threads, col*sizeof(blk));
 }
 
 void Mat::xor_scalar(blk *rhs) {
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   xor_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), mNBytes);
-  check_call("Mat::xor_scalar\n");
 }
 
 Mat& Mat::operator&=(blk *rhs) {
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   and_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), mNBytes);
-  check_call("Mat::operator&=\n");
-
   return *this;
+}
+
+std::ostream& operator<<(std::ostream &os, Mat &obj) {
+  if (obj.dims().size() > 2)
+    throw std::invalid_argument("Mat::operator<< only 1D or 2D matrix supported\n");
+  blk *tmp = new blk[obj.size_bytes() / sizeof(blk)];
+  uint64_t rows = obj.dims().size() == 2 ? obj.dim(0) : 1;
+  uint64_t cols = obj.dims().size() == 2 ? obj.dim(1) : obj.dim(0);
+  cudaMemcpy(tmp, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
+  for (uint64_t i = 0; i < rows; i++) {
+    for (uint64_t j = 0; j < cols; j++) {
+      blk *val = tmp+i*cols+j;
+      for (int i = 0; i < 1; i++) {
+        os << std::setw(8) << std::setfill('0') << std::hex << val->data[i];
+      }
+      os << " ";
+    }
+    os << std::endl;
+  }
+  os << std::dec;
+  delete[] tmp;
+  return os;
 }

@@ -10,7 +10,8 @@
 #include "expand.h"
 #include "lpn.h"
 
-#define NGPU 1
+// number of gpu used per party
+#define NGPU 2
 
 class SilentOTSender;
 class SilentOTRecver;
@@ -36,7 +37,7 @@ public:
   std::vector<Vec> m1[NGPU];
   
   SilentOT(SilentOTConfig config) : mConfig(config) {
-    depth = mConfig.logOT - log2((float) mConfig.nTree) + 1;
+    depth = mConfig.logOT - log2((float) mConfig.nTree) + 0;
     numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, depth);
   }
@@ -61,8 +62,8 @@ public:
 
 class SilentOTRecver : public SilentOT {
 public:
-  Vec puncVector[NGPU];
-  uint64_t *choiceVector;
+  Vec puncVector[NGPU], choiceVector;
+  uint64_t *puncPos;
   SilentOTSender *other = nullptr;
   std::vector<Vec> mc[NGPU];
   std::atomic<bool> expandReady = false;

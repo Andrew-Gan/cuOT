@@ -17,6 +17,7 @@ public:
 
 class AesExpand : public Expand {
 private:
+  uint32_t *keyL, *keyR;
   void expand_encKey(uint8_t *encExpKey, uint8_t *key);
   void expand_decKey(uint8_t *decExpKey, uint8_t *key);
 
