@@ -5,8 +5,8 @@
 #include <cassert>
 
 #define BATCH_SIZE 1
-#define FFT_SIZE (1<<11)
-#define SAMPLE_SIZE 16
+#define FFT_SIZE (1<<4)
+#define SAMPLE_SIZE 1
 
 __global__
 void complex_mult(cufftComplex *a, cufftComplex *b, int n) {
@@ -35,7 +35,7 @@ int main() {
     cufftPlan1d(&aPlan, FFT_SIZE, CUFFT_R2C, BATCH_SIZE);
     cufftPlan1d(&bPlan, FFT_SIZE, CUFFT_C2R, BATCH_SIZE);
 
-    cufftReal inH[FFT_SIZE];//, outH[FFT_SIZE];
+    cufftReal inH[FFT_SIZE], outH[FFT_SIZE];
     // cufftComplex midH[FFT_SIZE / 2 + 1];
     memset(inH, 0, sizeof(inH));
 
@@ -46,7 +46,7 @@ int main() {
     cudaMalloc(&mid, BATCH_SIZE * (FFT_SIZE / 2 + 1) * sizeof(cufftComplex));
 
     for (int i = 0; i < FFT_SIZE / 2; i++) {
-        inH[i] = (cufftReal) 1;
+        inH[i] = 1.0f;
     }
     // printf("in:\n");
     // for (int j = 0; j < FFT_SIZE; j++)
@@ -91,19 +91,19 @@ int main() {
         block = std::min(1024UL, nThread);
         grid = dim3((nThread + block - 1) / block, BATCH_SIZE);
 
-        divider<<<grid, block>>>(out, FFT_SIZE, FFT_SIZE);
+        // divider<<<grid, block>>>(out, FFT_SIZE, FFT_SIZE);
         cudaDeviceSynchronize();
-        // cudaMemcpy(outH, out, sizeof(outH), cudaMemcpyDeviceToHost);
-        // printf("scaled and rounded:\n");
-        // for (int j = 0; j < FFT_SIZE; j++)
-        //     printf("%d ", (int) round(outH[j]));
+        cudaMemcpy(outH, out, sizeof(outH), cudaMemcpyDeviceToHost);
+        printf("scaled and rounded:\n");
+        for (int j = 0; j < FFT_SIZE; j++)
+            printf("%.2f ", outH[j]);
     }
 
     clock_gettime(CLOCK_MONOTONIC, &tp[1]);
 
     float duration = (float)(tp[1].tv_sec-tp[0].tv_sec) * 1000;
     duration += (float)(tp[1].tv_nsec-tp[0].tv_nsec) / 1000000;
-    printf("FFT duration: %.2f ms\n", duration / SAMPLE_SIZE);
+    printf("\nFFT duration: %.2f ms\n", duration / SAMPLE_SIZE);
 
     cudaFree(in);
     cudaFree(mid);

@@ -32,4 +32,6 @@ private:
   uint64_t listToOffset(std::vector<uint64_t> pos) const;
 };
 
+std::ostream& operator<<(std::ostream &os, Mat &obj);
+
 #endif

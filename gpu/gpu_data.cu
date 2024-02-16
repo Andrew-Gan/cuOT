@@ -38,7 +38,7 @@ GPUdata& GPUdata::operator^=(const GPUdata &rhs) {
 GPUdata& GPUdata::operator=(const GPUdata &rhs) {
   if (mNBytes != rhs.size_bytes()) {
     cudaFreeAsync(mPtr, 0);
-    cudaMallocAsync(&mPtr, rhs.size_bytes(), 0);
+    cudaMalloc(&mPtr, rhs.size_bytes());
     mNBytes = rhs.size_bytes();
   }
   cudaMemcpyAsync(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice);
@@ -65,10 +65,10 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
 void GPUdata::resize(uint64_t size) {
   if (size == mNBytes) return;
   if (mPtr == nullptr)
-    cudaMallocAsync(&mPtr, size, 0);
+    cudaMalloc(&mPtr, size);
   else {
     uint8_t *oldData = mPtr;
-    cudaMallocAsync(&mPtr, size, 0);
+    cudaMalloc(&mPtr, size);
     cudaMemcpyAsync(mPtr, oldData, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
     cudaFreeAsync(oldData, 0);
   }
@@ -76,7 +76,8 @@ void GPUdata::resize(uint64_t size) {
 }
 
 void GPUdata::load(const void *data, uint64_t size) {
-  cudaMemcpyAsync(mPtr, data, size = 0 ? mNBytes : size, cudaMemcpyDeviceToDevice);
+  uint64_t cpy = size == 0 ? mNBytes : size;
+  cudaMemcpyAsync(mPtr, data, cpy, cudaMemcpyDeviceToDevice);
 }
 
 void GPUdata::load(const char *filename) {
@@ -108,15 +109,15 @@ void GPUdata::xor_d(GPUdata &rhs) {
 }
 
 std::ostream& operator<<(std::ostream &os, GPUdata &obj) {
-  uint8_t *tmp = new uint8_t[obj.size_bytes()];
+  blk *tmp = new blk[obj.size_bytes() / sizeof(blk)];
   cudaMemcpy(tmp, obj.data(), obj.size_bytes(), cudaMemcpyDeviceToHost);
-  for (uint64_t i = 0; i < obj.size_bytes(); i += 16 * sizeof(OTblock)) {
-    for (uint64_t j = 0; j < 16 * sizeof(OTblock); j += sizeof(OTblock)) {
-      os << std::hex << std::setw(2) << std::setfill('0') << int(tmp[i+j]) << " ";
+  for (uint64_t i = 0; i < obj.size_bytes() / sizeof(blk); i += 16) {
+    for (uint64_t j = 0; j < 16; j++) {
+      os << std::hex << std::setw(2) << std::setfill('0') << int(((uint8_t*)(tmp+i+j))[0]) << " ";
     }
     os << std::endl;
   }
-  os << std::endl << std::dec;
+  os << std::dec;
   delete[] tmp;
   return os;
 }

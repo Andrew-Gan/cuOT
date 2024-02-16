@@ -12,20 +12,23 @@ blk* Vec::data(uint64_t i) const {
   return Mat::data({i});
 }
 
-// nPartition: number of partitions to reduce to separate totals
-// blkPerPart: number of blks in a partition
 void Vec::sum(uint64_t nPartition, uint64_t blkPerPart) {
   uint64_t blockSize, nBlocks, mem;
 
-  uint8_t *buffer;
-  cudaMallocAsync(&buffer, mNBytes, 0);
+  if (bufferSize > 0 && bufferSize != mNBytes) {
+    cudaFree(buffer);
+    bufferSize = 0;
+  }
+  if (bufferSize == 0) {
+    cudaMalloc(&buffer, mNBytes);
+    bufferSize = mNBytes;
+  }
 
   uint64_t *in = (uint64_t*) buffer;
   uint64_t *out = (uint64_t*) this->mPtr;
 
   for (uint64_t remBlocks = blkPerPart; remBlocks > 1; remBlocks /= 1024) {
     std::swap(in, out);
-
     blockSize = std::min((uint64_t) 1024, remBlocks);
     nBlocks = nPartition * (remBlocks / blockSize);
     mem = blockSize * sizeof(uint64_t);
@@ -35,7 +38,6 @@ void Vec::sum(uint64_t nPartition, uint64_t blkPerPart) {
   if (out != (uint64_t*) this->mPtr) {
     cudaMemcpyAsync(this->mPtr, out, nPartition * sizeof(blk), cudaMemcpyDeviceToDevice);
   }
-  cudaFreeAsync(buffer, 0);
 }
 
 void Vec::xor_d(Vec &rhs, uint64_t offs) {

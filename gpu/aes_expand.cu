@@ -21,16 +21,14 @@ AesExpand::AesExpand(void *leftUnexp, void *rightUnexp) {
 	cudaMemcpyToSymbol(keyLeft, leftExpKey.roundKey, sizeof(keyLeft));
 	expand_encKey(rightExpKey.roundKey, (uint8_t*)rightUnexp);
 	cudaMemcpyToSymbol(keyRight, rightExpKey.roundKey, sizeof(keyRight));
+	cudaGetSymbolAddress((void**)&keyL, keyLeft);
+	cudaGetSymbolAddress((void**)&keyR, keyRight);
 }
 
 void AesExpand::expand(Span &interleaved, Vec &separated, uint64_t inWidth) {
     dim3 grid((4*inWidth+(AES_BSIZE-1)) / AES_BSIZE, 2);
-	uint32_t *keyL, *keyR;
-	cudaGetSymbolAddress((void**)&keyL, keyLeft);
-	cudaGetSymbolAddress((void**)&keyR, keyRight);
 	aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved.data(),
 		separated.data(), inWidth);
-	check_call("AesExpand::expand\n");
 }
 
 void AesExpand::expand(Vec &interleaved, Vec &separated, uint64_t inWidth) {
