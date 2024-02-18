@@ -9,7 +9,8 @@
 
 uint64_t* gen_choices(int depth) {
   uint64_t *choices = new uint64_t[depth];
-  for (int d = 0; d < depth; d++) {
+  choices[0] = ~0UL;
+  for (int d = 1; d < depth; d++) {
     choices[d] = ((uint64_t) rand() << 32) | rand();
   }
   return choices;
@@ -27,7 +28,7 @@ int main(int argc, char** argv) {
   int numTrees = atoi(argv[3]);
   int bandwidth = atoi(argv[4]);
   printf("logOT: %d, trees: %d\n", logOT, numTrees);
-  uint64_t depth = logOT - log2((float) numTrees) + 1;
+  uint64_t depth = logOT - log2((float) numTrees);
   SilentOTConfig config = {
     .id = 0, .logOT = logOT, .nTree = numTrees, .baseOT = SimplestOT_t,
     .expander = AesExpand_t, .leftKey = {3242342}, .rightKey = {8993849},

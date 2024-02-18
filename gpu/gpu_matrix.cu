@@ -100,12 +100,13 @@ void Mat::modp(uint64_t reducedCol) {
     throw std::invalid_argument("Mat::modp only 1D or 2D matrix supported\n");
 
   uint64_t col = mDim.back();
-  uint64_t block = std::min(reducedCol, 1024lu);
-  dim3 grid = dim3((reducedCol + block - 1) / block, mDim.size() == 2 ? mDim.front() : 1);
-  uint64_t reducedBytes = reducedCol * sizeof(blk);
+  uint64_t threads = reducedCol * sizeof(blk);
+  uint64_t block = std::min(threads, 1024lu);
+  uint64_t rows = mDim.size() == 2 ? mDim.front() : 1;
+  dim3 grid = dim3((threads + block - 1) / block, rows);
 
   for (uint64_t i = 1; i < col / reducedCol; i++)
-    gpu_xor<<<grid, block>>>(mPtr, mPtr + (i*reducedBytes), reducedBytes, col*sizeof(blk));
+    gpu_xor<<<grid, block>>>(mPtr, mPtr + (i*threads), threads, col*sizeof(blk));
 }
 
 void Mat::xor_scalar(blk *rhs) {

@@ -31,15 +31,25 @@ void complex_dot_product(cufftComplex *in, cufftComplex *io, uint64_t len) {
   io[r*len+x] = c;
 }
 
+__device__
+uint64_t _round_to_nearest_multiple(float in, uint64_t mult) {
+  uint64_t rounded = lround(in);
+  uint64_t down = rounded / mult * mult;
+  uint64_t up = down + mult;
+  uint64_t downDiff = rounded - down;
+  uint64_t upDiff = up - rounded;
+  return downDiff < upDiff ? down : up;
+}
+
 __global__
 void float_to_bit(cufftReal *fftReal, uint64_t *bitPoly, uint64_t mIn, uint64_t scaleLog) {
   uint64_t row = blockIdx.y;
   uint64_t col = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t res = 0;
   uint64_t offset = row * mIn + 64 * col;
-  uint64_t pow2 = 1 << scaleLog;
+  uint64_t scale = 1 << scaleLog;
   for (int j = 0; j < 64; j++) {
-    if (lround(fftReal[offset++]) & pow2) {
+    if (_round_to_nearest_multiple(fftReal[offset++], scale) & scale) {
       res |= 1UL << j;
     }
   }
@@ -85,6 +95,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
   cufftExecR2C(aPlan, a64_poly, a64_fft);
   cudaFree(a64_poly);
   cufftDestroy(aPlan);
+  // if (role == Sender) print<<<1, 1>>>(a64_fft, 1024, 16);
 
   cModP1.resize({mRows, mIn / BLOCK_BITS});
   cModP1.clear();
@@ -130,34 +141,47 @@ void QuasiCyclic::encode_dense(Mat &b64) {
   }
 
   cModP1.modp(mOut / BLOCK_BITS);
-  cModP1.resize({cModP1.dim(0), mOut / BLOCK_BITS});
-  b64 = cModP1;
+  b64.resize({cModP1.dim(0), mOut / BLOCK_BITS});
+  cudaMemcpy2DAsync(
+    b64.data(), b64.dim(1)*sizeof(blk),
+    cModP1.data(), cModP1.dim(1)*sizeof(blk),
+    b64.dim(1)*sizeof(blk), b64.dim(0), cudaMemcpyDeviceToDevice
+  );
+  cudaDeviceSynchronize();
   Log::mem(mRole, LPN);
 }
 
 __global__
-void cyclic_mat_vec_prod(uint64_t *mat, uint64_t *vec, uint64_t weight, uint64_t *out) {
+void cyclic_mat_vec_prod(uint64_t *mat, uint64_t *vec, uint64_t weight, uint64_t *out, uint64_t mOut, uint64_t n) {
   uint64_t r64 = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t num64 = gridDim.x * blockDim.x;
   uint64_t alignment;
   uint64_t op;
 
+  if (r64 >= n) return;
+
   for (int i = 0; i < weight; i++) {
+    if (vec[i] > mOut) continue;
     alignment = vec[i] % 64;
     op = 0;
     if (r64 < num64 - 1) op |= mat[r64] << alignment;
     if (r64 > 0) op |= mat[r64-1] >> (64-alignment);
-    out[vec[i] / 64 + r64] |= op;
+    if (blockIdx.x == 1 && threadIdx.x == 988) printf("accessing out[%lu]\n", vec[i] / 64 + r64);
+    out[vec[i] / 64 + r64] ^= op;
   }
 }
 
 void QuasiCyclic::encode_sparse(Vec &out, uint64_t *sparsePos, int weight) {
   Log::mem(mRole, LPN);
   out.resize(mIn / BLOCK_BITS);
-  uint64_t nThread = mOut / 64;
+  printf("out size = %lu\n", out.dim(0) * 2);
+  out.clear();
+  uint64_t nThread = mOut / 64 + 1;
   uint64_t block = std::min(1024UL, nThread);
   uint64_t grid = (nThread + block - 1) / block;
-  cyclic_mat_vec_prod<<<grid, block>>>((uint64_t*)a64.data(), sparsePos, weight, (uint64_t*)out.data());
+  cyclic_mat_vec_prod<<<grid, block>>>(
+    (uint64_t*)a64.data(), sparsePos, weight, (uint64_t*)out.data(), mOut, nThread
+  );
   out.modp(mOut / BLOCK_BITS);
   out.resize(mOut / BLOCK_BITS);
   Log::mem(mRole, LPN);

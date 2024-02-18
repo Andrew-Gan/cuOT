@@ -81,7 +81,7 @@ void choice_bits_to_pos(uint64_t *choiceVector, uint64_t *choiceBits, uint64_t d
     id *= 2;
     id += 1-(choiceBits[d] >> t & 1);
   }
-  choiceVector[t] = id;
+  choiceVector[t] = id + t * (1 << depth);
 }
 
 void SilentOTRecver::get_choice_vector() {
@@ -184,9 +184,8 @@ void SilentOTRecver::lpn_compress() {
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
     lpn[gpu]->encode_dense(b64[gpu]);
   }
-
   cudaSetDevice(mConfig.ngpuAvail-1);
-  b64[0].resize({BLOCK_BITS, numOT / BLOCK_BITS});
+  b64[0].resize({BLOCK_BITS, b64[0].dim(1)});
   for (int gpu = 1; gpu < NGPU; gpu++) {
     cudaMemcpyPeerAsync(
       b64[0].data({gpu * rowsPerGPU, 0}), 0,
@@ -194,7 +193,7 @@ void SilentOTRecver::lpn_compress() {
     );
   }
   b64[0].bit_transpose();
-  puncVector[0].resize(numOT);
+  puncVector[0].resize(b64[0].dim(0));
   puncVector[0].load(b64[0].data());
 
   for (int gpu = 0; gpu < NGPU; gpu++) {

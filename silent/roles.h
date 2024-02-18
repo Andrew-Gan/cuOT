@@ -37,7 +37,7 @@ public:
   std::vector<Vec> m1[NGPU];
   
   SilentOT(SilentOTConfig config) : mConfig(config) {
-    depth = mConfig.logOT - log2((float) mConfig.nTree) + 1;
+    depth = mConfig.logOT - log2((float) mConfig.nTree) + 0;
     numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, depth);
   }
