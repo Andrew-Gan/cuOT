@@ -2,7 +2,8 @@
 #define __AES_H__
 
 #include "gpu_define.h"
-#include "gpu_vector.h"
+#include "gpu_matrix.h"
+#include "gpu_span.h"
 
 struct AES_ctx {
   uint8_t roundKey[11*AES_KEYLEN];
@@ -12,7 +13,7 @@ enum ExpandType { AesExpand_t };
 
 class Expand {
 public:
-  virtual void expand(Vec &interleaved, Vec &separated, uint64_t inWidth) = 0;
+  virtual void expand(Mat &interleaved, Mat &separated, uint64_t inWidth) = 0;
 };
 
 class AesExpand : public Expand {
@@ -23,8 +24,8 @@ private:
 
 public:
   AesExpand(void *leftUnexp, void *rightUnexp);
-  virtual void expand(Span &interleaved, Vec &separated, uint64_t inWidth);
-  virtual void expand(Vec &interleaved, Vec &separated, uint64_t inWidth);
+  virtual void expand(Span &interleaved, Mat &separated, uint64_t inWidth);
+  virtual void expand(Mat &interleaved, Mat &separated, uint64_t inWidth);
 };
 
 #endif

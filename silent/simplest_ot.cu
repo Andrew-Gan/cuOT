@@ -45,13 +45,13 @@ void SimplestOT::toOtherBuffer(uint8_t *s, uint64_t nBytes) {
   other->hasContent = true;
 }
 
-std::array<Vec, 2> SimplestOT::send() {
+std::array<Mat, 2> SimplestOT::send() {
   a.randomize(prng);
   A = Point::mulGenerator(a);
   toOtherBuffer((uint8_t*) &A, sizeof(A));
 
-  std::array<Vec, 2> m = {
-    Vec(mCount), Vec(mCount)
+  std::array<Mat, 2> m = {
+    Mat({mCount}), Mat({mCount})
   };
   A *= a;
   fromOwnBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
@@ -76,9 +76,9 @@ std::array<Vec, 2> SimplestOT::send() {
   return m;
 }
 
-Vec SimplestOT::recv(uint64_t choice) {
+Mat SimplestOT::recv(uint64_t choice) {
   fromOwnBuffer((uint8_t*) &A, sizeof(A));
-  Vec mb(mCount);
+  Mat mb({mCount});
 
   for (uint64_t i = 0; i < mCount; i++) {
     b.emplace_back(prng);

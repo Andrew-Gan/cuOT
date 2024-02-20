@@ -19,9 +19,9 @@ FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
 ############################################################
 
 QUEUE=standby #zghodsi-b
-CPU_PER_NODE=32
+CPU_PER_NODE=4#32
 GPU_PER_NODE=2
-CONSTRAINT=A100
+CONSTRAINT=#A100
 
 ############################################################
 

@@ -114,6 +114,33 @@ void Mat::xor_scalar(blk *rhs) {
   xor_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), mNBytes);
 }
 
+void Mat::sum(uint64_t nPartition, uint64_t blkPerPart) {
+  uint64_t blockSize, nBlocks, mem;
+  uint64_t *buffer;
+  cudaMalloc(&buffer, mNBytes);
+  uint64_t *in = buffer;
+  uint64_t *out = (uint64_t*) this->mPtr;
+
+  for (uint64_t remBlocks = blkPerPart; remBlocks > 1; remBlocks /= 1024) {
+    std::swap(in, out);
+    blockSize = std::min((uint64_t) 1024, remBlocks);
+    nBlocks = nPartition * (remBlocks / blockSize);
+    mem = blockSize * sizeof(uint64_t);
+    xor_reduce<<<nBlocks, blockSize, mem>>>(out, in);
+  }
+
+  if (out != (uint64_t*) this->mPtr) {
+    cudaMemcpy(this->mPtr, out, nPartition * sizeof(blk), cudaMemcpyDeviceToDevice);
+  }
+  cudaFree(buffer);
+}
+
+void Mat::xor_d(Mat &rhs, uint64_t offs) {
+  uint64_t min = std::min(this->mNBytes, rhs.size_bytes());
+  uint64_t nBlock = (min + 1023) / 1024;
+  gpu_xor<<<nBlock, 1024>>>(this->mPtr, (uint8_t*)(rhs.data() + offs), min);
+}
+
 Mat& Mat::operator&=(blk *rhs) {
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   and_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), mNBytes);

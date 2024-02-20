@@ -21,6 +21,8 @@ public:
   Mat& operator&=(blk *rhs);
   Mat& operator%=(uint64_t mod);
   uint64_t size() const { return listToSize(mDim); }
+  void sum(uint64_t nPartition, uint64_t blkPerPart);
+  void xor_d(Mat &rhs, uint64_t offs = 0);
 
   // 2D Matrix only
   void bit_transpose();

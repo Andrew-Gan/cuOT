@@ -1,9 +1,9 @@
 #ifndef __SIMPLEST_OT_H__
 #define __SIMPLEST_OT_H__
 
+#include "gpu_matrix.h"
 #include <atomic>
 #include <vector>
-#include "gpu_vector.h"
 #include <array>
 #include "cryptoTools/Crypto/SodiumCurve.h"
 #include "cryptoTools/Crypto/PRNG.h"
@@ -15,16 +15,16 @@ enum BaseOTType { SimplestOT_t };
 
 class OT {
 public:
-  virtual std::array<Vec, 2> send() = 0;
-  virtual Vec recv(uint64_t choice) = 0;
+  virtual std::array<Mat, 2> send() = 0;
+  virtual Mat recv(uint64_t choice) = 0;
 };
 
 class SimplestOT : public OT {
 public:
   SimplestOT(Role role, int id, uint64_t count);
   virtual ~SimplestOT();
-  virtual std::array<Vec, 2> send();
-  virtual Vec recv(uint64_t choice);
+  virtual std::array<Mat, 2> send();
+  virtual Mat recv(uint64_t choice);
 
 private:
   Role mRole;
