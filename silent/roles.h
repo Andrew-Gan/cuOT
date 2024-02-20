@@ -4,7 +4,6 @@
 #include <vector>
 #include <array>
 #include <atomic>
-#include "gpu_vector.h"
 #include "gpu_matrix.h"
 #include "base_ot.h"
 #include "expand.h"
@@ -17,7 +16,8 @@ class SilentOTSender;
 class SilentOTRecver;
 
 struct SilentOTConfig {
-  int id, logOT, nTree;
+  int id, logOT;
+  uint64_t nTree;
   BaseOTType baseOT;
   ExpandType expander;
   uint32_t leftKey[4];
@@ -33,8 +33,8 @@ public:
   uint64_t depth, numOT, numLeaves;
   Expand *expander[NGPU];
   Lpn *lpn[NGPU];
-  std::vector<Vec> m0[NGPU];
-  std::vector<Vec> m1[NGPU];
+  std::vector<Mat> m0[NGPU];
+  std::vector<Mat> m1[NGPU];
   
   SilentOT(SilentOTConfig config) : mConfig(config) {
     depth = mConfig.logOT - log2((float) mConfig.nTree) + 0;
@@ -48,7 +48,7 @@ public:
 
 class SilentOTSender : public SilentOT {
 public:
-  Vec fullVector[NGPU];
+  Mat fullVector[NGPU];
   blk *delta[NGPU];
   SilentOTRecver *other = nullptr;
   std::vector<cudaEvent_t> expandEvents[NGPU];
@@ -62,10 +62,10 @@ public:
 
 class SilentOTRecver : public SilentOT {
 public:
-  Vec puncVector[NGPU], choiceVector;
+  Mat puncVector[NGPU], choiceVector;
   uint64_t *puncPos;
   SilentOTSender *other = nullptr;
-  std::vector<Vec> mc[NGPU];
+  std::vector<Mat> mc[NGPU];
   std::atomic<bool> expandReady = false;
   uint64_t *activeParent[2];
 

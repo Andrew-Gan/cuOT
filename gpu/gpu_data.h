@@ -1,6 +1,8 @@
 #ifndef __GPU_DATA_H__
 #define __GPU_DATA_H__
 
+#include <iostream>
+
 class GPUdata {
 public:
   GPUdata() {}

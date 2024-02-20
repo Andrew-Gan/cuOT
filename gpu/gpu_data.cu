@@ -37,11 +37,15 @@ GPUdata& GPUdata::operator^=(const GPUdata &rhs) {
 
 GPUdata& GPUdata::operator=(const GPUdata &rhs) {
   if (mNBytes != rhs.size_bytes()) {
-    cudaFreeAsync(mPtr, 0);
+    cudaFree(mPtr);
     cudaMalloc(&mPtr, rhs.size_bytes());
     mNBytes = rhs.size_bytes();
   }
-  cudaMemcpyAsync(mPtr, rhs.data(), mNBytes, cudaMemcpyDeviceToDevice);
+  int dev;
+  cudaGetDevice(&dev);
+  cudaPointerAttributes attr;
+  cudaPointerGetAttributes(&attr, rhs.data());
+  cudaMemcpyPeerAsync(mPtr, dev, rhs.data(), attr.device, mNBytes);
   return *this;
 }
 

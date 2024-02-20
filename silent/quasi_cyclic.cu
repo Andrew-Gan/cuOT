@@ -1,7 +1,7 @@
 #include "lpn.h"
 #include <cmath>
 #include "gpu_tests.h"
-#include "gpu_vector.h"
+#include "gpu_matrix.h"
 #include "gpu_ops.h"
 #include "logger.h"
 
@@ -79,7 +79,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
   cudaMalloc(&b64_fft, FFT_BATCHSIZE * (mIn / 2 + 1) * sizeof(cufftComplex));
   cudaMalloc(&c64_poly, FFT_BATCHSIZE * mIn * sizeof(cufftReal));
 
-  a64.resize(mOut / BLOCK_BITS);
+  a64.resize({mOut / BLOCK_BITS});
   curandCreateGenerator(&prng, CURAND_RNG_PSEUDO_DEFAULT);
   curandSetPseudoRandomGeneratorSeed(prng, 1234);
   curandGenerate(prng, (uint32_t*)a64.data(), 4 * a64.size());
@@ -95,10 +95,6 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
   cufftExecR2C(aPlan, a64_poly, a64_fft);
   cudaFree(a64_poly);
   cufftDestroy(aPlan);
-  // if (role == Sender) print<<<1, 1>>>(a64_fft, 1024, 16);
-
-  cModP1.resize({mRows, mIn / BLOCK_BITS});
-  cModP1.clear();
 
   uint64_t tmp = mIn;
   while(tmp != 0) {
@@ -133,21 +129,13 @@ void QuasiCyclic::encode_dense(Mat &b64) {
   dim3 grid3((thread3 + block3 - 1) / block3, FFT_BATCHSIZE);
 
   for (uint64_t r = 0; r < mRows; r += FFT_BATCHSIZE) {
-    bit_to_float<<<grid1, block1>>>((uint64_t*) b64.data({r, 0}), b64_poly, mOut, mIn);
+    bit_to_float<<<grid1, block1>>>((uint64_t*)b64.data({r, 0}), b64_poly, mIn, mIn);
     cufftExecR2C(bPlan, b64_poly, b64_fft);
     complex_dot_product<<<grid2, block2>>>(a64_fft, b64_fft, thread2);
     cufftExecC2R(cPlan, b64_fft, c64_poly);
-    float_to_bit<<<grid3, block3>>>(c64_poly, (uint64_t*)cModP1.data({r, 0}), mIn, fftsizeLog);
+    float_to_bit<<<grid3, block3>>>(c64_poly, (uint64_t*)b64.data({r, 0}), mIn, fftsizeLog);
   }
-
-  cModP1.modp(mOut / BLOCK_BITS);
-  b64.resize({cModP1.dim(0), mOut / BLOCK_BITS});
-  cudaMemcpy2DAsync(
-    b64.data(), b64.dim(1)*sizeof(blk),
-    cModP1.data(), cModP1.dim(1)*sizeof(blk),
-    b64.dim(1)*sizeof(blk), b64.dim(0), cudaMemcpyDeviceToDevice
-  );
-  cudaDeviceSynchronize();
+  b64.modp(mOut / BLOCK_BITS);
   Log::mem(mRole, LPN);
 }
 
@@ -169,9 +157,9 @@ void cyclic_mat_vec_prod(uint64_t *mat, uint64_t *vec, uint64_t weight, uint64_t
   }
 }
 
-void QuasiCyclic::encode_sparse(Vec &out, uint64_t *sparsePos, int weight) {
+void QuasiCyclic::encode_sparse(Mat &out, uint64_t *sparsePos, int weight) {
   Log::mem(mRole, LPN);
-  out.resize(mIn / BLOCK_BITS);
+  out.resize({mIn / BLOCK_BITS});
   out.clear();
   uint64_t nThread = mOut / 64 + 1;
   uint64_t block = std::min(1024UL, nThread);
@@ -180,6 +168,6 @@ void QuasiCyclic::encode_sparse(Vec &out, uint64_t *sparsePos, int weight) {
     (uint64_t*)a64.data(), sparsePos, weight, (uint64_t*)out.data(), mOut, nThread
   );
   out.modp(mOut / BLOCK_BITS);
-  out.resize(mOut / BLOCK_BITS);
+  out.resize({mOut / BLOCK_BITS});
   Log::mem(mRole, LPN);
 }

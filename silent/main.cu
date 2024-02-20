@@ -9,8 +9,7 @@
 
 uint64_t* gen_choices(int depth) {
   uint64_t *choices = new uint64_t[depth];
-  choices[0] = ~0UL;
-  for (int d = 1; d < depth; d++) {
+  for (int d = 0; d < depth; d++) {
     choices[d] = ((uint64_t) rand() << 32) | rand();
   }
   return choices;
@@ -30,17 +29,23 @@ int main(int argc, char** argv) {
   printf("logOT: %d, trees: %d\n", logOT, numTrees);
   uint64_t depth = logOT - log2((float) numTrees);
   SilentOTConfig config = {
-    .id = 0, .logOT = logOT, .nTree = numTrees, .baseOT = SimplestOT_t,
-    .expander = AesExpand_t, .leftKey = {3242342}, .rightKey = {8993849},
-    .compressor = QuasiCyclic_t, .ngpuAvail = devCount,
+    .id = 0,
+    .logOT = logOT,
+    .nTree = (uint64_t)numTrees,
+    .baseOT = SimplestOT_t,
+    .expander = AesExpand_t,
+    .leftKey = {3242342},
+    .rightKey = {8993849},
+    .compressor = QuasiCyclic_t,
+    .ngpuAvail = devCount,
   };
 
   SilentOTSender *sender;
   SilentOTRecver *recver;
 
   char senderFile[60], recverFile[60];
-  sprintf(senderFile, "../results/gpu-silent-send-%d-%d-%d.txt", logOT, numTrees, bandwidth);
-  sprintf(recverFile, "../results/gpu-silent-recv-%d-%d-%d.txt", logOT, numTrees, bandwidth);
+  sprintf(senderFile, "../results/gpu-silent-send-%d-%d.txt", logOT, numTrees);
+  sprintf(recverFile, "../results/gpu-silent-recv-%d-%d.txt", logOT, numTrees);
   
   // prevent simultaneous operation from congesting PCIe
   std::atomic<int> step = 0;
@@ -94,9 +99,9 @@ int main(int argc, char** argv) {
   recverWorker.get();
   
   cudaSetDevice(0);
-  Vec recv(recver->puncVector[0].size());
+  Mat recv({recver->puncVector[0].size(), 1});
   cudaMemcpyPeer(recv.data(), 0, recver->puncVector[0].data(), config.ngpuAvail-1, recv.size_bytes());
-  Vec choice(recver->choiceVector.size());
+  Mat choice({recver->choiceVector.size(), 1});
   cudaMemcpyPeer(choice.data(), 0, recver->choiceVector.data(), config.ngpuAvail-1, choice.size_bytes());
   assert(check_cot(sender->fullVector[0], recv, choice, sender->delta[0]));
 

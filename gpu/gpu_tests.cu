@@ -59,7 +59,7 @@ void check_call(const char* msg) {
 	}
 }
 
-bool check_rot(Vec &m0, Vec &m1, Vec &mc, uint64_t c) {
+bool check_rot(Mat &m0, Mat &m1, Mat &mc, uint64_t c) {
 	int numTree = mc.size();
 	blk *b0 = new blk[numTree], *b1 = new blk[numTree], *bc = new blk[numTree];
 	cudaMemcpy(b0, m0.data(), m0.size_bytes(), cudaMemcpyDeviceToHost);
@@ -87,10 +87,11 @@ void _unpack_choice_bits(blk *out, uint64_t *choice, blk *delta) {
 		out[x] = *delta;
 }
 
-bool check_cot(Vec &full, Vec &punc, Vec &choice, blk *delta) {
-	Vec left(full);
+bool check_cot(Mat &full, Mat &punc, Mat &choice, blk *delta) {
+	Mat left({1, full.dim(0)});
+	left.load(full.data());
 	left ^= punc;
-	Vec right(8*choice.size_bytes());
+	Mat right({8*choice.size_bytes()});
 	right.clear();
 	uint64_t threads = choice.size() * BLOCK_BITS;
 	uint64_t block = std::min(1024UL, threads);
@@ -98,7 +99,7 @@ bool check_cot(Vec &full, Vec &punc, Vec &choice, blk *delta) {
 	_unpack_choice_bits<<<grid, block>>>(right.data(), (uint64_t*) choice.data(), delta);
 	// std::cout << "full\n" << full << std::endl;
 	// std::cout << "punc\n" << punc << std::endl;
-	// std::cout << "left\n" << left << std::endl;
-	// std::cout << "right\n" << right << std::endl;
+	std::cout << "left\n" << left << std::endl;
+	std::cout << "right\n" << right << std::endl;
 	return left == right;
 }
