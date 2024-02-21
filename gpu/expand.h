@@ -13,7 +13,7 @@ enum ExpandType { AesExpand_t };
 
 class Expand {
 public:
-  virtual void expand(Mat &interleaved, Mat &separated, uint64_t inWidth) = 0;
+  virtual void expand(Mat &interleaved_in, Mat &interleaved_out, Mat &separated, uint64_t inWidth) = 0;
 };
 
 class AesExpand : public Expand {
@@ -24,8 +24,8 @@ private:
 
 public:
   AesExpand(void *leftUnexp, void *rightUnexp);
-  virtual void expand(Span &interleaved, Mat &separated, uint64_t inWidth);
-  virtual void expand(Mat &interleaved, Mat &separated, uint64_t inWidth);
+  virtual void expand(Span &interleaved_in, Span &interleaved_out, Mat &separated, uint64_t inWidth);
+  virtual void expand(Mat &interleaved_in, Mat &interleaved_out, Mat &separated, uint64_t inWidth);
 };
 
 #endif

@@ -25,16 +25,16 @@ AesExpand::AesExpand(void *leftUnexp, void *rightUnexp) {
 	cudaGetSymbolAddress((void**)&keyR, keyRight);
 }
 
-void AesExpand::expand(Span &interleaved, Mat &separated, uint64_t inWidth) {
+void AesExpand::expand(Span &interleaved_in, Span &interleaved_out, Mat &separated, uint64_t inWidth) {
     dim3 grid((4*inWidth+(AES_BSIZE-1)) / AES_BSIZE, 2);
-	aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved.data(),
-		separated.data(), inWidth);
+	aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved_in.data(),
+		interleaved_out.data(), separated.data(), inWidth);
 }
 
-void AesExpand::expand(Mat &interleaved, Mat &separated, uint64_t inWidth) {
+void AesExpand::expand(Mat &interleaved_in, Mat &interleaved_out, Mat &separated, uint64_t inWidth) {
 	dim3 grid((4*inWidth+(AES_BSIZE-1)) / AES_BSIZE, 2);
-	aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved.data(),
-		separated.data(), inWidth);
+	aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved_in.data(),
+		interleaved_out.data(), separated.data(), inWidth);
 }
 
 static uint32_t myXor(uint32_t num1, uint32_t num2) {

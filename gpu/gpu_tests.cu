@@ -97,9 +97,10 @@ bool check_cot(Mat &full, Mat &punc, Mat &choice, blk *delta) {
 	uint64_t block = std::min(1024UL, threads);
 	uint64_t grid = (threads + block - 1) / block;
 	_unpack_choice_bits<<<grid, block>>>(right.data(), (uint64_t*) choice.data(), delta);
+	return full == punc;
 	// std::cout << "full\n" << full << std::endl;
 	// std::cout << "punc\n" << punc << std::endl;
-	std::cout << "left\n" << left << std::endl;
-	std::cout << "right\n" << right << std::endl;
+	// std::cout << "left\n" << left << std::endl;
+	// std::cout << "right\n" << right << std::endl;
 	return left == right;
 }
