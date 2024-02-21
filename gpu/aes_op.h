@@ -10,7 +10,7 @@ __global__
 void aesDecrypt128(uint32_t *key, uint32_t *data);
 
 __global__
-void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
-	blk *separated, uint64_t width);
+void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved_in,
+	blk *interleaved_out, blk *separated, uint64_t width);
 
 #endif

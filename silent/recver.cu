@@ -113,18 +113,23 @@ void fill_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeP
     activeParent[t] = 2 * activeParent[t] + (1-c);
 }
 
-#include "gpu_tests.h"
-
 void SilentOTRecver::pprf_expand() {
   Log::mem(Recver, SeedExp);
   int treePerGPU = (mConfig.nTree + NGPU - 1) / NGPU;
   Mat separated[NGPU];
+  Mat buffer[NGPU];
+  Mat *input[NGPU];
+  Mat *output[NGPU];
 
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
     separated[gpu].resize({numOT / NGPU});
+    buffer[gpu].resize(puncVector[gpu].dims());
+    input[gpu] = &buffer[gpu];
+    output[gpu] = &puncVector[gpu];
     for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
-      expander[gpu]->expand(puncVector[gpu], separated[gpu], treePerGPU*inWidth);
+      std::swap(input[gpu], output[gpu]);
+      expander[gpu]->expand(*(input[gpu]), *(output[gpu]), separated[gpu], treePerGPU*inWidth);
       separated[gpu].sum(2 * treePerGPU, inWidth);
       cudaStreamWaitEvent(0, other->expandEvents[gpu].at(d));
 
@@ -135,7 +140,7 @@ void SilentOTRecver::pprf_expand() {
 
       fill_tree<<<1, treePerGPU>>>(m0[gpu].at(d).data(), m1[gpu].at(d).data(),
         2 * inWidth, activeParent[gpu], mConfig.choices[d] >> (gpu*treePerGPU),
-        separated[gpu].data(), puncVector[gpu].data(), false);
+        separated[gpu].data(), output[gpu]->data(), false);
       
       if (d == depth-1) {
         m0[gpu].at(d+1) = other->m0[gpu].at(d+1);
@@ -145,13 +150,15 @@ void SilentOTRecver::pprf_expand() {
 
         fill_tree<<<1, treePerGPU>>>(m0[gpu].at(d+1).data(), m1[gpu].at(d+1).data(),
           2 * inWidth, activeParent[gpu], mConfig.choices[d] >> (gpu*treePerGPU),
-          separated[gpu].data(), puncVector[gpu].data(), true);
+          separated[gpu].data(), output[gpu]->data(), true);
       }
     }
   }
   Log::mem(Recver, SeedExp);
 
   for (int gpu = 0; gpu < NGPU; gpu++) {
+    if (&puncVector[gpu] != output[gpu])
+      puncVector[gpu] = *(output[gpu]);
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
     cudaDeviceSynchronize();
   }

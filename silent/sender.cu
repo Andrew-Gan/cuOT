@@ -10,7 +10,7 @@ std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 
 SilentOTSender::SilentOTSender(SilentOTConfig config) : SilentOT(config) {
   blk seed_h, delta_h;
-  for (int i = 0; i < 4; i++) delta_h.data[i] = rand();
+  for (int i = 0; i < 4; i++) delta_h.data[i] = 0; //debug rand();
 
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(gpu);
@@ -85,13 +85,19 @@ void SilentOTSender::pprf_expand() {
   Log::mem(Sender, SeedExp);
   int treePerGPU = (mConfig.nTree + NGPU - 1) / NGPU;
   Mat separated[NGPU];
+  Mat buffer[NGPU];
+  Mat *input[NGPU];
+  Mat *output[NGPU];
 
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(gpu);
     separated[gpu].resize({numOT / NGPU});
-    cudaDeviceSynchronize();
+    buffer[gpu].resize(fullVector[gpu].dims());
+    input[gpu] = &buffer[gpu];
+    output[gpu] = &fullVector[gpu];
     for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
-      expander[gpu]->expand(fullVector[gpu], separated[gpu], treePerGPU*inWidth);
+      std::swap(input[gpu], output[gpu]);
+      expander[gpu]->expand(*(input[gpu]), *(output[gpu]), separated[gpu], treePerGPU*inWidth);
       separated[gpu].sum(2 * treePerGPU, inWidth);
       m0[gpu].at(d).xor_d(separated[gpu], 0);
       m1[gpu].at(d).xor_d(separated[gpu], treePerGPU);
@@ -109,6 +115,8 @@ void SilentOTSender::pprf_expand() {
   Log::mem(Sender, SeedExp);
 
   for (int gpu = 0; gpu < NGPU; gpu++) {
+    if (&fullVector[gpu] != output[gpu])
+      fullVector[gpu] = *(output[gpu]);
     cudaSetDevice(gpu);
     cudaDeviceSynchronize();
   }

@@ -213,8 +213,8 @@ void aesDecrypt128(uint32_t *key, uint32_t *aesData) {
 }
 
 __global__
-void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
-    blk *separated, uint64_t inWidth) {
+void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved_in,
+    blk *interleaved_out, blk *separated, uint64_t inWidth) {
 
     uint32_t bx        = blockIdx.x;
     uint32_t tx        = threadIdx.x;
@@ -244,7 +244,7 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
     __shared__ UByte4 tBox3Block[256];
 
     // input caricati in memoria
-    stageBlock1[tx].uival = interleaved[(bx*blockDim.x+tx) / 4].data[mod4tx];
+    stageBlock1[tx].uival = interleaved_in[(bx*blockDim.x+tx) / 4].data[mod4tx];
 
     tBox0Block[tx].uival    = TBox0[tx];
     tBox1Block[tx].uival    = TBox1[tx];
@@ -319,7 +319,7 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved,
 
     //-------------------------------- end of 11th stage --------------------------------
 
-    interleaved[childId].data[mod4tx] = stageBlock2[tx].uival;
+    interleaved_out[childId].data[mod4tx] = stageBlock2[tx].uival;
     uint64_t offs = expandDir * inWidth;
     separated[parentId + offs].data[mod4tx] = stageBlock2[tx].uival;
 }
