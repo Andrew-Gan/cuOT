@@ -8,8 +8,7 @@ Running SilentOT on the GPU.
 
 ## Run instruction:
 ```
-make
-./pprf <protocol id> <depth or logOT> <number of trees>
+cd gpu && make -j && cd ../silent && make run -j
 ```
 
 ## File structure:
