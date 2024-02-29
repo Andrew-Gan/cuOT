@@ -11,6 +11,7 @@ public:
   Mat() {}
   Mat(const Mat &other);
   Mat(std::vector<uint64_t> newDim);
+  virtual ~Mat();
   std::vector<uint64_t> dims() const { return mDim; }
   uint64_t dim(uint32_t i) const;
   blk* data() const { return (blk*) mPtr; }
@@ -30,6 +31,7 @@ public:
 
 private:
   std::vector<uint64_t> mDim;
+  uint8_t *buffer;
   static uint64_t listToSize(std::vector<uint64_t> dim);
   uint64_t listToOffset(std::vector<uint64_t> pos) const;
 };

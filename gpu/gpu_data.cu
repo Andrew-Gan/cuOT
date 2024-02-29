@@ -6,13 +6,16 @@
 #include "gpu_ops.h"
 #include "gpu_tests.h"
 
-GPUdata::GPUdata(uint64_t n) : mNBytes(n) {
-  cudaError_t err = cudaMalloc(&mPtr, n);
-  cudaDeviceSynchronize();
+GPUdata::GPUdata(uint64_t n) : mNBytes(n), mAllocated(n) {
+  cudaMalloc(&mPtr, n);
 }
 
 GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
-  cudaMemcpy(mPtr, blk.data(), mNBytes, cudaMemcpyDeviceToDevice);
+  int dev;
+  cudaGetDevice(&dev);
+  cudaPointerAttributes attr;
+  cudaPointerGetAttributes(&attr, blk.mPtr);
+  cudaMemcpyPeerAsync(mPtr, dev, blk.data(), attr.device, mNBytes);
 }
 
 GPUdata::~GPUdata() {
@@ -57,6 +60,16 @@ bool GPUdata::operator==(const GPUdata &rhs) {
   cudaMemcpy(right, rhs.data(), mNBytes, cudaMemcpyDeviceToHost);
   int cmp = memcmp(left, right, mNBytes);
 
+  if (cmp != 0) {
+    std::cout << "First inequality at: ";
+    for (uint64_t i = 0; i < mNBytes; i += 16) {
+      if (left[i] != right[i]) {
+        std::cout << i / 16 << std::endl;;
+        break;
+      }
+    }
+  }
+
   delete[] left;
   delete[] right;
   return cmp == 0;
@@ -67,14 +80,22 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
 }
 
 void GPUdata::resize(uint64_t size) {
-  if (size == mNBytes) return;
-  if (mPtr == nullptr)
+  if (size == mNBytes)
+    return;
+  if (size == 0) {
+    cudaFree(mPtr);
+    mAllocated = size;
+  }
+
+  if (mAllocated == 0) {
     cudaMalloc(&mPtr, size);
-  else {
+    mAllocated = size;
+  }
+  else if (size > mAllocated) {
     uint8_t *oldData = mPtr;
     cudaMalloc(&mPtr, size);
-    cudaMemcpyAsync(mPtr, oldData, std::min(size, mNBytes), cudaMemcpyDeviceToDevice);
-    cudaFreeAsync(oldData, 0);
+    cudaFree(oldData);
+    mAllocated = size;
   }
   mNBytes = size;
 }

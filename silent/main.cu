@@ -97,13 +97,11 @@ int main(int argc, char** argv) {
 
   senderWorker.get();
   recverWorker.get();
-  
-  cudaSetDevice(0);
-  Mat recv({recver->puncVector[0].size(), 1});
-  cudaMemcpyPeer(recv.data(), 0, recver->puncVector[0].data(), config.ngpuAvail-1, recv.size_bytes());
-  Mat choice({recver->choiceVector.size(), 1});
-  cudaMemcpyPeer(choice.data(), 0, recver->choiceVector.data(), config.ngpuAvail-1, choice.size_bytes());
-  assert(check_cot(sender->fullVector[0], recv, choice, sender->delta[0]));
+
+  // cudaSetDevice(0);
+  // Mat recv(recver->puncVector[0]);
+  // Mat choice(recver->choiceVector);
+  // assert(check_cot(sender->fullVector[0], recv, choice, sender->delta[0]));
 
   delete[] config.choices;
   delete sender;

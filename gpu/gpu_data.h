@@ -26,6 +26,9 @@ public:
 protected:
   uint8_t *mPtr = nullptr;
   uint64_t mNBytes = 0;
+
+private:
+  uint64_t mAllocated = 0;
 };
 
 std::ostream& operator<<(std::ostream &os, GPUdata &obj);

@@ -7,26 +7,29 @@
 
 Mat::Mat(std::vector<uint64_t> newDim) : GPUdata(listToSize(newDim)*sizeof(blk)) {
   mDim = newDim;
+  cudaMalloc(&buffer, mNBytes);
 }
 
 Mat::Mat(const Mat &other) : GPUdata(other) {
   mDim = other.mDim;
 }
 
+Mat::~Mat() {
+  cudaFree(buffer);
+}
+
 uint64_t Mat::dim(uint32_t i) const {
   if (mDim.size() == 0)
     return 0;
-  if (i >= mDim.size()) {
+  if (i >= mDim.size())
     throw std::invalid_argument("Requested dim exceeds matrix dim\n");
-  }
   return mDim.at(i);
 }
 
 uint64_t Mat::listToSize(std::vector<uint64_t> dim) {
   uint64_t size = 1;
-  for (const uint64_t &i : dim) {
+  for (const uint64_t &i : dim)
     size *= i;
-  }
   return size;
 }
 
@@ -35,9 +38,8 @@ uint64_t Mat::listToOffset(std::vector<uint64_t> pos) const {
     throw std::invalid_argument("Matrix dim and pos len mismatch\n");
 
   uint64_t offs = 0;
-  for (int i = 0; i < pos.size() - 1; i++) {
+  for (int i = 0; i < pos.size() - 1; i++)
     offs += pos.at(i) * mDim.at(i+1);
-  }
   offs += pos.back();
   return offs;
 }
@@ -59,7 +61,7 @@ blk* Mat::data(std::vector<uint64_t> pos) const {
 
 void Mat::set(blk &val, std::vector<uint64_t> pos) {
   uint64_t offset = listToOffset(pos);
-  cudaMemcpy((blk*)mPtr + offset, &val, sizeof(blk), cudaMemcpyHostToDevice);
+  cudaMemcpyAsync((blk*)mPtr + offset, &val, sizeof(blk), cudaMemcpyHostToDevice);
 }
 
 void Mat::resize(std::vector<uint64_t> newDim) {
@@ -76,9 +78,7 @@ void Mat::bit_transpose() {
   if (row < 8 * sizeof(blk)) 
     throw std::invalid_argument("Mat::bit_transpose insufficient rows to transpose\n");
 
-  uint8_t *tpBuffer;
-  cudaMalloc(&tpBuffer, mNBytes);
-  cudaMemcpyAsync(tpBuffer, mPtr, mNBytes, cudaMemcpyDeviceToDevice);
+  cudaMemcpyAsync(buffer, mPtr, mNBytes, cudaMemcpyDeviceToDevice);
   dim3 block, grid;
   uint64_t threadX = col * sizeof(blk);
   block.x = std::min(threadX, 32UL);
@@ -88,8 +88,7 @@ void Mat::bit_transpose() {
   uint64_t yBlock = (threadY + block.y - 1) / block.y;
   grid.y = std::min(yBlock, 32768UL);
   grid.z = (yBlock + grid.y - 1) / grid.y;
-  bit_transposer<<<grid, block>>>(mPtr, tpBuffer);
-  cudaFreeAsync(tpBuffer, 0);
+  bit_transposer<<<grid, block>>>(mPtr, buffer);
   uint64_t tpRows = col * 8 * sizeof(blk);
   mDim.at(1) = row / (8 * sizeof(blk));
   mDim.at(0) = tpRows;
@@ -116,10 +115,8 @@ void Mat::xor_scalar(blk *rhs) {
 
 void Mat::sum(uint64_t nPartition, uint64_t blkPerPart) {
   uint64_t blockSize, nBlocks, mem;
-  uint64_t *buffer;
-  cudaMalloc(&buffer, mNBytes);
-  uint64_t *in = buffer;
-  uint64_t *out = (uint64_t*) this->mPtr;
+  uint64_t *in = (uint64_t*)buffer;
+  uint64_t *out = (uint64_t*)this->mPtr;
 
   for (uint64_t remBlocks = blkPerPart; remBlocks > 1; remBlocks /= 1024) {
     std::swap(in, out);
@@ -128,11 +125,8 @@ void Mat::sum(uint64_t nPartition, uint64_t blkPerPart) {
     mem = blockSize * sizeof(uint64_t);
     xor_reduce<<<nBlocks, blockSize, mem>>>(out, in);
   }
-
-  if (out != (uint64_t*) this->mPtr) {
-    cudaMemcpy(this->mPtr, out, nPartition * sizeof(blk), cudaMemcpyDeviceToDevice);
-  }
-  cudaFree(buffer);
+  mPtr = (uint8_t*)out;
+  buffer = (uint8_t*)in;
 }
 
 void Mat::xor_d(Mat &rhs, uint64_t offs) {

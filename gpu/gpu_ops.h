@@ -34,6 +34,7 @@ __global__
 void print(cuComplex *data, uint64_t n, uint64_t stride = 1);
 
 cudaError_t cudaMemcpy2DPeerAsync(void *dst, size_t dpitch, int dstDevice,
-  const void *src, size_t spitch, int srcDevice, size_t width, size_t height);
+  const void *src, size_t spitch, int srcDevice, size_t width, size_t height,
+  cudaStream_t *s);
 
 #endif

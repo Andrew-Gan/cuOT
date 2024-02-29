@@ -6,12 +6,12 @@ EXE=./ot
 LOGOT=24
 TREE=8
 
-# $EXE 1 $LOGOT $TREE 1000
+$EXE 1 $LOGOT $TREE 1000
 
-for LOGOT in {12..20}
-do
-    $EXE 1 $LOGOT $TREE 1000
-done
+# for LOGOT in {22..25}
+# do
+#     $EXE 1 $LOGOT $TREE 1000
+# done
 
 # for NUMTREE in 2 4 $TREE 16 32 64
 # do

@@ -33,11 +33,17 @@ public:
   uint64_t depth, numOT, numLeaves;
   Expand *expander[NGPU];
   Lpn *lpn[NGPU];
+  // base OT
   std::vector<Mat> m0[NGPU];
   std::vector<Mat> m1[NGPU];
-  
+  // pprf expansion
+  Mat separated[NGPU];
+  Mat *buffer[NGPU];
+  // lpn compression
+  Mat b64[NGPU];
+
   SilentOT(SilentOTConfig config) : mConfig(config) {
-    depth = mConfig.logOT - log2((float) mConfig.nTree) + 0;
+    depth = mConfig.logOT - std::log2(mConfig.nTree) + 0;
     numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, depth);
   }
@@ -48,7 +54,7 @@ public:
 
 class SilentOTSender : public SilentOT {
 public:
-  Mat fullVector[NGPU];
+  Mat *fullVector[NGPU];
   blk *delta[NGPU];
   SilentOTRecver *other = nullptr;
   std::vector<cudaEvent_t> expandEvents[NGPU];
@@ -62,7 +68,8 @@ public:
 
 class SilentOTRecver : public SilentOT {
 public:
-  Mat puncVector[NGPU], choiceVector;
+  Mat *puncVector[NGPU];
+  Mat choiceVector;
   uint64_t *puncPos;
   SilentOTSender *other = nullptr;
   std::vector<Mat> mc[NGPU];
