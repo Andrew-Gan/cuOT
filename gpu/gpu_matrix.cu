@@ -50,9 +50,9 @@ blk* Mat::data(std::vector<uint64_t> pos) const {
 
   for (int i = 0; i < pos.size(); i++) {
     if (pos.at(i) >= mDim.at(i)) {
-      char msg[40];
-      sprintf(msg, "Mat::data: exceed dim at %d, accessing %lu when max is %lu\n", i, pos.at(i), mDim.at(i));
-      throw std::invalid_argument(msg);
+      std::ostringstream msg;
+      msg << "Mat::data exceeded dim " << i << ", accessing " << pos.at(i) << " when max is " << mDim.at(i) << std::endl;
+      throw std::invalid_argument(msg.str());
     }
   }
   

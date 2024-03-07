@@ -9,17 +9,26 @@ std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 SilentOTSender::SilentOTSender(SilentOTConfig config) : SilentOT(config) {
   blk seed_h, delta_h;
   for (int i = 0; i < 4; i++) delta_h.data[i] = rand();
+  silentOTSenders[mConfig.id] = this;
+  while(silentOTRecvers[mConfig.id] == nullptr);
+  other = silentOTRecvers[mConfig.id];
+
+  std::cout << 0 << std::endl;
 
   for (int gpu = 0; gpu < NGPU; gpu++) {
+    std::cout << "gpu: " << gpu << std::endl;
+
     cudaSetDevice(gpu);
     std::vector<cudaEvent_t> &events = expandEvents[gpu];
     events.resize(depth);
+
+    std::cout << 1 << std::endl;
+
     for (uint64_t i = 0; i < depth; i++) {
       cudaEventCreate(&events.at(i));
     }
-    silentOTSenders[config.id] = this;
-    while(silentOTRecvers[config.id] == nullptr);
-    other = silentOTRecvers[config.id];
+
+    std::cout << 2 << std::endl;
 
     if (gpu == 0) {
       fullVector[gpu] = new Mat({numOT, 1});
@@ -30,6 +39,9 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) : SilentOT(config) {
     buffer[gpu] = new Mat({numOT / NGPU, 1});
     cudaMalloc(&delta[gpu], sizeof(**delta));
     cudaMemcpy(delta[gpu], &delta_h, sizeof(**delta), cudaMemcpyHostToDevice);
+
+    std::cout << 3 << std::endl;
+
     for (uint64_t t = 0; t < mConfig.nTree / NGPU; t++) {
       for (int i = 0; i < 4; i++) seed_h.data[i] = rand();
       fullVector[gpu]->set(seed_h, {t, 0});
@@ -40,6 +52,8 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) : SilentOT(config) {
         expander[gpu] = new AesExpand(mConfig.leftKey, mConfig.rightKey);
     }
 
+    std::cout << 4 << std::endl;
+
     uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
     b64[gpu].resize({rowsPerGPU, 2 * numOT / BLOCK_BITS});
     b64[gpu].clear();
@@ -47,6 +61,8 @@ SilentOTSender::SilentOTSender(SilentOTConfig config) : SilentOT(config) {
       case QuasiCyclic_t:
         lpn[gpu] = new QuasiCyclic(Sender, 2 * numOT, numOT, BLOCK_BITS / NGPU);
     }
+
+    std::cout << 5 << std::endl;
   }
 }
 

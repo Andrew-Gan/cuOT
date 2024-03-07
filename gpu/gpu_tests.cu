@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <cuda.h>
 #include <stdexcept>
 #include <cassert>
@@ -11,17 +10,17 @@ int check_cuda() {
 
 	bool foundDev = false;
 	int dev;
-	printf("Found following devices:\n");
+	std::cout << "Found following devices" << std::endl;
 	for (dev = 0; dev < deviceCount; dev++) {
 		cudaDeviceProp deviceProp;
 		cudaGetDeviceProperties(&deviceProp, dev);
 		if (deviceProp.major >= 1) {
-			printf("%d: %s\n", dev, deviceProp.name);
+			std::cout << dev << ": " << deviceProp.name << std::endl;
 			foundDev = true;
 		}
 	}
 	if (!foundDev)
-		fprintf(stderr, "There is no device supporting CUDA.\n");
+		std::cerr << "There is no device supporting CUDA" << std::endl;
 	return deviceCount;
 }
 
@@ -54,7 +53,7 @@ void check_alloc(void *ptr) {
 void check_call(const char* msg) {
 	cudaError_t err = cudaDeviceSynchronize();
 	if (err != cudaSuccess) {
-		fprintf(stderr, msg);
+		fprintf(stderr, "%s", msg);
 		throw std::runtime_error(cudaGetErrorString(err));
 	}
 }

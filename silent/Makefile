@@ -30,10 +30,6 @@ CONSTRAINT=A100
 $(EXE): $(GPU) $(OBJ) $(LIB_OBJ)	
 	$(CC) $(CUFLG) --compiler-options='$(CCFLG)' $(LIB) $^ -o $(EXE)
 
-run: $(EXE)
-	rm -f slurm*.out report*sqlite report*nsys-rep
-	sbatch -n $(CPU_PER_NODE) -N 1 --gpus-per-node=$(GPU_PER_NODE) -A $(QUEUE) --constraint=$(CONSTRAINT) job.sh
-
 %.o: %.cu $(HDR)
 	$(CC) $(CUFLG) $(LIB) $(INC) -c -o $@ $<
 
