@@ -1,4 +1,3 @@
-#include <cstdio>
 #include "gpu_ops.h"
 #include "gpu_define.h"
 
@@ -103,29 +102,29 @@ void xor_reduce(uint64_t *out, uint64_t *in) {
 
 __global__
 void print(uint8_t *data, uint64_t n, uint64_t stride) {
-  for(int i = 0; i < n; i += 16) {
-    for (int j = i; j < n && j < i + 16; j++)
-      printf("%02x ", data[j * stride]);
-    printf("\n");
-  }
+  // for(int i = 0; i < n; i += 16) {
+  //   for (int j = i; j < n && j < i + 16; j++)
+    //   printf("%02x ", data[j * stride]);
+    // printf("\n");
+  // }
 }
 
 __global__
 void print(float *data, uint64_t n, uint64_t stride) {
-  for(int i = 0; i < n; i += 32) {
-    for (int j = i; j < n && j < i + 32; j++)
-      printf("%.2f ", data[j * stride]);
-    printf("\n");
-  }
+  // for(int i = 0; i < n; i += 32) {
+  //   for (int j = i; j < n && j < i + 32; j++)
+    //   printf("%.2f ", data[j * stride]);
+    // printf("\n");
+  // }
 }
 
 __global__
 void print(cuComplex *data, uint64_t n, uint64_t stride) {
-  for(int i = 0; i < n; i += 16) {
-    for (int j = i; j < n && j < i + 16; j++)
-      printf("%.2f + %.2fi ", data[j * stride].x, data[j * stride].y);
-    printf("\n");
-  }
+  // for(int i = 0; i < n; i += 16) {
+  //   for (int j = i; j < n && j < i + 16; j++)
+    //   printf("%.2f + %.2fi ", data[j * stride].x, data[j * stride].y);
+    // printf("\n");
+  // }
 }
 
 cudaError_t cudaMemcpy2DPeerAsync(void *dst, size_t dpitch, int dstDevice,

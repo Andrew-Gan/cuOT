@@ -8,7 +8,7 @@ Running SilentOT on the GPU.
 
 ## Run instruction:
 ```
-cd gpu && make -j && cd ../silent && make run -j
+source run.sh
 ```
 
 ## File structure:

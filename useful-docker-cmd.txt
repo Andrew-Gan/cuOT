@@ -1,0 +1,12 @@
+# build and run docker image in background
+docker build -t <image_name> .
+docker run --runtime=nvidia --gpus all -dp 127.0.0.1:3000:3000 -m=50g <image_name>
+
+# enter container with /bin/sh
+docker exec -it <container_name> /bin/sh
+
+# remove dangling images
+docker rmi $(docker images --filter "dangling=true" -q --no-trunc)
+
+# keep container alive indefinitely
+CMD ["tail", "-f", "/dev/null"]
