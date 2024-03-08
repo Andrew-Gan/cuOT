@@ -7,15 +7,30 @@
 
 Mat::Mat(std::vector<uint64_t> newDim) : GPUdata(listToSize(newDim)*sizeof(blk)) {
   mDim = newDim;
-  cudaMalloc(&buffer, mNBytes);
+  buffer_adjust();
 }
 
 Mat::Mat(const Mat &other) : GPUdata(other) {
   mDim = other.mDim;
+  buffer_adjust();
 }
 
 Mat::~Mat() {
-  cudaFree(buffer);
+  if (bufferSize != 0) {
+    check_alloc(buffer);
+    cudaFree(buffer);
+  }
+}
+
+void Mat::buffer_adjust() {
+  if (bufferSize > 0 && bufferSize != mNBytes) {
+    cudaFree(buffer);
+    bufferSize = 0;
+  }
+  if (bufferSize == 0) {
+    cudaMalloc(&buffer, mNBytes);
+    bufferSize = mNBytes;
+  }
 }
 
 uint64_t Mat::dim(uint32_t i) const {
@@ -66,6 +81,7 @@ void Mat::set(blk &val, std::vector<uint64_t> pos) {
 
 void Mat::resize(std::vector<uint64_t> newDim) {
   GPUdata::resize(listToSize(newDim)*sizeof(blk));
+  buffer_adjust();
   mDim = newDim;
 }
 
@@ -77,7 +93,10 @@ void Mat::bit_transpose() {
   uint64_t col = dim(1);
   if (row < 8 * sizeof(blk)) 
     throw std::invalid_argument("Mat::bit_transpose insufficient rows to transpose\n");
-
+  
+  // buffer_adjust();
+  check_alloc(buffer);
+  check_alloc(mPtr);
   cudaMemcpyAsync(buffer, mPtr, mNBytes, cudaMemcpyDeviceToDevice);
   dim3 block, grid;
   uint64_t threadX = col * sizeof(blk);
@@ -139,6 +158,11 @@ Mat& Mat::operator&=(blk *rhs) {
   uint64_t nBlock = (mNBytes + 1023) / 1024;
   and_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), mNBytes);
   return *this;
+}
+
+Mat& Mat::operator=(Mat &other) {
+  GPUdata::operator=(other);
+  buffer_adjust();
 }
 
 std::ostream& operator<<(std::ostream &os, Mat &obj) {

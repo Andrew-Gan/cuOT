@@ -19,7 +19,15 @@ GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
 }
 
 GPUdata::~GPUdata() {
-  if (mPtr != nullptr) cudaFree(mPtr);
+  if (mPtr != nullptr) {
+    int dev;
+    cudaGetDevice(&dev);
+    cudaPointerAttributes attr;
+    cudaPointerGetAttributes(&attr, mPtr);
+    cudaSetDevice(attr.device);
+    cudaFree(mPtr);
+    cudaSetDevice(dev);
+  }
 }
 
 GPUdata& GPUdata::operator&=(const GPUdata &rhs) {

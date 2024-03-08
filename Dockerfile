@@ -15,5 +15,6 @@ COPY silent silent
 WORKDIR /home/gpuot/silent
 RUN make -j -s
 
-CMD ["tail", "-f", "/dev/null"]
-# CMD ["./ot", "1", "24", "8", "1000"]
+# CMD ["tail", "-f", "/dev/null"]
+CMD ["./ot", "1", "24", "8", "1000"]
+# CMD ["compute-sanitizer", "--tool", "memcheck", "./ot", "1", "24", "8", "1000"]
