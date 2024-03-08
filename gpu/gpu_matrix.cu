@@ -17,7 +17,6 @@ Mat::Mat(const Mat &other) : GPUdata(other) {
 
 Mat::~Mat() {
   if (bufferSize != 0) {
-    check_alloc(buffer);
     cudaFree(buffer);
   }
 }
@@ -94,9 +93,6 @@ void Mat::bit_transpose() {
   if (row < 8 * sizeof(blk)) 
     throw std::invalid_argument("Mat::bit_transpose insufficient rows to transpose\n");
   
-  // buffer_adjust();
-  check_alloc(buffer);
-  check_alloc(mPtr);
   cudaMemcpyAsync(buffer, mPtr, mNBytes, cudaMemcpyDeviceToDevice);
   dim3 block, grid;
   uint64_t threadX = col * sizeof(blk);
