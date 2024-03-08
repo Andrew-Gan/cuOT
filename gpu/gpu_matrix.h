@@ -20,6 +20,7 @@ public:
   void resize(std::vector<uint64_t> newDim);
   void xor_scalar(blk *rhs);
   Mat& operator&=(blk *rhs);
+  Mat& operator=(Mat &other);
   Mat& operator%=(uint64_t mod);
   uint64_t size() const { return listToSize(mDim); }
   void sum(uint64_t nPartition, uint64_t blkPerPart);
@@ -31,7 +32,9 @@ public:
 
 private:
   std::vector<uint64_t> mDim;
-  uint8_t *buffer;
+  uint64_t bufferSize = 0;
+  uint8_t *buffer = nullptr;
+  void buffer_adjust();
   static uint64_t listToSize(std::vector<uint64_t> dim);
   uint64_t listToOffset(std::vector<uint64_t> pos) const;
 };

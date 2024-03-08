@@ -110,8 +110,6 @@ int main(int argc, char** argv) {
 
   std::cout << "both done" << std::endl;
 
-  return 0;
-
   // cudaSetDevice(0);
   // Mat recv(recver->puncVector[0]);
   // Mat choice(recver->choiceVector);
