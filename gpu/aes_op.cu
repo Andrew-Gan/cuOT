@@ -280,110 +280,95 @@ __global__
 void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved_in,
     blk *interleaved_out, blk *separated, uint64_t inWidth) {
 
-    uint32_t bx        = blockIdx.x;
-    uint32_t tx        = threadIdx.x;
-    uint32_t mod4tx = tx % 4;
-    uint32_t int4tx = tx / 4;
-    uint32_t idx2    = int4tx * 4;
-    int x;
-    int expandDir = blockIdx.y;
-    uint32_t *key = expandDir == 0 ? keyLeft : keyRight;
+    uint32_t s[4];
+    uint32_t nexts[4];
 
-    uint32_t stageBlockIdx[4] = {
-        posIdx_E[mod4tx*4] + idx2,
-        posIdx_E[mod4tx*4+1] + idx2,
-        posIdx_E[mod4tx*4+2] + idx2,
-        posIdx_E[mod4tx*4+3] + idx2
-    };
+    uint32_t *rk = blockIdx.y == 0 ? keyLeft : keyRight;
+    uint32_t threadID = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t warpID = threadIdx.x / GPU_SHARED_MEM_BANK;
+    uint32_t warpThreadIndex = threadIdx.x % GPU_SHARED_MEM_BANK;
 
-    uint64_t parentId =  (bx * AES_BSIZE + tx) / 4;
-    uint64_t childId = 2 * parentId + expandDir;
+    // Thread is responsible for this block
+    if (blockIdx.y == 1)
+        separated += inWidth;
+    uint32_t* myData = (uint32_t*)separated.data() + threadID * (AES_BLOCK_SIZE / sizeof(*data));
 
-    __shared__ UByte4 stageBlock1[AES_BSIZE];
-    __shared__ UByte4 stageBlock2[AES_BSIZE];
+    __shared__ uint32_t t0S[T_TABLE_SIZE][GPU_SHARED_MEM_BANK];
+    __shared__ uint32_t rkS[AES_RK_SIZE / sizeof(*rk)];
+    uint32_t* currRk = rkS;
 
-    __shared__ UByte4 tBox0Block[256];
-    __shared__ UByte4 tBox1Block[256];
-    __shared__ UByte4 tBox2Block[256];
-    __shared__ UByte4 tBox3Block[256];
-
-    // input caricati in memoria
-    stageBlock1[tx].uival = interleaved_in[(bx*blockDim.x+tx) / 4].data[mod4tx];
-
-    tBox0Block[tx].uival    = TBox0[tx];
-    tBox1Block[tx].uival    = TBox1[tx];
-    tBox2Block[tx].uival    = TBox2[tx];
-    tBox3Block[tx].uival    = TBox3[tx];
-
-    if (parentId >= inWidth) return;
-
-    //----------------------------------- 1st stage -----------------------------------
-
-    x = mod4tx;
-    stageBlock2[tx].uival = stageBlock1[tx].uival ^ key[x];
-
-    //-------------------------------- end of 1st stage --------------------------------
-
-    uint32_t op[4];
-
-    #pragma unroll
-    for (int i = 1; i < 9; i+=2) {
-        op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
-        op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
-        op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
-        op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
-
-        op[0] = tBox0Block[op[0]].uival;
-        op[1] = tBox1Block[op[1]].uival;
-        op[2] = tBox2Block[op[2]].uival;
-        op[3] = tBox3Block[op[3]].uival;
-
-        x += 4;
-        stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
-
-        op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
-        op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
-        op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
-        op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
-
-        op[0] = tBox0Block[op[0]].uival;
-        op[1] = tBox1Block[op[1]].uival;
-        op[2] = tBox2Block[op[2]].uival;
-        op[3] = tBox3Block[op[3]].uival;
-
-        x += 4;
-        stageBlock2[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
+    // Copy over T table and round key
+    for(uint32_t i = 0; i < GPU_SHARED_MEM_BANK/(blockDim.x/T_TABLE_SIZE); i++) {
+        uint32_t tableLoc = warpID + i * (T_TABLE_SIZE / (GPU_SHARED_MEM_BANK/(blockDim.x/T_TABLE_SIZE)));
+        t0S[tableLoc][warpThreadIndex] = T0c[tableLoc];
     }
+    if(threadIdx.x < AES_RK_SIZE / sizeof(*rk)) {
+        rkS[threadIdx.x] = rk[threadIdx.x];
+    }
+    __syncthreads();
 
-    op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
-    op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
-    op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
-    op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
+    // Encrypt
+    // Initial Step 
+    #pragma unroll
+    for(int i = 0; i < 4; i++) {
+        s[i] = FLIP_ENDIANESS(myData[i] ^ currRk[i]);
+    }
+    // Middle rounds
+    #pragma unroll
+    for(int i = 0; i < AES_NUM_ROUNDS-1; i++) {
+        currRk += 4;
+        nexts[0] = t0S[GET_BYTE(s[0], GET_BYTE_3)][warpThreadIndex] ^
+            ROTR(t0S[GET_BYTE(s[1], GET_BYTE_2)][warpThreadIndex], ROTR_1B) ^
+            ROTR(t0S[GET_BYTE(s[2], GET_BYTE_1)][warpThreadIndex], ROTR_2B) ^
+            ROTR(t0S[GET_BYTE(s[3], GET_BYTE_0)][warpThreadIndex], ROTR_3B);
+        nexts[1] = t0S[GET_BYTE(s[1], GET_BYTE_3)][warpThreadIndex] ^
+            ROTR(t0S[GET_BYTE(s[2], GET_BYTE_2)][warpThreadIndex], ROTR_1B) ^
+            ROTR(t0S[GET_BYTE(s[3], GET_BYTE_1)][warpThreadIndex], ROTR_2B) ^
+            ROTR(t0S[GET_BYTE(s[0], GET_BYTE_0)][warpThreadIndex], ROTR_3B);
+        nexts[2] = t0S[GET_BYTE(s[2], GET_BYTE_3)][warpThreadIndex] ^
+            ROTR(t0S[GET_BYTE(s[3], GET_BYTE_2)][warpThreadIndex], ROTR_1B) ^
+            ROTR(t0S[GET_BYTE(s[0], GET_BYTE_1)][warpThreadIndex], ROTR_2B) ^
+            ROTR(t0S[GET_BYTE(s[1], GET_BYTE_0)][warpThreadIndex], ROTR_3B);
+        nexts[3] = t0S[GET_BYTE(s[3], GET_BYTE_3)][warpThreadIndex] ^
+            ROTR(t0S[GET_BYTE(s[0], GET_BYTE_2)][warpThreadIndex], ROTR_1B) ^
+            ROTR(t0S[GET_BYTE(s[1], GET_BYTE_1)][warpThreadIndex], ROTR_2B) ^
+            ROTR(t0S[GET_BYTE(s[2], GET_BYTE_0)][warpThreadIndex], ROTR_3B);
+        #pragma unroll
+        for(int j = 0; j < 4; j++) {
+            s[j] = nexts[j] ^ FLIP_ENDIANESS(currRk[j]);
+        }
+    }
+    // Last round, get S-box from T-box
+    currRk += 4;
+    nexts[0] = __byte_perm(t0S[s[0] >> 24][warpThreadIndex], 0, 0x1456) ^
+        __byte_perm(t0S[GET_BYTE(s[1], GET_BYTE_2)][warpThreadIndex], 0, 0x4156) ^
+        (t0S[GET_BYTE(s[2], GET_BYTE_1)][warpThreadIndex] & 0xff00) ^
+        __byte_perm(t0S[GET_BYTE(s[3], GET_BYTE_0)][warpThreadIndex], 0, 0x4561) ^
+        FLIP_ENDIANESS(currRk[0]);
+    nexts[1] = __byte_perm(t0S[s[1] >> 24][warpThreadIndex], 0, 0x1456) ^
+        __byte_perm(t0S[GET_BYTE(s[2], GET_BYTE_2)][warpThreadIndex], 0, 0x4156) ^
+        (t0S[GET_BYTE(s[3], GET_BYTE_1)][warpThreadIndex] & 0xff00) ^
+        __byte_perm(t0S[GET_BYTE(s[0], GET_BYTE_0)][warpThreadIndex], 0, 0x4561) ^
+        FLIP_ENDIANESS(currRk[1]);
+    nexts[2] = __byte_perm(t0S[s[2] >> 24][warpThreadIndex], 0, 0x1456) ^
+        __byte_perm(t0S[GET_BYTE(s[3], GET_BYTE_2)][warpThreadIndex], 0, 0x4156) ^
+        (t0S[GET_BYTE(s[0], GET_BYTE_1)][warpThreadIndex] & 0xff00) ^
+        __byte_perm(t0S[GET_BYTE(s[1], GET_BYTE_0)][warpThreadIndex], 0, 0x4561) ^
+        FLIP_ENDIANESS(currRk[2]);
+    nexts[3] = __byte_perm(t0S[s[3] >> 24][warpThreadIndex], 0, 0x1456) ^
+        __byte_perm(t0S[GET_BYTE(s[0], GET_BYTE_2)][warpThreadIndex], 0, 0x4156) ^
+        (t0S[GET_BYTE(s[1], GET_BYTE_1)][warpThreadIndex] & 0xff00) ^
+        __byte_perm(t0S[GET_BYTE(s[2], GET_BYTE_0)][warpThreadIndex], 0, 0x4561) ^
+        FLIP_ENDIANESS(currRk[3]);
 
-    op[0] = tBox0Block[op[0]].uival;
-    op[1] = tBox1Block[op[1]].uival;
-    op[2] = tBox2Block[op[2]].uival;
-    op[3] = tBox3Block[op[3]].uival;
-
-    x += 4;
-    stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
-
-    //----------------------------------- 11th stage -----------------------------------
-
-    op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
-    op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
-    op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
-    op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
-
-    x += 4;
-    stageBlock2[tx].ubval[3] = tBox1Block[op[3]].ubval[3]^( key[x]>>24);
-    stageBlock2[tx].ubval[2] = tBox1Block[op[2]].ubval[3]^( (key[x]>>16) & 0x000000FF);
-    stageBlock2[tx].ubval[1] = tBox1Block[op[1]].ubval[3]^( (key[x]>>8)  & 0x000000FF);
-    stageBlock2[tx].ubval[0] = tBox1Block[op[0]].ubval[3]^( key[x]       & 0x000000FF);
-
-    //-------------------------------- end of 11th stage --------------------------------
-
-    interleaved_out[childId].data[mod4tx] = stageBlock2[tx].uival;
-    uint64_t offs = expandDir * inWidth;
-    separated[parentId + offs].data[mod4tx] = stageBlock2[tx].uival;
+    // Write back
+    uint32_t *interData = (uint32_t*)interleaved + 2 * threadID * (AES_BLOCK_SIZE / sizeof(*data));
+    if (blockIdx.y == 1)
+        interData += 4;
+    #pragma unroll
+    for(int i = 0; i < 4; i++) {
+        uint32_t res = FLIP_ENDIANESS(nexts[i]);
+        myData[i] = res;
+        interData[i] = res;
+    }
 }
