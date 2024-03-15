@@ -53,7 +53,7 @@ class LpnF2 { public:
 		cuda_lpn_f2_compute(pubMat.data(), d, n_0, k_0, nn, kk);
 	}
 
-	void compute(Vec &nn, Vec &kk, uint64_t consist_check_cot_num) {
+	void compute(Mat &nn, Mat &kk, uint64_t consist_check_cot_num) {
 		Span nnSpan = nn.span();
 		compute(nnSpan, kk, consist_check_cot_num);
 	}
@@ -71,7 +71,7 @@ class LpnF2 { public:
 	}
 
 	void bench(block * nn, const block * kk) {
-		// vector<std::future<void>> fut;
+		// Mattor<std::future<void>> fut;
 		// int64_t width = n/threads;
 		// for(int i = 0; i < threads - 1; ++i) {
 		// 	int64_t start = i * width;

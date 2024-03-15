@@ -24,10 +24,9 @@ public:
   void xor_d(GPUdata &rhs);
 
 protected:
+  int mDevice = 0;
   uint8_t *mPtr = nullptr;
   uint64_t mNBytes = 0;
-
-private:
   uint64_t mAllocated = 0;
 };
 

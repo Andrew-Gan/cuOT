@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <stdexcept>
 
+#define NGPU 1
+
 __global__
 void make_block(blk *blocks) {
 	int x = blockDim.x;
@@ -70,50 +72,80 @@ void fill_punc_tree(blk *cSum, uint64_t outWidth, uint64_t *activeParent,
 	activeParent[t] = 2 * activeParent[t] + (1-c);
 }
 
-void cuda_spcot_sender_compute(Span &tree, int t, int depth, Mat &lSum, Mat &rSum) {
+void cuda_spcot_sender_compute(Span *tree, int t, int depth, Mat &lSum, Mat &rSum) {
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
+	Mat buffer[NGPU];
+	Span *input[NGPU];
+	Span *output[NGPU];
+	int treePerGPU = (t + NGPU - 1) / NGPU;
 	AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
-	Vec separated(tree.size());
+	Mat separated[NGPU];
 
-	for (uint64_t d = 0, w = 1; d < depth-1; d++, w *= 2) {
-		aesExpand.expand(tree, separated, w*t);
-		separated.sum(2*t, w);
-		cudaMemcpyAsync(lSum.data({d, 0}), separated.data(0), t*sizeof(blk), cudaMemcpyDeviceToDevice);
-		cudaMemcpyAsync(rSum.data({d, 0}), separated.data(t), t*sizeof(blk), cudaMemcpyDeviceToDevice);
+	for (int gpu = 0; gpu < NGPU; gpu++) {
+    	cudaSetDevice(gpu);
+		buffer[gpu].resize({tree.size()});
+		separated[gpu]->resize({tree.size()});
+		input[gpu] = new Span(buffer[gpu], 0, tree.size());
+    	output[gpu] = &tree[gpu];
+		for (uint64_t d = 0, inWidth = 1; d < depth-1; d++, inWidth *= 2) {
+			std::swap(input[gpu], output[gpu]);
+			aesExpand.expand(*(input[gpu]), *(output[gpu]), separated[gpu], treePerGPU*inWidth);
+			separated->sum(2 * treePerGPU, inWidth);
+			cudaMemcpyAsync(lSum.data({d, 0}), separated[gpu]->data(0), treePerGPU*sizeof(blk), cudaMemcpyDeviceToDevice);
+			cudaMemcpyAsync(rSum.data({d, 0}), separated[gpu]->data(treePerGPU), treePerGPU*sizeof(blk), cudaMemcpyDeviceToDevice);
+		}
+		tree[gpu] = *output[gpu];
 	}
-	cudaDeviceSynchronize();
+
+	for (int gpu = 0; gpu < NGPU; gpu++) {
+		cudaSetDevice(gpu);
+		delete input[gpu];
+		cudaDeviceSynchronize();
+	}
 }
 
-void cuda_spcot_recver_compute(Span &tree, int t, int depth, Mat &cSum, bool *b) {
+void cuda_spcot_recver_compute(Span *tree, int t, int depth, Mat &cSum, bool *b) {
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
+	Mat buffer[NGPU];
+	Mat *input[NGPU];
+	Mat *output[NGPU];
+	int treePerGPU = (t + NGPU - 1) / NGPU;
 	AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
-	Vec separated(tree.size());
-	uint64_t *activeParent;
-	cudaMalloc(&activeParent, t*sizeof(uint64_t), 0);
-	cudaMemsetAsync(activeParent, 0, t*sizeof(uint64_t));
-	bool *choice_d;
-	cudaMalloc(&choice_d, depth*t*sizeof(bool), 0);
-	cudaMemcpyAsync(choice_d, b, depth*t*sizeof(bool), cudaMemcpyHostToDevice);
+	Mat separated[NGPU];
+	uint64_t *activeParent[NGPU];
+	bool *choice_d[NGPU];
 
-	int block = std::min(t, 1024);
-	int grid = (t + block - 1) / block;
+	int block = std::min(treePerGPU, 1024);
+	int grid = (treePerGPU + block - 1) / block;
 
-	for (uint64_t d = 0, w = 1; d < depth-1; d++, w *= 2) {
-		aesExpand.expand(tree, separated, w*t);
-		separated.sum(2*t, w);
-		fill_punc_tree<<<grid, block>>>(cSum.data({d, 0}), 2*w, activeParent, &choice_d[d*t],
-			separated.data(), tree.data(), t);
-		if (d == depth-2) {
-			fill_punc_tree<<<grid, block>>>(cSum.data({d, 0}), 2*w, activeParent, &choice_d[d*t],
-			separated.data(), tree.data(), t);
+	for (int gpu = 0; gpu < NGPU; gpu++) {
+		cudaSetDevice(gpu);
+		buffer[gpu].resize({tree.size_bytes()});
+		separated[gpu]->resize({tree.size_bytes()});
+		cudaMalloc(&activeParent[gpu], treePerGPU*sizeof(uint64_t), 0);
+		cudaMemsetAsync(activeParent[gpu], 0, treePerGPU*sizeof(uint64_t));
+		cudaMalloc(&choice_d[gpu], depth*treePerGPU*sizeof(bool), 0);
+		cudaMemcpyAsync(choice_d[gpu], b+gpu*treePerGPU, depth*treePerGPU*sizeof(bool), cudaMemcpyHostToDevice);
+		for (uint64_t d = 0, inWidth = 1; d < depth-1; d++, inWidth *= 2) {
+			aesExpand.expand(tree, separated, inWidth*treePerGPU);
+			separated->sum(2*treePerGPU, inWidth);
+			fill_punc_tree<<<grid, block>>>(cSum.data({d, 0}), 2*inWidth, activeParent[gpu], choice_d[gpu]+(d*treePerGPU),
+				separated->data(), tree.data(), treePerGPU);
+			if (d == depth-2) {
+				fill_punc_tree<<<grid, block>>>(cSum.data({d, treePerGPU}), 2*inWidth, activeParent[gpu], choice_d[gpu]+(d*treePerGPU),
+				separated->data(), tree.data(), treePerGPU);
+			}
 		}
 	}
 
-	cudaFreeAsync(choice_d, 0);
-	cudaFreeAsync(activeParent, 0);
-	cudaDeviceSynchronize();
+	for (int gpu = 0; gpu < NGPU; gpu++) {
+		cudaSetDevice(gpu);
+		cudaFree(choice_d[gpu]);
+		cudaFree(activeParent[gpu]);
+		cudaDeviceSynchronize();
+	}
 }
 
 void cuda_gen_matrices(Mat &pubMat, uint32_t *key) {

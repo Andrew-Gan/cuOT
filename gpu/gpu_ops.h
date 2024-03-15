@@ -33,8 +33,6 @@ void print(float *data, uint64_t n, uint64_t stride = 1);
 __global__
 void print(cuComplex *data, uint64_t n, uint64_t stride = 1);
 
-cudaError_t cudaMemcpy2DPeerAsync(void *dst, size_t dpitch, int dstDevice,
-  const void *src, size_t spitch, int srcDevice, size_t width, size_t height,
-  cudaStream_t *s);
+cudaError_t cudaMemswapPeerAsync(void *a_i, void *a_o, int aDev, void *b,int bDev, size_t count);
 
 #endif

@@ -54,11 +54,11 @@ public:
 	}
 
 	void recver_init() {
-		item_pos_recver.resize(this->item_n);
+		item_pos_recver.resize({this->item_n});
 	}
 
 	// MPFSS F_2k
-	void mpcot(Span &sparse_vector, OTPre<IO> * ot, Vec &pre_cot_data) {
+	void mpcot(Span *sparse_vector, OTPre<IO> * ot, Mat &pre_cot_data) {
 		if(party == BOB) consist_check_chi_alpha = new block[item_n];
 		consist_check_VW = new block[item_n];
 
@@ -95,7 +95,7 @@ public:
 		ot->reset();
 	}
 
-	void exec_f2k_sender(SPCOT_Sender<IO> &sender, OTPre<IO> *ot, Span &tree, IO *io) {
+	void exec_f2k_sender(SPCOT_Sender<IO> &sender, OTPre<IO> *ot, Span *tree, IO *io) {
 		Log::start(0, SeedExp);
 		sender.compute(tree, Delta_f2k);
 		Log::mem(0, SeedExp);
@@ -109,7 +109,7 @@ public:
 			sender.consistency_check_msg_gen(consist_check_VW);
 	}
 
-	void exec_f2k_recver(SPCOT_Recver<IO> &recver, OTPre<IO> *ot, Span &tree, IO *io) {
+	void exec_f2k_recver(SPCOT_Recver<IO> &recver, OTPre<IO> *ot, Span *tree, IO *io) {
 		recver.template recv_f2k<OTPre<IO>>(ot, io);
 
 		Log::start(1, SeedExp);
@@ -123,7 +123,7 @@ public:
 	}
 
 	// f2k consistency check
-	void consistency_check_f2k(Vec &pre_cot_data, int num) {
+	void consistency_check_f2k(Mat &pre_cot_data, int num) {
 		// if(this->party == ALICE) {
 		// 	block r1, r2;
 		// 	vector_self_xor(&r1, this->consist_check_VW, num);
@@ -169,7 +169,7 @@ public:
 	}
 
 	// void exec_parallel_sender(SPCOT_Sender<IO> &senders,
-	// 		OTPre<IO> *ot, Vec &sparse_vector) {
+	// 		OTPre<IO> *ot, Mat &sparse_vector) {
 	// 	vector<future<void>> fut;
 	// 	int width = tree_n / threads;
 	// 	int start = 0, end = width;
@@ -192,7 +192,7 @@ public:
 	// }
 
 	// void exec_parallel_recver(vector<SPCOT_Recver<IO>*> &recvers,
-	// 		OTPre<IO> *ot, Vec &sparse_vector) {
+	// 		OTPre<IO> *ot, Mat &sparse_vector) {
 	// 	vector<future<void>> fut;
 	// 	int width = tree_n / threads;
 	// 	int start = 0, end = width;

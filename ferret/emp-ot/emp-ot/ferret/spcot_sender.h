@@ -39,7 +39,7 @@ public:
 	}
 	
 	// generate GGM tree, transfer secret, F2^k
-	void compute(Span &tree, blk secret) {
+	void compute(Span *tree, blk secret) {
 		this->ggm_tree = &tree;
 		this->delta = secret;
 		cuda_spcot_sender_compute(tree, tree_n, depth, lSum, rSum);
@@ -51,7 +51,7 @@ public:
 		// cudaMemcpy(one_d, &one, sizeof(*one_d), cudaMemcpyHostToDevice);
 
 		// ggm_tree.and_scalar(one_d);
-		// Vec nodes_sum(leave_n + 1);
+		// Mat nodes_sum(leave_n + 1);
 		// nodes_sum = ggm_tree;
 		// nodes_sum.set(leave_n, secret);
 		// nodes_sum.sum(1, leave_n+1);

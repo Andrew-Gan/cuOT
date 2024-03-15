@@ -1,0 +1,6 @@
+services:
+  silent:
+    build: silent.dockerfile
+
+  ferret:
+    build: ferret.dockerfile

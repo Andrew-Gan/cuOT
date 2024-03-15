@@ -31,17 +31,20 @@ void complex_dot_product(cufftComplex *in, cufftComplex *io, uint64_t len) {
 }
 
 __global__
-void float_to_bit(cufftReal *fftReal, uint64_t *bitPoly, uint64_t fftsize) {
+void float_to_bit_and_modp(cufftReal *fftReal, uint64_t *bitPoly, uint64_t mIn) {
   uint64_t row = blockIdx.y;
+  uint64_t mOut = 64 * gridDim.x * blockDim.x;
   uint64_t col = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t res = 0;
-  uint64_t offset = row * fftsize + 64 * col;
-  for (int j = 0; j < 64; j++) {
-    if ((uint64_t)fftReal[offset++] & fftsize) {
-      res |= 1UL << j;
+  uint64_t offset = row * mIn + 64 * col;
+  for (int i = 0; i < mIn / mOut; i++) {
+    for (int j = 0; j < 64; j++) {
+      if ((uint64_t)fftReal[offset+(i*mOut)+j] & mIn) {
+        res ^= 1UL << j;
+      }
     }
   }
-  bitPoly[row * (fftsize / 64) + col] = res;
+  bitPoly[row * (mOut / 64) + col] = res;
 }
 
 QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
@@ -91,9 +94,6 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
   blockFFT[1] = std::min(thread1, 1024UL);
   gridFFT[1] = dim3((thread1 + blockFFT[1] - 1) / blockFFT[1], FFT_BATCHSIZE);
   // fft to bitpoly
-  uint64_t thread2 = mIn / 64;
-  blockFFT[2] = std::min(thread2, 1024UL);
-  gridFFT[2] = dim3((thread2 + blockFFT[2] - 1) / blockFFT[2], FFT_BATCHSIZE);
 }
 
 QuasiCyclic::~QuasiCyclic() {
@@ -113,9 +113,9 @@ void QuasiCyclic::encode_dense(Mat &b64) {
     cufftExecR2C(bPlan, b64_poly, b64_fft);
     complex_dot_product<<<gridFFT[1], blockFFT[1]>>>(a64_fft, b64_fft, mIn / 2 + 1);
     cufftExecC2R(cPlan, b64_fft, c64_poly);
-    float_to_bit<<<gridFFT[2], blockFFT[2]>>>(c64_poly, (uint64_t*)b64.data({r, 0}), mIn);
+    float_to_bit_and_modp<<<gridFFT[0], blockFFT[0]>>>(c64_poly, (uint64_t*)b64.data({r, 0}), mIn);
   }
-  b64.modp(mOut / BLOCK_BITS);
+  b64.resize({b64.dim(0), mOut / BLOCK_BITS});
   Log::mem(mRole, LPN);
 }
 

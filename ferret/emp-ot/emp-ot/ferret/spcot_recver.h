@@ -48,7 +48,7 @@ public:
 
 	// receive the message and reconstruct the tree
 	// j: position of the secret, begins from 0
-	void compute(Span &tree) {
+	void compute(Span *tree) {
 		this->ggm_tree = &tree;
 		// ggm_tree_reconstruction(b, m);
 		// ggm_tree[choice_pos] = zero_block;
@@ -70,7 +70,7 @@ public:
 		// cudaMemcpy(one_d, &one, sizeof(*one_d), cudaMemcpyHostToDevice);
 
 		// ggm_tree.and_scalar(one_d);
-		// Vec nodes_sum(leave_n + 1);
+		// Mat nodes_sum(leave_n + 1);
 		// nodes_sum = ggm_tree;
 		// nodes_sum.set(leave_n, secret_sum);
 		// nodes_sum.sum(1, leave_n+1);

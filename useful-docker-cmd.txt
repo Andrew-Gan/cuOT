@@ -6,7 +6,7 @@ docker run --runtime=nvidia --gpus all -dp 127.0.0.1:3000:3000 -m=50g <image_nam
 docker exec -it <container_name> /bin/sh
 
 # remove dangling images
-docker rmi $(docker images --filter "dangling=true" -q --no-trunc)
+docker rmi $(docker images --filter "dangling=true" -q --no-trunc) -f
 
 # keep container alive indefinitely
 CMD ["tail", "-f", "/dev/null"]

@@ -126,6 +126,15 @@ void fill_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeP
     activeParent[t] = 2 * activeParent[t] + (1-c);
 }
 
+void SilentOTRecver::get_punctured_key() {
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    for (uint64_t d = 0; d < depth+1; d++) {
+      m0[gpu].at(d) = other->m0[gpu].at(d);
+      m1[gpu].at(d) = other->m1[gpu].at(d);
+    }
+  }
+}
+
 void SilentOTRecver::pprf_expand() {
   Log::mem(Recver, SeedExp);
   int treePerGPU = (mConfig.nTree + NGPU - 1) / NGPU;
@@ -142,8 +151,6 @@ void SilentOTRecver::pprf_expand() {
       separated[gpu].sum(2 * treePerGPU, inWidth);
       cudaStreamWaitEvent(0, other->expandEvents[gpu].at(d));
 
-      m0[gpu].at(d) = other->m0[gpu].at(d);
-      m1[gpu].at(d) = other->m1[gpu].at(d);
       m0[gpu].at(d).xor_d(mc[gpu].at(d));
       m1[gpu].at(d).xor_d(mc[gpu].at(d));
 
@@ -152,8 +159,6 @@ void SilentOTRecver::pprf_expand() {
         separated[gpu].data(), output[gpu]->data(), false);
       
       if (d == depth-1) {
-        m0[gpu].at(d+1) = other->m0[gpu].at(d+1);
-        m1[gpu].at(d+1) = other->m1[gpu].at(d+1);
         m0[gpu].at(d+1).xor_d(mc[gpu].at(d));
         m1[gpu].at(d+1).xor_d(mc[gpu].at(d));
 
@@ -177,23 +182,44 @@ void SilentOTRecver::lpn_compress() {
   Log::mem(Recver, LPN);
 
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
-  cudaStream_t *s = new cudaStream_t[rowsPerGPU];
-  for (uint64_t r = 0; r < rowsPerGPU; r++) {
-    cudaStreamCreate(&s[r]);
-  }
-
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
     puncVector[gpu]->bit_transpose();
   }
-  for (int des = 0; des < NGPU; des++) {
-    for (int src = 0; src < NGPU; src++) {
-      cudaMemcpy2DPeerAsync(
-        b64[des].data({0, src*puncVector[src]->dim(1)}), b64[des].dim(1)*sizeof(blk), mConfig.ngpuAvail-des-1,
-        puncVector[src]->data({des*b64[des].dim(0), 0}), puncVector[src]->dim(1)*sizeof(blk), mConfig.ngpuAvail-src-1,
-        puncVector[src]->dim(1)*sizeof(blk), rowsPerGPU, s
+  size_t copySize = puncVector[0]->size_bytes() / NGPU;
+  size_t polyLenBlksPerGPU = puncVector[0]->dim(1);
+  size_t totalPolyLenBytes = b64[0].dim(1) * sizeof(blk);
+  uint8_t *tmp;
+  for (int gpuA = 0; gpuA < NGPU - 1; gpuA++) {
+    cudaSetDevice(gpuA);
+    cudaMemcpy2DAsync(
+      b64[gpuA].data({0, gpuA*polyLenBlksPerGPU}), totalPolyLenBytes,
+      puncVector[gpuA]->data({gpuA*rowsPerGPU, 0}), polyLenBlksPerGPU*sizeof(blk),
+      polyLenBlksPerGPU*sizeof(blk), rowsPerGPU, cudaMemcpyDeviceToDevice
+    );
+    
+    cudaSetDevice(gpuA);
+    cudaMalloc(&tmp, copySize);
+    for (int gpuB = gpuA + 1; gpuB < NGPU; gpuB++) {
+      cudaMemswapPeerAsync(
+        puncVector[gpuA]->data({gpuB*rowsPerGPU, 0}), tmp, gpuA,
+        puncVector[gpuB]->data({gpuA*rowsPerGPU, 0}), gpuB, copySize
+      );
+      cudaSetDevice(gpuA);
+      cudaMemcpy2DAsync(
+        b64[gpuA].data({0, gpuB*polyLenBlksPerGPU}), totalPolyLenBytes,
+        tmp, polyLenBlksPerGPU*sizeof(blk),
+        polyLenBlksPerGPU*sizeof(blk), rowsPerGPU, cudaMemcpyDeviceToDevice
+      );
+      cudaSetDevice(gpuB);
+      cudaMemcpy2DAsync(
+        b64[gpuB].data({0, gpuA*polyLenBlksPerGPU}), totalPolyLenBytes,
+        puncVector[gpuB]->data({gpuA*rowsPerGPU, 0}), polyLenBlksPerGPU*sizeof(blk),
+        polyLenBlksPerGPU*sizeof(blk), rowsPerGPU, cudaMemcpyDeviceToDevice
       );
     }
+    cudaSetDevice(gpuA);
+    cudaFree(tmp);
   }
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
@@ -201,13 +227,10 @@ void SilentOTRecver::lpn_compress() {
   }
   cudaSetDevice(mConfig.ngpuAvail-1);
   puncVector[0]->resize({BLOCK_BITS, numOT / BLOCK_BITS});
-
-  uint64_t dWidth = puncVector[0]->dim(1)*sizeof(blk);
-  uint64_t sWidth = b64[0].dim(1)*sizeof(blk);
   for (int gpu = 0; gpu < NGPU; gpu++) {
-    cudaMemcpy2DPeerAsync(
-      puncVector[0]->data({gpu * rowsPerGPU, 0}), dWidth, mConfig.ngpuAvail-1,
-      b64[gpu].data(), sWidth, mConfig.ngpuAvail-gpu-1, dWidth, rowsPerGPU, s
+    cudaMemcpyPeerAsync(
+      puncVector[0]->data({gpu * rowsPerGPU, 0}), mConfig.ngpuAvail-1,
+      b64[gpu].data(), mConfig.ngpuAvail-gpu-1, b64[gpu].size_bytes()
     );
   }
   puncVector[0]->bit_transpose();
@@ -215,8 +238,5 @@ void SilentOTRecver::lpn_compress() {
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
     cudaDeviceSynchronize();
-  }
-  for (uint64_t r = 0; r < rowsPerGPU; r++) {
-    cudaStreamDestroy(s[r]);
   }
 }

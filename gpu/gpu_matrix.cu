@@ -17,16 +17,19 @@ Mat::Mat(const Mat &other) : GPUdata(other) {
 
 Mat::~Mat() {
   if (bufferSize != 0) {
+    cudaSetDevice(mDevice);
     cudaFree(buffer);
   }
 }
 
 void Mat::buffer_adjust() {
-  if (bufferSize > 0 && bufferSize != mNBytes) {
+  if (bufferSize > 0 && bufferSize < mNBytes) {
+    cudaSetDevice(mDevice);
     cudaFree(buffer);
     bufferSize = 0;
   }
   if (bufferSize == 0) {
+    cudaSetDevice(mDevice);
     cudaMalloc(&buffer, mNBytes);
     bufferSize = mNBytes;
   }
@@ -109,6 +112,14 @@ void Mat::bit_transpose() {
   mDim.at(0) = tpRows;
 }
 
+__global__
+void mod_helper(uint8_t *a, uint8_t *b, uint64_t n, uint64_t rowBytes) {
+  uint64_t x = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t numX = gridDim.x * blockDim.x;
+  uint64_t y = blockIdx.y;
+  if (x < n) a[y * numX + x] ^= b[y * rowBytes + x];
+}
+
 void Mat::modp(uint64_t reducedCol) {
   if (mDim.size() > 2)
     throw std::invalid_argument("Mat::modp only 1D or 2D matrix supported\n");
@@ -119,8 +130,13 @@ void Mat::modp(uint64_t reducedCol) {
   uint64_t rows = mDim.size() == 2 ? mDim.front() : 1;
   dim3 grid = dim3((threads + block - 1) / block, rows);
 
-  for (uint64_t i = 1; i < col / reducedCol; i++)
-    gpu_xor<<<grid, block>>>(mPtr, mPtr + (i*threads), threads, col*sizeof(blk));
+  for (uint64_t i = 0; i < col / reducedCol; i++)
+    gpu_xor<<<grid, block>>>(buffer, mPtr+i*threads, threads, col*sizeof(blk));
+
+  std::swap(mPtr, buffer);
+  std::vector<uint64_t> newDim = mDim;
+  newDim.back() = reducedCol;
+  resize(newDim);
 }
 
 void Mat::xor_scalar(blk *rhs) {
@@ -159,6 +175,7 @@ Mat& Mat::operator&=(blk *rhs) {
 Mat& Mat::operator=(Mat &other) {
   GPUdata::operator=(other);
   buffer_adjust();
+  return *this;
 }
 
 std::ostream& operator<<(std::ostream &os, Mat &obj) {

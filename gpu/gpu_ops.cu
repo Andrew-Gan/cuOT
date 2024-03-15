@@ -127,16 +127,8 @@ void print(cuComplex *data, uint64_t n, uint64_t stride) {
   // }
 }
 
-cudaError_t cudaMemcpy2DPeerAsync(void *dst, size_t dpitch, int dstDevice,
-  const void *src, size_t spitch, int srcDevice, size_t width, size_t height,
-  cudaStream_t *s) {
-
-  cudaError_t err;
-  for (size_t r = 0; r < height; r++) {
-    err = cudaMemcpyPeerAsync((uint8_t*)dst+r*dpitch, dstDevice,
-      (uint8_t*)src+r*spitch, srcDevice, width, s[r]);
-    if (err != cudaSuccess)
-      return err;
-  }
-  return cudaSuccess;
+cudaError_t cudaMemswapPeerAsync(void *a_i, void *a_o, int aDev, void *b,int bDev, size_t count) {
+  cudaError_t err0 = cudaMemcpyPeerAsync(a_o, aDev, b, bDev, count);
+  cudaError_t err1 = cudaMemcpyPeerAsync(b, bDev, a_i, aDev, count);
+  return err0 != cudaSuccess ? err0 : err1;
 }

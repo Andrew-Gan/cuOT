@@ -23,10 +23,9 @@ if [ ! -d "REPO" ]; then
     git clone https://github.com/emp-toolkit/REPO.git --branch Y
 fi
 cd REPO
-cmake -DCMAKE_INSTALL_PREFIX=../lib -DCMAKE_PREFIX_PATH=$CONDA_PREFIX \
+cmake -DCMAKE_INSTALL_PREFIX=../lib \
     -DCMAKE_C_FLAGS='-g' \
-    -DCMAKE_CUDA_FLAGS='-g -G' \
-	-DCMAKE_C_COMPILER='/apps/spack/gilbreth/apps/gcc/12.3.0-gcc-4.8.5-wfta2lq/bin/gcc'
+    -DCMAKE_CUDA_FLAGS='-g -G'
 
 make -j4
 make install

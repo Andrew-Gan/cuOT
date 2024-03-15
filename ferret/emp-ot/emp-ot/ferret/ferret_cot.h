@@ -39,9 +39,9 @@ PrimalLPNParameter param = ferret_cuda, std::string pre_file="");
 
 	void recv_cot(block* data, const bool * b, int64_t length) override;
 
-	void rcot(Vec &data);
+	void rcot(Mat &data);
 
-	int64_t rcot_inplace(Vec &ot_buffer);
+	int64_t rcot_inplace(Mat &ot_buffer);
 
 	int64_t byte_memory_need_inplace(int64_t ot_need);
 
@@ -61,8 +61,8 @@ private:
 
 	block one;
 
-	Vec ot_pre_data;
-	Vec ot_data;
+	Mat ot_pre_data;
+	Mat ot_data;
 
 	std::string pre_ot_filename;
 
@@ -82,11 +82,11 @@ private:
 
 	void extend_initialization();
 
-	void extend(Vec &ot_output, MpcotReg<T> *mpfss, OTPre<T> *preot,
-			LpnF2<T, 10> *lpn, Vec &ot_input);
+	void extend(Mat *ot_output, MpcotReg<T> *mpfss, OTPre<T> *preot,
+			LpnF2<T, 10> *lpn, Mat &ot_input);
 
-	void extend(Span &ot_output, MpcotReg<T> *mpfss, OTPre<T> *preot,
-			LpnF2<T, 10> *lpn, Vec &ot_input);
+	void extend(Span *ot_output, MpcotReg<T> *mpfss, OTPre<T> *preot,
+			LpnF2<T, 10> *lpn, Mat &ot_input);
 
 	void extend_f2k(Span &ot_buffer);
 

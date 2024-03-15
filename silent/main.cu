@@ -31,7 +31,6 @@ int main(int argc, char** argv) {
   std::cout << "logOT: " << logOT << ", trees: " << numTrees << std::endl;
   uint64_t depth = logOT - log2((float) numTrees);
   SilentOTConfig config = {
-    .id = 0,
     .logOT = logOT,
     .nTree = (uint64_t)numTrees,
     .baseOT = SimplestOT_t,
@@ -52,72 +51,81 @@ int main(int argc, char** argv) {
   // prevent simultaneous operation from congesting PCIe
   std::atomic<int> step = 0;
 
-  std::future<void> senderWorker = std::async(
-    [&sender, &step, &config, &bandwidth, &senderFile]() {
-      Log::open(Sender, senderFile.str().c_str(), bandwidth, true);
-      Log::start(Sender, CudaInit);
-      sender = new SilentOTSender(config);
-      std::cout << "sender init" << std::endl;
-      Log::mem(Sender, CudaInit);
-      Log::end(Sender, CudaInit);
-      Log::start(Sender, BaseOT);
-      sender->base_ot();
-      Log::end(Sender, BaseOT);
-      std::cout << "sender baseot" << std::endl;
-      Log::start(Sender, SeedExp);
-      sender->pprf_expand();
-      Log::end(Sender, SeedExp);
-      std::cout << "sender seedexp" << std::endl;
-      Log::start(Sender, LPN);
-      sender->lpn_compress();
-      Log::end(Sender, LPN);
-      std::cout << "sender lpn" << std::endl;
-      Log::close(Sender);
-      step = 1;
-    }
-  );
+  for (uint64_t i = 0; i < 2; i++) {
+    config.id = i;
+    if(i == 0) std::cout << "initialisation..." << std::endl;
+    if(i == 1) std::cout << "benchmarking..." << std::endl;
+    step = 0;
 
-  config.choices = gen_choices(depth);
+    std::future<void> senderWorker = std::async(
+      [&sender, &step, &config, &bandwidth, &senderFile, i]() {
+        if(i == 1) Log::open(Sender, senderFile.str().c_str(), bandwidth, true);
+        if(i == 1) Log::start(Sender, CudaInit);
+        sender = new SilentOTSender(config);
+        if(i == 1) std::cout << "sender init" << std::endl;
+        if(i == 1) Log::mem(Sender, CudaInit);
+        if(i == 1) Log::end(Sender, CudaInit);
+        if(i == 1) Log::start(Sender, BaseOT);
+        sender->base_ot();
+        if(i == 1) Log::end(Sender, BaseOT);
+        if(i == 1) std::cout << "sender baseot" << std::endl;
+        if(i == 1) Log::start(Sender, SeedExp);
+        sender->pprf_expand();
+        if(i == 1) Log::end(Sender, SeedExp);
+        if(i == 1) std::cout << "sender seedexp" << std::endl;
+        if(i == 1) Log::start(Sender, LPN);
+        sender->lpn_compress();
+        if(i == 1) Log::end(Sender, LPN);
+        if(i == 1) std::cout << "sender lpn" << std::endl;
+        if(i == 1) Log::close(Sender);
+        step = 1;
+      }
+    );
 
-  std::future<void> recverWorker = std::async(
-    [&recver, &step, &config, &bandwidth, &recverFile]() {
-      Log::open(Recver, recverFile.str().c_str(), bandwidth, true);
-      Log::start(Recver, CudaInit);
-      recver = new SilentOTRecver(config);
-      std::cout << "recver init" << std::endl;
-      Log::mem(Recver, CudaInit);
-      Log::end(Recver, CudaInit);
-      Log::start(Recver, BaseOT);
-      recver->base_ot();
-      Log::end(Recver, BaseOT);
-      std::cout << "recver baseot" << std::endl;
-      while(step < 1);
-      while(!recver->expandReady);
-      Log::start(Recver, SeedExp);
-      recver->pprf_expand();
-      Log::end(Recver, SeedExp);
-       std::cout << "recver seedexp" << std::endl;
-      Log::start(Recver, LPN);
-      recver->lpn_compress();
-      Log::end(Recver, LPN);
-      std::cout << "recver lpn" << std::endl;
-      Log::close(Recver);
-    }
-  );
+    config.choices = gen_choices(depth);
 
-  senderWorker.get();
-  recverWorker.get();
+    std::future<void> recverWorker = std::async(
+      [&recver, &step, &config, &bandwidth, &recverFile, i]() {
+        if(i == 1) Log::open(Recver, recverFile.str().c_str(), bandwidth, true);
+        if(i == 1) Log::start(Recver, CudaInit);
+        recver = new SilentOTRecver(config);
+        if(i == 1) std::cout << "recver init" << std::endl;
+        if(i == 1) Log::mem(Recver, CudaInit);
+        if(i == 1) Log::end(Recver, CudaInit);
+        if(i == 1) Log::start(Recver, BaseOT);
+        recver->base_ot();
+        if(i == 1) Log::end(Recver, BaseOT);
+        if(i == 1) std::cout << "recver baseot" << std::endl;
+        while(step < 1);
+        while(!recver->expandReady);
+        recver->get_punctured_key();
+        if(i == 1) Log::start(Recver, SeedExp);
+        recver->pprf_expand();
+        if(i == 1) Log::end(Recver, SeedExp);
+        if(i == 1) std::cout << "recver seedexp" << std::endl;
+        if(i == 1) Log::start(Recver, LPN);
+        recver->lpn_compress();
+        if(i == 1) Log::end(Recver, LPN);
+        if(i == 1) std::cout << "recver lpn" << std::endl;
+        if(i == 1) Log::close(Recver);
+      }
+    );
 
-  std::cout << "both done" << std::endl;
+    senderWorker.get();
+    recverWorker.get();
+    if(i == 1) std::cout << "both done" << std::endl;
 
-  // cudaSetDevice(0);
-  // Mat recv(recver->puncVector[0]);
-  // Mat choice(recver->choiceVector);
-  // assert(check_cot(sender->fullVector[0], recv, choice, sender->delta[0]));
+    // cudaSetDevice(0);
+    // Mat recv(recver->puncVector[0]);
+    // Mat choice(recver->choiceVector);
+    // assert(check_cot(sender->fullVector[0], recv, choice, sender->delta[0]));
 
-  delete[] config.choices;
-  delete sender;
-  delete recver;
+    delete[] config.choices;
+    delete sender;
+    delete recver;
+  }
+
+  cudaDeviceReset();
 
   return EXIT_SUCCESS;
 }

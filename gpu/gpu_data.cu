@@ -7,26 +7,19 @@
 #include "gpu_tests.h"
 
 GPUdata::GPUdata(uint64_t n) : mNBytes(n), mAllocated(n) {
+  cudaGetDevice(&mDevice);
   cudaMalloc(&mPtr, n);
 }
 
 GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
-  int dev;
-  cudaGetDevice(&dev);
-  cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, blk.mPtr);
-  cudaMemcpyPeerAsync(mPtr, dev, blk.data(), attr.device, mNBytes);
+  cudaGetDevice(&mDevice);
+  cudaMemcpyPeerAsync(mPtr, mDevice, blk.data(), blk.mDevice, mNBytes);
 }
 
 GPUdata::~GPUdata() {
   if (mPtr != nullptr) {
-    int dev;
-    cudaGetDevice(&dev);
-    cudaPointerAttributes attr;
-    cudaPointerGetAttributes(&attr, mPtr);
-    cudaSetDevice(attr.device);
+    cudaSetDevice(mDevice);
     cudaFree(mPtr);
-    cudaSetDevice(dev);
   }
 }
 
@@ -52,11 +45,7 @@ GPUdata& GPUdata::operator=(const GPUdata &rhs) {
     cudaMalloc(&mPtr, rhs.size_bytes());
     mNBytes = rhs.size_bytes();
   }
-  int dev;
-  cudaGetDevice(&dev);
-  cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, rhs.data());
-  cudaMemcpyPeerAsync(mPtr, dev, rhs.data(), attr.device, mNBytes);
+  cudaMemcpyPeerAsync(mPtr, mDevice, rhs.data(), rhs.mDevice, mNBytes);
   return *this;
 }
 
@@ -88,6 +77,7 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
 }
 
 void GPUdata::resize(uint64_t size) {
+  cudaGetDevice(&mDevice);
   if (size == mNBytes)
     return;
   if (size == 0) {

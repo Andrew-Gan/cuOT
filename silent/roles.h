@@ -79,6 +79,7 @@ public:
   SilentOTRecver(SilentOTConfig config);
   virtual ~SilentOTRecver();
   virtual void base_ot();
+  virtual void get_punctured_key();
   virtual void pprf_expand();
   virtual void lpn_compress();
   virtual void get_choice_vector();

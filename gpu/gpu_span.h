@@ -1,3 +1,6 @@
+#ifndef __GPU_SPAN_H__
+#define __GPU_SPAN_H__
+
 #include "gpu_matrix.h"
 
 class Span {
@@ -12,3 +15,5 @@ public:
   void set(uint64_t i, blk &val);
   void operator=(const Span& other);
 };
+
+#endif
