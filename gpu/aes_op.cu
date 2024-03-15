@@ -174,124 +174,16 @@ void aesEncrypt128(uint32_t* rk, uint32_t* data) {
 }
 
 __global__
-void aesDecrypt128(uint32_t *key, uint32_t *aesData) {
-	uint32_t bx		= blockIdx.x;
-    uint32_t tx		= threadIdx.x;
-    uint32_t mod4tx = tx%4;
-    uint32_t int4tx = tx/4;
-    uint32_t idx2	= int4tx*4;
-	int x;
-    uint32_t y      = blockIdx.y * blockDim.y + threadIdx.y;
-    key += y * 11 * AES_KEYLEN / sizeof(*key);
-
-    uint32_t stageBlockIdx[4] = {
-        posIdx_D[16 + mod4tx*4]   + idx2,
-        posIdx_D[16 + mod4tx*4+1] + idx2,
-        posIdx_D[16 + mod4tx*4+2] + idx2,
-        posIdx_D[16 + mod4tx*4+3] + idx2
-    };
-
-    __shared__ UByte4 stageBlock1[AES_BSIZE];
-    __shared__ UByte4 stageBlock2[AES_BSIZE];
-    __shared__ UByte4 tBox0Block[AES_BSIZE];
-    __shared__ UByte4 tBox1Block[AES_BSIZE];
-    __shared__ UByte4 tBox2Block[AES_BSIZE];
-    __shared__ UByte4 tBox3Block[AES_BSIZE];
-    __shared__ UByte4 invSBoxBlock[AES_BSIZE];
-
-	// input caricati in memoria
-	stageBlock1[tx].uival	    = aesData[AES_BSIZE * bx + tx ];
-	tBox0Block[tx].uival		= TBoxi0[tx];
-	tBox1Block[tx].uival		= TBoxi1[tx];
-	tBox2Block[tx].uival		= TBoxi2[tx];
-	tBox3Block[tx].uival		= TBoxi3[tx];
-	invSBoxBlock[tx].ubval[0]	= inv_SBox[tx];
-
-	//----------------------------------- 1st stage -----------------------------------
-
-	x = mod4tx;
-    stageBlock2[tx].uival = stageBlock1[tx].uival ^ key[x];
-
-	//-------------------------------- end of 1st stage --------------------------------
-
-    uint32_t op[4];
-
-    #pragma unroll
-    for (int i = 1; i < 9; i+=2) {
-        op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
-        op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
-        op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
-        op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
-
-        op[0] = tBox0Block[op[0]].uival;
-        op[1] = tBox1Block[op[1]].uival;
-        op[2] = tBox2Block[op[2]].uival;
-        op[3] = tBox3Block[op[3]].uival;
-
-        x += 4;
-        stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
-
-        op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
-        op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
-        op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
-        op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
-
-        op[0] = tBox0Block[op[0]].uival;
-        op[1] = tBox1Block[op[1]].uival;
-        op[2] = tBox2Block[op[2]].uival;
-        op[3] = tBox3Block[op[3]].uival;
-
-        x += 4;
-        stageBlock2[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
-    }
-
-    op[0] = stageBlock2[stageBlockIdx[0]].ubval[0];
-    op[1] = stageBlock2[stageBlockIdx[1]].ubval[1];
-    op[2] = stageBlock2[stageBlockIdx[2]].ubval[2];
-    op[3] = stageBlock2[stageBlockIdx[3]].ubval[3];
-
-    op[0] = tBox0Block[op[0]].uival;
-    op[1] = tBox1Block[op[1]].uival;
-    op[2] = tBox2Block[op[2]].uival;
-    op[3] = tBox3Block[op[3]].uival;
-
-    x += 4;
-    stageBlock1[tx].uival = op[0]^op[1]^op[2]^op[3]^key[x];
-
-	//----------------------------------- 11th stage -----------------------------------
-
-    op[0] = stageBlock1[stageBlockIdx[0]].ubval[0];
-    op[1] = stageBlock1[stageBlockIdx[1]].ubval[1];
-    op[2] = stageBlock1[stageBlockIdx[2]].ubval[2];
-    op[3] = stageBlock1[stageBlockIdx[3]].ubval[3];
-
-	x += 4;
-	stageBlock2[tx].ubval[3] = invSBoxBlock[op[3]].ubval[0]^( key[x]>>24);
-	stageBlock2[tx].ubval[2] = invSBoxBlock[op[2]].ubval[0]^( key[x]>>16 & 0x000000FF);
-	stageBlock2[tx].ubval[1] = invSBoxBlock[op[1]].ubval[0]^( key[x]>>8  & 0x000000FF);
-	stageBlock2[tx].ubval[0] = invSBoxBlock[op[0]].ubval[0]^( key[x]     & 0x000000FF);
-
-	//-------------------------------- end of 11th stage --------------------------------
-
-	aesData[AES_BSIZE * bx + tx] = stageBlock2[tx].uival;
-}
-
-__global__
 void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved_in,
     blk *interleaved_out, blk *separated, uint64_t inWidth) {
-
     uint32_t s[4];
     uint32_t nexts[4];
-
     uint32_t *rk = blockIdx.y == 0 ? keyLeft : keyRight;
     uint32_t threadID = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t warpID = threadIdx.x / GPU_SHARED_MEM_BANK;
     uint32_t warpThreadIndex = threadIdx.x % GPU_SHARED_MEM_BANK;
-
     // Thread is responsible for this block
-    if (blockIdx.y == 1)
-        separated += inWidth;
-    uint32_t* myData = (uint32_t*)separated.data() + threadID * (AES_BLOCK_SIZE / sizeof(*data));
+    uint32_t* myData = (uint32_t*)interleaved_in + threadID * (AES_BLOCK_SIZE / sizeof(*myData));
 
     __shared__ uint32_t t0S[T_TABLE_SIZE][GPU_SHARED_MEM_BANK];
     __shared__ uint32_t rkS[AES_RK_SIZE / sizeof(*rk)];
@@ -362,13 +254,13 @@ void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved_in,
         FLIP_ENDIANESS(currRk[3]);
 
     // Write back
-    uint32_t *interData = (uint32_t*)interleaved + 2 * threadID * (AES_BLOCK_SIZE / sizeof(*data));
-    if (blockIdx.y == 1)
-        interData += 4;
+    uint32_t *sepData = (uint32_t*)(separated + blockIdx.y * inWidth) + threadID * (AES_BLOCK_SIZE / sizeof(*sepData));
+    uint32_t *interData = (uint32_t*)interleaved_out + 2 * threadID * (AES_BLOCK_SIZE / sizeof(*interData)) + (4 * blockIdx.y);
+    uint32_t res;
     #pragma unroll
     for(int i = 0; i < 4; i++) {
-        uint32_t res = FLIP_ENDIANESS(nexts[i]);
-        myData[i] = res;
+        res = FLIP_ENDIANESS(nexts[i]);
+        sepData[i] = res;
         interData[i] = res;
     }
 }
