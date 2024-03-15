@@ -1,0 +1,82 @@
+gpuot-test
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  99.03MB
+
+Step 1/13 : FROM nvidia/cuda:12.3.2-devel-ubuntu22.04
+ ---> da3144977a75
+Step 2/13 : RUN apt-get update && apt-get -y install build-essential libsodium-dev
+ ---> Using cache
+ ---> 6fed8434cadb
+Step 3/13 : WORKDIR /home/gpuot
+ ---> Using cache
+ ---> b09fda582b77
+Step 4/13 : RUN mkdir result
+ ---> Using cache
+ ---> 1937d7db9d73
+Step 5/13 : COPY gpu gpu
+ ---> 96a705f9ffbf
+Step 6/13 : WORKDIR /home/gpuot/gpu
+ ---> Running in e7e69999e9e5
+ ---> Removed intermediate container e7e69999e9e5
+ ---> fc395afd2fd0
+Step 7/13 : RUN make -j -s
+ ---> Running in 787a06ca5912
+ ---> Removed intermediate container 787a06ca5912
+ ---> 0cce1dc6a8f7
+Step 8/13 : WORKDIR /home/gpuot
+ ---> Running in 2afa517366c5
+ ---> Removed intermediate container 2afa517366c5
+ ---> fbba084d2c7d
+Step 9/13 : COPY silent silent
+ ---> 418ac5681685
+Step 10/13 : WORKDIR /home/gpuot/silent
+ ---> Running in 5ed8ba55f204
+ ---> Removed intermediate container 5ed8ba55f204
+ ---> e0fd6f33f8ef
+Step 11/13 : RUN make -j -s
+ ---> Running in 69e63ba9c1c6
+ ---> Removed intermediate container 69e63ba9c1c6
+ ---> 3b391a507203
+Step 12/13 : RUN chmod +x silent.sh
+ ---> Running in c418a6eea58b
+ ---> Removed intermediate container c418a6eea58b
+ ---> 2e314e9baae7
+Step 13/13 : CMD ["./silent.sh"]
+ ---> Running in b569fe79220f
+ ---> Removed intermediate container b569fe79220f
+ ---> e968d8abde52
+Successfully built e968d8abde52
+Successfully tagged gpuot:latest
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.3.2
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+========= COMPUTE-SANITIZER
+Found following devices
+0: NVIDIA RTX A6000
+1: NVIDIA RTX A6000
+logOT: 24, trees: 8
+sender init
+recver init
+recver baseot
+sender baseot
+sender seedexp
+sender lpn
+recver seedexp
+recver lpn
+both done
+========= ERROR SUMMARY: 0 errors
