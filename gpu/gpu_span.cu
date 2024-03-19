@@ -1,33 +1,41 @@
 #include <stdexcept>
 #include "gpu_span.h"
 
-Span::Span(Mat &data, uint64_t start, uint64_t end) : obj(data) {
-  if (data.dims().size() != 1) 
-    throw std::invalid_argument("Span::Span() Only 1D matrix supported\n");
-  if (start >= data.size() || end > data.size())
-    throw std::invalid_argument("Span::Span() Range exceeds Vec dim\n");
+Span::Span(Mat &data, std::vector<uint64_t> start, std::vector<uint64_t> end) : obj(data) {
+  if (data.dims().size() != start.size() || data.dims().size() != end.size())
+    throw std::invalid_argument("Span::Span() start end dim does not match matrix dim\n");
+  if (start >= data.dims() || end > data.dims())
+    throw std::invalid_argument("Span::Span() range exceeds matrix dim\n");
+  if (start >= end)
+    throw std::invalid_argument("Span::Span() end exceeds start\n");
 
   this->start = start;
-  this->range = end - start;
+  for (int d = 0; d < data.dims().size(); d++) {
+    this->range.push_back(end.at(d) - start.at(d));
+  }
 }
 
-blk* Span::data(uint64_t i) const {
-  if (i >= range)
+std::vector<uint64_t> _vector_sum(std::vector<uint64_t> a, std::vector<uint64_t> b) {
+  std::vector<uint64_t> c;
+  for(int d = 0; d < a.size(); d++) {
+    c.push_back(a.at(d) + b.at(d));
+  }
+}
+
+blk* Span::data() const {
+  return obj.data(start);
+}
+
+blk* Span::data(std::vector<uint64_t> i) const {
+  if (i < range)
     throw std::invalid_argument("Span::data() Index exceeds Span dim\n");
 
-  return obj.data({start + i});
+  return obj.data(_vector_sum(start, i));
 };
 
-void Span::set(uint64_t i, blk &val) {
+void Span::set(std::vector<uint64_t> i, blk &val) {
   if (i >= range)
     throw std::invalid_argument("Span::set() Index exceeds Span dim\n");
 
-  obj.set(val, {start + i});
-}
-
-void Span::operator=(const Span& other) {
-  if (size() != other.size())
-    throw std::invalid_argument("Span::operator=() Unequal span len is unsupported\n");
-
-  cudaMemcpyAsync(data(), other.data(), size()*sizeof(blk), cudaMemcpyDeviceToDevice);
+  obj.set(val, _vector_sum(start, i));
 }

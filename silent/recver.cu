@@ -13,19 +13,14 @@ SilentOTRecver::SilentOTRecver(SilentOTConfig config) : SilentOT(config) {
 
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
-    m0[gpu] = std::vector<Mat>(depth+1, Mat({mConfig.nTree / NGPU}));
-    m1[gpu] = std::vector<Mat>(depth+1, Mat({mConfig.nTree / NGPU}));
+    m0[gpu] = std::vector<Mat>(depth+1, Mat({mConfig.nTree}));
+    m1[gpu] = std::vector<Mat>(depth+1, Mat({mConfig.nTree}));
     
-    if (gpu == 0) {
-      puncVector[gpu] = new Mat({numOT, 1});
-      puncVector[gpu]->resize({numOT / NGPU, 1});
-    }
-    else
-      puncVector[gpu] = new Mat({numOT / NGPU, 1});
-    buffer[gpu] = new Mat({numOT / NGPU, 1});
-    cudaMalloc(&activeParent[gpu], mConfig.nTree / NGPU * sizeof(uint64_t));
-    cudaMemset(activeParent[gpu], 0, mConfig.nTree / NGPU * sizeof(uint64_t));
-    separated[gpu].resize({numOT / NGPU});
+    puncVector[gpu] = new Mat({2 * numOT, 1});
+    buffer[gpu] = new Mat({numOT, 1});
+    cudaMalloc(&activeParent[gpu], mConfig.nTree * sizeof(uint64_t));
+    cudaMemset(activeParent[gpu], 0, mConfig.nTree * sizeof(uint64_t));
+    separated[gpu].resize({numOT});
     switch (mConfig.expander) {
       case AesExpand_t:
         expander[gpu] = new AesExpand(mConfig.leftKey, mConfig.rightKey);
@@ -67,11 +62,9 @@ void SilentOTRecver::base_ot() {
     for (int d = 0; d < depth; d++) {
       workers[gpu].push_back(std::async([d, gpu, this]() {
         cudaSetDevice(mConfig.ngpuAvail-gpu-1);
-        uint64_t tree = mConfig.nTree / NGPU;
-        uint64_t choices = mConfig.choices[d] >> (gpu * tree);
         switch (mConfig.baseOT) {
           case SimplestOT_t:
-            return SimplestOT(Recver, gpu*this->depth+d, tree).recv(choices);
+            return SimplestOT(Recver, gpu*this->depth+d, mConfig.nTree).recv(mConfig.choices[d]);
         }
         return Mat();
       }));
@@ -137,7 +130,6 @@ void SilentOTRecver::get_punctured_key() {
 
 void SilentOTRecver::pprf_expand() {
   Log::mem(Recver, SeedExp);
-  int treePerGPU = (mConfig.nTree + NGPU - 1) / NGPU;
   Mat *input[NGPU];
   Mat *output[NGPU];
 
@@ -147,23 +139,23 @@ void SilentOTRecver::pprf_expand() {
     output[gpu] = puncVector[gpu];
     for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
       std::swap(input[gpu], output[gpu]);
-      expander[gpu]->expand(*(input[gpu]), *(output[gpu]), separated[gpu], treePerGPU*inWidth);
-      separated[gpu].sum(2 * treePerGPU, inWidth);
+      expander[gpu]->expand(*(input[gpu]), *(output[gpu]), separated[gpu], mConfig.nTree*inWidth);
+      separated[gpu].sum(2 * mConfig.nTree, inWidth);
       cudaStreamWaitEvent(0, other->expandEvents[gpu].at(d));
 
       m0[gpu].at(d).xor_d(mc[gpu].at(d));
       m1[gpu].at(d).xor_d(mc[gpu].at(d));
 
-      fill_tree<<<1, treePerGPU>>>(m0[gpu].at(d).data(), m1[gpu].at(d).data(),
-        2 * inWidth, activeParent[gpu], mConfig.choices[d] >> (gpu*treePerGPU),
+      fill_tree<<<1, mConfig.nTree>>>(m0[gpu].at(d).data(), m1[gpu].at(d).data(),
+        2 * inWidth, activeParent[gpu], mConfig.choices[d],
         separated[gpu].data(), output[gpu]->data(), false);
       
       if (d == depth-1) {
         m0[gpu].at(d+1).xor_d(mc[gpu].at(d));
         m1[gpu].at(d+1).xor_d(mc[gpu].at(d));
 
-        fill_tree<<<1, treePerGPU>>>(m0[gpu].at(d+1).data(), m1[gpu].at(d+1).data(),
-          2 * inWidth, activeParent[gpu], mConfig.choices[d] >> (gpu*treePerGPU),
+        fill_tree<<<1, mConfig.nTree>>>(m0[gpu].at(d+1).data(), m1[gpu].at(d+1).data(),
+          2 * inWidth, activeParent[gpu], mConfig.choices[d],
           separated[gpu].data(), output[gpu]->data(), true);
       }
     }
@@ -186,51 +178,19 @@ void SilentOTRecver::lpn_compress() {
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
     puncVector[gpu]->bit_transpose();
   }
-  size_t copySize = puncVector[0]->size_bytes() / NGPU;
-  size_t polyLenBlksPerGPU = puncVector[0]->dim(1);
-  size_t totalPolyLenBytes = b64[0].dim(1) * sizeof(blk);
-  uint8_t *tmp;
-  for (int gpuA = 0; gpuA < NGPU - 1; gpuA++) {
-    cudaSetDevice(gpuA);
-    cudaMemcpy2DAsync(
-      b64[gpuA].data({0, gpuA*polyLenBlksPerGPU}), totalPolyLenBytes,
-      puncVector[gpuA]->data({gpuA*rowsPerGPU, 0}), polyLenBlksPerGPU*sizeof(blk),
-      polyLenBlksPerGPU*sizeof(blk), rowsPerGPU, cudaMemcpyDeviceToDevice
-    );
-    
-    cudaSetDevice(gpuA);
-    cudaMalloc(&tmp, copySize);
-    for (int gpuB = gpuA + 1; gpuB < NGPU; gpuB++) {
-      cudaMemswapPeerAsync(
-        puncVector[gpuA]->data({gpuB*rowsPerGPU, 0}), tmp, gpuA,
-        puncVector[gpuB]->data({gpuA*rowsPerGPU, 0}), gpuB, copySize
-      );
-      cudaSetDevice(gpuA);
-      cudaMemcpy2DAsync(
-        b64[gpuA].data({0, gpuB*polyLenBlksPerGPU}), totalPolyLenBytes,
-        tmp, polyLenBlksPerGPU*sizeof(blk),
-        polyLenBlksPerGPU*sizeof(blk), rowsPerGPU, cudaMemcpyDeviceToDevice
-      );
-      cudaSetDevice(gpuB);
-      cudaMemcpy2DAsync(
-        b64[gpuB].data({0, gpuA*polyLenBlksPerGPU}), totalPolyLenBytes,
-        puncVector[gpuB]->data({gpuA*rowsPerGPU, 0}), polyLenBlksPerGPU*sizeof(blk),
-        polyLenBlksPerGPU*sizeof(blk), rowsPerGPU, cudaMemcpyDeviceToDevice
-      );
-    }
-    cudaSetDevice(gpuA);
-    cudaFree(tmp);
-  }
+  Span *span[NGPU];
   for (int gpu = 0; gpu < NGPU; gpu++) {
     cudaSetDevice(mConfig.ngpuAvail-gpu-1);
+    span[gpu] = new Span(puncVector[gpu], {gpu*rowsPerGPU, 0}, {(gpu+1)*rowsPerGPU, 0});
     lpn[gpu]->encode_dense(b64[gpu]);
+    puncVector[gpu]->resize({puncVector[gpu]->dim(0), mOut / BLOCK_BITS});
   }
   cudaSetDevice(mConfig.ngpuAvail-1);
   puncVector[0]->resize({BLOCK_BITS, numOT / BLOCK_BITS});
-  for (int gpu = 0; gpu < NGPU; gpu++) {
+  for (int gpu = 1; gpu < NGPU; gpu++) {
     cudaMemcpyPeerAsync(
       puncVector[0]->data({gpu * rowsPerGPU, 0}), mConfig.ngpuAvail-1,
-      b64[gpu].data(), mConfig.ngpuAvail-gpu-1, b64[gpu].size_bytes()
+      puncVector[gpu]->data(), mConfig.ngpuAvail-gpu-1, puncVector[gpu]->size_bytes()
     );
   }
   puncVector[0]->bit_transpose();

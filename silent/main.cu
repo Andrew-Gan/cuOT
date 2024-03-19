@@ -96,18 +96,18 @@ int main(int argc, char** argv) {
         recver->base_ot();
         if(i == 1) Log::end(Recver, BaseOT);
         if(i == 1) std::cout << "recver baseot" << std::endl;
-        while(step < 1);
-        while(!recver->expandReady);
-        recver->get_punctured_key();
-        if(i == 1) Log::start(Recver, SeedExp);
-        recver->pprf_expand();
-        if(i == 1) Log::end(Recver, SeedExp);
-        if(i == 1) std::cout << "recver seedexp" << std::endl;
-        if(i == 1) Log::start(Recver, LPN);
-        recver->lpn_compress();
-        if(i == 1) Log::end(Recver, LPN);
-        if(i == 1) std::cout << "recver lpn" << std::endl;
-        if(i == 1) Log::close(Recver);
+        // while(step < 1);
+        // while(!recver->expandReady);
+        // recver->get_punctured_key();
+        // if(i == 1) Log::start(Recver, SeedExp);
+        // recver->pprf_expand();
+        // if(i == 1) Log::end(Recver, SeedExp);
+        // if(i == 1) std::cout << "recver seedexp" << std::endl;
+        // if(i == 1) Log::start(Recver, LPN);
+        // recver->lpn_compress();
+        // if(i == 1) Log::end(Recver, LPN);
+        // if(i == 1) std::cout << "recver lpn" << std::endl;
+        // if(i == 1) Log::close(Recver);
       }
     );
 
