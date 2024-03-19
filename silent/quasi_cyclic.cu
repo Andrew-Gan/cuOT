@@ -5,7 +5,7 @@
 #include "gpu_ops.h"
 #include "logger.h"
 
-#define FFT_BATCHSIZE 16
+#define FFT_BATCHSIZE 32
 
 __global__
 void bit_to_float(uint64_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, uint64_t outFloatWidth) {
@@ -14,20 +14,20 @@ void bit_to_float(uint64_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, ui
   uint64_t tmp = bitPoly[row * (inBitWidth / 64) + col];
   uint64_t offset = row * outFloatWidth + 64 * col;
   for (int j = 0; j < 64; j++) {
-    fftReal[offset++] = (cufftReal)(tmp & 1);
+    fftReal[offset+j] = (cufftReal)(tmp & 1);
     tmp >>= 1;
   }
 }
 
 __global__
 void complex_dot_product(cufftComplex *in, cufftComplex *io, uint64_t len) {
-  uint64_t x = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t c = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t r = blockIdx.y;
-  if (x >= len) return;
+  if (c >= len) return;
 
-  cufftComplex a = in[x], b = io[r*len+x];
-  io[r*len+x].x = a.x * b.x - a.y * b.y;
-  io[r*len+x].y = a.x * b.y + a.y * b.x;
+  cufftComplex a = in[c], b = io[r*len+c];
+  io[r*len+c].x = a.x * b.x - a.y * b.y;
+  io[r*len+c].y = a.x * b.y + a.y * b.x;
 }
 
 __global__
@@ -106,7 +106,7 @@ QuasiCyclic::~QuasiCyclic() {
   cudaFree(c64_poly);
 }
 
-void QuasiCyclic::encode_dense(Mat &b64) {
+void QuasiCyclic::encode_dense(Span &b64) {
   Log::mem(mRole, LPN);
   for (uint64_t r = 0; r < mRows; r += FFT_BATCHSIZE) {
     bit_to_float<<<gridFFT[0], blockFFT[0]>>>((uint64_t*)b64.data({r, 0}), b64_poly, mIn, mIn);
@@ -115,7 +115,6 @@ void QuasiCyclic::encode_dense(Mat &b64) {
     cufftExecC2R(cPlan, b64_fft, c64_poly);
     float_to_bit_and_modp<<<gridFFT[0], blockFFT[0]>>>(c64_poly, (uint64_t*)b64.data({r, 0}), mIn);
   }
-  b64.resize({b64.dim(0), mOut / BLOCK_BITS});
   Log::mem(mRole, LPN);
 }
 
