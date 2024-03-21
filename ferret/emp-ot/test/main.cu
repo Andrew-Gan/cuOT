@@ -44,7 +44,9 @@ int main(int argc, char** argv) {
         cudaSetDevice(gpu);
         Log::open(party, filename, 1000, true);
         ot[gpu] = new FerretOTSender(config);
-	      test_rcot<FerretCOT<NetIO>>(&ot[gpu], ios, party, 1<<logOT, false);
+        Mat b({length});
+        io->sync();
+        ot[gpu]->rcot(b);
         Log::close(party);
       });
     }
