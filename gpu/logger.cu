@@ -14,11 +14,13 @@ uint64_t Log::memStart[2][NUM_EVENTS] = {0};
 uint64_t Log::memCurr[2][NUM_EVENTS] = {0};
 uint64_t Log::memMax[2][NUM_EVENTS] = {0};
 uint64_t Log::bandwidth_mbps = 1;
-bool Log::mIgnoreInit = false;
+bool Log::mOpened[2] = {false, false};
+bool Log::mIgnoreInit[2] = {false, false};
 bool Log::initTimeSet[2] = {false, false};
 
-void Log::open(int role, const char *filename, uint64_t mbps, bool ignoreInit) {
-  mIgnoreInit = ignoreInit;
+void Log::open(int role, std::string filename, uint64_t mbps, bool ignoreInit) {
+  mOpened[role] = true;
+  mIgnoreInit[role] = ignoreInit;
   logFile[role].open(filename, std::ofstream::out);
   bandwidth_mbps = mbps;
   for (int i = 0; i < NUM_EVENTS; i++) {
@@ -27,7 +29,7 @@ void Log::open(int role, const char *filename, uint64_t mbps, bool ignoreInit) {
   logFile[role] << "--------------------" << std::endl;
 
 
-  if (!mIgnoreInit) {
+  if (!mIgnoreInit[role]) {
     clock_gettime(CLOCK_MONOTONIC, &initTime[role]);
     initTimeSet[role] = true;
   }
@@ -38,6 +40,7 @@ void Log::open(int role, const char *filename, uint64_t mbps, bool ignoreInit) {
 }
 
 void Log::close(int role) {
+  mOpened[role] = false;
   for (int event = 0; event < NUM_EVENTS; event++) {
     logFile[role] << "t " << event << " " << eventDuration[role][event] << std::endl;
   }
@@ -50,12 +53,13 @@ void Log::close(int role) {
 }
 
 void Log::start(int role, Event event) {
-  if (!initTimeSet[role] && mIgnoreInit && event > CudaInit) {
+  if (!mOpened[role]) return;
+  if (!initTimeSet[role] && mIgnoreInit[role] && event > CudaInit) {
     clock_gettime(CLOCK_MONOTONIC, &initTime[role]);
     initTimeSet[role] = true;
   }
 
-  if (!mIgnoreInit || event != CudaInit) {
+  if (!mIgnoreInit[role] || event != CudaInit) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     float timeSinceStart = (now.tv_sec - initTime[role].tv_sec) * 1000;
@@ -72,7 +76,8 @@ void Log::start(int role, Event event) {
 }
 
 void Log::end(int role, Event event) {
-  if (!mIgnoreInit || event != CudaInit) {
+  if (!mOpened[role]) return;
+  if (!mIgnoreInit[role] || event != CudaInit) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     float timeSinceStart = (now.tv_sec - initTime[role].tv_sec) * 1000;
@@ -85,11 +90,8 @@ void Log::end(int role, Event event) {
   memMax[role][event] = std::max(currMax, memMax[role][event]);
 }
 
-void Log::comm(Event event, uint64_t bytes) {
-  commBytes[event] += bytes;
-}
-
 void Log::mem(int role, Event event) {
+  if (!mOpened[role]) return;
   size_t free, total, used;
 	cudaMemGetInfo(&free, &total);
   used = total - free;

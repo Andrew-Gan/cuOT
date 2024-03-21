@@ -10,7 +10,7 @@ public:
 
 public:
   Span(Mat &data, std::vector<uint64_t> start, std::vector<uint64_t> end);
-  uint64_t size() const { return ; }
+  uint64_t size() const { return obj.size(); }
   blk* data() const;
   blk* data(std::vector<uint64_t> i) const;
   void set(std::vector<uint64_t> i, blk &val);

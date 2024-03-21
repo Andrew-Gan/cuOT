@@ -4,13 +4,14 @@
 #include <curand_kernel.h>
 #include <cufft.h>
 #include "gpu_matrix.h"
+#include "gpu_span.h"
 
 enum LPNType { QuasiCyclic_t, ExpandAccumulate_t };
 
 class Lpn {
 public:
   virtual ~Lpn() {}
-  virtual void encode_dense(Mat &b64) = 0;
+  virtual void encode_dense(Span &b64) = 0;
   virtual void encode_sparse(Mat &out, uint64_t *sparsePos, int weight) = 0;
 };
 
@@ -32,7 +33,7 @@ private:
 public:
   QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows);
   virtual ~QuasiCyclic();
-  void encode_dense(Mat &b64);
+  void encode_dense(Span &b64);
   void encode_sparse(Mat &out, uint64_t *sparsePos, int weight);
 };
 
@@ -40,7 +41,7 @@ class ExpandAccumulate : public Lpn {
 public:
   ExpandAccumulate(Role role, uint64_t in, uint64_t out);
   virtual ~ExpandAccumulate();
-  void encode_dense(Mat &b64);
+  void encode_dense(Span &b64);
   void encode_sparse(Mat &out, uint64_t *sparsePos, int weight);
 };
 

@@ -18,14 +18,13 @@ private:
   static uint64_t memStart[2][NUM_EVENTS];
   static uint64_t memCurr[2][NUM_EVENTS];
   static uint64_t memMax[2][NUM_EVENTS];
-  static bool mIgnoreInit, initTimeSet[2];
+  static bool mOpened[2], mIgnoreInit[2], initTimeSet[2];
 
 public:
-  static void open(int role, const char *filename, uint64_t mbps, bool ignoreInit);
+  static void open(int role, std::string filename, uint64_t mbps, bool ignoreInit);
   static void close(int role);
   static void start(int role, Event event);
   static void end(int role, Event event);
-  static void comm(Event event, uint64_t bytes);
   static void mem(int role, Event event);
 };
 

@@ -2,10 +2,11 @@
 #include <cmath>
 #include "gpu_tests.h"
 #include "gpu_matrix.h"
+#include "gpu_span.h"
 #include "gpu_ops.h"
 #include "logger.h"
 
-#define FFT_BATCHSIZE 32
+#define FFT_BATCHSIZE 16
 
 __global__
 void bit_to_float(uint64_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, uint64_t outFloatWidth) {
