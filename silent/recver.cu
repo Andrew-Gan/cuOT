@@ -24,7 +24,7 @@ SilentOTRecver::SilentOTRecver(RCOTConfig config) : SilentOT(config) {
   cudaMalloc(&activeParent, mConfig.nTree * sizeof(uint64_t));
   cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
   separated.resize({numOT});
-  switch (mConfig.expander) {
+  switch (mConfig.pprf) {
     case AesExpand_t:
       expander = new AesExpand(mConfig.leftKey, mConfig.rightKey);
   }
@@ -32,7 +32,7 @@ SilentOTRecver::SilentOTRecver(RCOTConfig config) : SilentOT(config) {
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
   b64.resize({rowsPerGPU, 2 * numOT / BLOCK_BITS});
   b64.clear();
-  switch (mConfig.compressor) {
+  switch (mConfig.dualLPN) {
     case QuasiCyclic_t:
       lpn = new QuasiCyclic(Recver, 2 * numOT, numOT, BLOCK_BITS / NGPU);
   }
@@ -119,7 +119,7 @@ void SilentOTRecver::get_punctured_key() {
   }
 }
 
-void SilentOTRecver::pprf_expand() {
+void SilentOTRecver::seed_expand() {
   Log::mem(Recver, SeedExp);
   Mat *input;
   Mat *output;
@@ -130,7 +130,7 @@ void SilentOTRecver::pprf_expand() {
     std::swap(input, output);
     expander->expand(*input, *output, separated, mConfig.nTree*inWidth);
     separated.sum(2 * mConfig.nTree, inWidth);
-    cudaStreamWaitEvent(0, other->expandEvents.at(d));
+    // cudaStreamWaitEvent(0, other->expandEvents.at(d));
 
     m0.at(d).xor_d(mc.at(d));
     m1.at(d).xor_d(mc.at(d));
@@ -155,7 +155,7 @@ void SilentOTRecver::pprf_expand() {
   cudaDeviceSynchronize();
 }
 
-void SilentOTRecver::lpn_compress() {
+void SilentOTRecver::dual_lpn() {
   Log::mem(Recver, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
   puncVector->bit_transpose();

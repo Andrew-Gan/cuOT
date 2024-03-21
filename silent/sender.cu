@@ -12,7 +12,7 @@ SilentOTSender::SilentOTSender(RCOTConfig config) : SilentOT(config) {
   silentOTSenders[mConfig.id] = this;
   for (int i = 0; i < 4; i++) delta_h.data[i] = rand();
 
-  std::vector<cudaEvent_t> &events = expandEvents;
+  // std::vector<cudaEvent_t> &events = expandEvents;
   events.resize(depth);
   for (uint64_t i = 0; i < depth; i++)
     cudaEventCreate(&events.at(i));
@@ -26,7 +26,7 @@ SilentOTSender::SilentOTSender(RCOTConfig config) : SilentOT(config) {
     fullVector->set(seed_h, {t, 0});
   }
   separated.resize({numOT});
-  switch (mConfig.expander) {
+  switch (mConfig.pprf) {
     case AesExpand_t:
       expander = new AesExpand(mConfig.leftKey, mConfig.rightKey);
   }
@@ -34,7 +34,7 @@ SilentOTSender::SilentOTSender(RCOTConfig config) : SilentOT(config) {
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
   b64.resize({rowsPerGPU, 2 * numOT / BLOCK_BITS});
   b64.clear();
-  switch (mConfig.compressor) {
+  switch (mConfig.dualLPN) {
     case QuasiCyclic_t:
       lpn = new QuasiCyclic(Sender, 2 * numOT, numOT, BLOCK_BITS / NGPU);
   }
@@ -45,8 +45,8 @@ SilentOTSender::~SilentOTSender() {
   delete buffer;
   delete expander;
   delete lpn;
-  for (uint64_t d = 0; d < depth; d++)
-    cudaEventDestroy(expandEvents.at(d));
+  // for (uint64_t d = 0; d < depth; d++)
+    // cudaEventDestroy(expandEvents.at(d));
   cudaFree(delta);
   silentOTSenders[mConfig.id] = nullptr;
 }
@@ -74,7 +74,7 @@ void SilentOTSender::base_ot() {
   Log::mem(Sender, BaseOT);
 }
 
-void SilentOTSender::pprf_expand() {
+void SilentOTSender::seed_expand() {
   Log::mem(Sender, SeedExp);
   Mat *input = buffer;
   Mat *output = fullVector;
@@ -91,7 +91,7 @@ void SilentOTSender::pprf_expand() {
       m0.at(d+1).xor_scalar(delta);
       m1.at(d+1).xor_scalar(delta);
     }
-    cudaEventRecord(expandEvents.at(d));
+    // cudaEventRecord(expandEvents.at(d));
   }
   fullVector = output;
   buffer = input;
@@ -99,7 +99,7 @@ void SilentOTSender::pprf_expand() {
   Log::mem(Sender, SeedExp);
 }
 
-void SilentOTSender::lpn_compress() {
+void SilentOTSender::dual_lpn() {
   Log::mem(Sender, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
   fullVector->bit_transpose();

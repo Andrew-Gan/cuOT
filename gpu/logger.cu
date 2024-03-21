@@ -21,7 +21,7 @@ bool Log::initTimeSet[2] = {false, false};
 void Log::open(int role, std::string filename, uint64_t mbps, bool ignoreInit) {
   mOpened[role] = true;
   mIgnoreInit[role] = ignoreInit;
-  logFile[role].open(filename, std::ofstream::out);
+  logFile[role].open(filename);
   bandwidth_mbps = mbps;
   for (int i = 0; i < NUM_EVENTS; i++) {
     logFile[role] << i << " " << eventString[i] << std::endl;

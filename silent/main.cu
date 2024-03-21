@@ -15,7 +15,7 @@ uint64_t* gen_choices(int depth) {
   return choices;
 }
 
-void init_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver, RCOTConfig config) {
+void init_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver, SilentConfig config) {
   for (int gpu = 0; gpu < NGPU; gpu++) {
     config.id = gpu;
     cudaSetDevice(gpu);
@@ -61,7 +61,7 @@ void seed_exp_multi_gpu(SilentOT **party) {
     worker[gpu] = std::async([party, gpu](){
       party[gpu]->mRole == Sender ? cudaSetDevice(gpu) : cudaSetDevice(NGPU-gpu-1);
       if(gpu==0) Log::start(party[gpu]->mRole, SeedExp);
-      party[gpu]->pprf_expand();
+      party[gpu]->seed_expand();
       if(gpu==0) Log::end(party[gpu]->mRole, SeedExp);
     });
   }
@@ -70,13 +70,13 @@ void seed_exp_multi_gpu(SilentOT **party) {
   }
 }
 
-void lpn_compress_multi_gpu(SilentOT **party) {
+void dual_lpn_multi_gpu(SilentOT **party) {
   std::future<void> worker[NGPU];
   for (int gpu = 0; gpu < NGPU; gpu++) {
     worker[gpu] = std::async([party, gpu](){
       party[gpu]->mRole == Sender ? cudaSetDevice(gpu) : cudaSetDevice(NGPU-gpu-1);
       if(gpu==0) Log::start(party[gpu]->mRole, LPN);
-      party[gpu]->lpn_compress();
+      party[gpu]->dual_lpn();
       if(gpu==0) Log::end(party[gpu]->mRole, LPN);
     });
   }
@@ -99,22 +99,21 @@ int main(int argc, char** argv) {
 
   std::cout << "logOT: " << logOT << ", trees: " << numTrees << std::endl;
   uint64_t depth = logOT - log2((float) numTrees);
-  RCOTConfig config = {
+  SilentConfig config = {
     .logOT = logOT,
     .nTree = (uint64_t)numTrees,
     .baseOT = SimplestOT_t,
-    .expander = AesExpand_t,
+    .pprf = AesExpand_t,
     .leftKey = {3242342},
     .rightKey = {8993849},
-    .compressor = QuasiCyclic_t,
-    .ngpuAvail = devCount,
+    .dualLPN = QuasiCyclic_t,
   };
 
   std::ostringstream senderFile, recverFile;
-  senderFile << "../results/gpu-silent-send-" << logOT << "-" << numTrees << ".txt";
-  recverFile << "../results/gpu-silent-recv-" << logOT << "-" << numTrees << ".txt";
+  senderFile << "../results/gpu-silent-send-" << logOT << ".txt";
+  recverFile << "../results/gpu-silent-recv-" << logOT << ".txt";
 
-  for (uint64_t i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     if(i == 0) std::cout << "initialisation..." << std::endl;
     if(i == 1) std::cout << "benchmarking..." << std::endl;
 
@@ -136,12 +135,12 @@ int main(int argc, char** argv) {
 
     seed_exp_multi_gpu((SilentOT**)sender);
     std::cout << "sender exp" << std::endl;
-    lpn_compress_multi_gpu((SilentOT**)sender);
+    dual_lpn_multi_gpu((SilentOT**)sender);
     std::cout << "sender lpn" << std::endl;
 
     seed_exp_multi_gpu((SilentOT**)recver);
     std::cout << "recver exp" << std::endl;
-    lpn_compress_multi_gpu((SilentOT**)recver);
+    dual_lpn_multi_gpu((SilentOT**)recver);
     std::cout << "recver lpn" << std::endl;
 
     free_multi_gpu(sender, recver);
