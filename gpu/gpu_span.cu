@@ -20,6 +20,7 @@ std::vector<uint64_t> _vector_sum(std::vector<uint64_t> a, std::vector<uint64_t>
   for(int d = 0; d < a.size(); d++) {
     c.push_back(a.at(d) + b.at(d));
   }
+  return c;
 }
 
 blk* Span::data() const {
@@ -27,9 +28,9 @@ blk* Span::data() const {
 }
 
 blk* Span::data(std::vector<uint64_t> i) const {
-  if (i < range)
-    throw std::invalid_argument("Span::data() Index exceeds Span dim\n");
-
+  if (i >= range)
+    throw std::invalid_argument("Span::data() index exceeds Span dim\n");
+  
   return obj.data(_vector_sum(start, i));
 };
 
