@@ -6,7 +6,7 @@
 #include <atomic>
 #include "gpu_matrix.h"
 #include "base_ot.h"
-#include "expand.h"
+#include "pprf.h"
 #include "lpn.h"
 
 // number of gpu used per party
@@ -15,25 +15,35 @@
 class SilentOTSender;
 class SilentOTRecver;
 
-struct RCOTConfig {
+struct SilentConfig {
   int id, logOT;
   uint64_t nTree;
   BaseOTType baseOT;
-  ExpandType expander;
+  PprfType pprf;
   uint32_t leftKey[4];
   uint32_t rightKey[4];
-  LPNType compressor;
+  LPNType dualLPN;
   uint64_t *choices;
-  int ngpuAvail;
 };
 
 class SilentOT {
 public:
   Role mRole;
-  RCOTConfig mConfig;
+  SilentConfig mConfig;
   uint64_t depth, numOT, numLeaves;
-  Expand *expander;
+  Pprf *expander;
   Lpn *lpn;
+
+  SilentOT(SilentConfig config) : mConfig(config) {
+    depth = mConfig.logOT - std::log2(mConfig.nTree) + 0;
+    numOT = pow(2, mConfig.logOT);
+    numLeaves = pow(2, depth);
+  }
+  virtual void base_ot() = 0;
+  virtual void seed_expand() = 0;
+  virtual void dual_lpn() = 0;
+
+private:
   // base OT
   std::vector<Mat> m0;
   std::vector<Mat> m1;
@@ -42,28 +52,19 @@ public:
   Mat *buffer;
   // lpn compression
   Mat b64;
-
-  SilentOT(RCOTConfig config) : mConfig(config) {
-    depth = mConfig.logOT - std::log2(mConfig.nTree) + 0;
-    numOT = pow(2, mConfig.logOT);
-    numLeaves = pow(2, depth);
-  }
-  virtual void base_ot() = 0;
-  virtual void pprf_expand() = 0;
-  virtual void lpn_compress() = 0;
 };
 
 class SilentOTSender : public SilentOT {
 public:
   Mat *fullVector;
   blk *delta;
-  std::vector<cudaEvent_t> expandEvents;
+  // std::vector<cudaEvent_t> expandEvents;
 
-  SilentOTSender(RCOTConfig config);
+  SilentOTSender(SilentConfig config);
   virtual ~SilentOTSender();
   virtual void base_ot();
-  virtual void pprf_expand();
-  virtual void lpn_compress();
+  virtual void seed_expand();
+  virtual void dual_lpn();
 };
 
 class SilentOTRecver : public SilentOT {
@@ -73,19 +74,19 @@ public:
   uint64_t *puncPos;
   SilentOTSender *other = nullptr;
   std::vector<Mat> mc;
-  std::atomic<bool> expandReady = false;
+  // std::atomic<bool> expandReady = false;
   uint64_t *activeParent;
 
-  SilentOTRecver(RCOTConfig config);
+  SilentOTRecver(SilentConfig config);
   virtual ~SilentOTRecver();
   virtual void base_ot();
   virtual void get_punctured_key();
-  virtual void pprf_expand();
-  virtual void lpn_compress();
+  virtual void seed_expand();
+  virtual void dual_lpn();
   virtual void get_choice_vector();
 };
 
-extern std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
-extern std::array<std::atomic<SilentOTRecver*>, 16> silentOTRecvers;
+extern std::array<std::atomic<SilentOTSender*>, 8> silentOTSenders;
+extern std::array<std::atomic<SilentOTRecver*>, 8> silentOTRecvers;
 
 #endif

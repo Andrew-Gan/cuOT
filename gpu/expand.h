@@ -9,14 +9,14 @@ struct AES_ctx {
   uint8_t roundKey[11*AES_KEYLEN];
 };
 
-enum ExpandType { AesExpand_t };
+enum PprfType { AesExpand_t };
 
-class Expand {
+class Pprf {
 public:
   virtual void expand(Mat &interleaved_in, Mat &interleaved_out, Mat &separated, uint64_t inWidth) = 0;
 };
 
-class AesExpand : public Expand {
+class AesExpand : public Pprf {
 private:
   uint32_t *keyL, *keyR;
   void expand_encKey(uint8_t *encExpKey, uint8_t *key);
