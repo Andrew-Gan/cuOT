@@ -15,7 +15,7 @@
 class SilentOTSender;
 class SilentOTRecver;
 
-struct SilentOTConfig {
+struct RCOTConfig {
   int id, logOT;
   uint64_t nTree;
   BaseOTType baseOT;
@@ -29,20 +29,21 @@ struct SilentOTConfig {
 
 class SilentOT {
 public:
-  SilentOTConfig mConfig;
+  Role mRole;
+  RCOTConfig mConfig;
   uint64_t depth, numOT, numLeaves;
-  Expand *expander[NGPU];
-  Lpn *lpn[NGPU];
+  Expand *expander;
+  Lpn *lpn;
   // base OT
-  std::vector<Mat> m0[NGPU];
-  std::vector<Mat> m1[NGPU];
+  std::vector<Mat> m0;
+  std::vector<Mat> m1;
   // pprf expansion
-  Mat separated[NGPU];
-  Mat *buffer[NGPU];
+  Mat separated;
+  Mat *buffer;
   // lpn compression
-  Mat b64[NGPU];
+  Mat b64;
 
-  SilentOT(SilentOTConfig config) : mConfig(config) {
+  SilentOT(RCOTConfig config) : mConfig(config) {
     depth = mConfig.logOT - std::log2(mConfig.nTree) + 0;
     numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, depth);
@@ -54,12 +55,11 @@ public:
 
 class SilentOTSender : public SilentOT {
 public:
-  Mat *fullVector[NGPU];
-  blk *delta[NGPU];
-  SilentOTRecver *other = nullptr;
-  std::vector<cudaEvent_t> expandEvents[NGPU];
+  Mat *fullVector;
+  blk *delta;
+  std::vector<cudaEvent_t> expandEvents;
 
-  SilentOTSender(SilentOTConfig config);
+  SilentOTSender(RCOTConfig config);
   virtual ~SilentOTSender();
   virtual void base_ot();
   virtual void pprf_expand();
@@ -68,15 +68,15 @@ public:
 
 class SilentOTRecver : public SilentOT {
 public:
-  Mat *puncVector[NGPU];
+  Mat *puncVector;
   Mat choiceVector;
   uint64_t *puncPos;
   SilentOTSender *other = nullptr;
-  std::vector<Mat> mc[NGPU];
+  std::vector<Mat> mc;
   std::atomic<bool> expandReady = false;
-  uint64_t *activeParent[2];
+  uint64_t *activeParent;
 
-  SilentOTRecver(SilentOTConfig config);
+  SilentOTRecver(RCOTConfig config);
   virtual ~SilentOTRecver();
   virtual void base_ot();
   virtual void get_punctured_key();

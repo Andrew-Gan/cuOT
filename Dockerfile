@@ -13,8 +13,8 @@ RUN make -j -s
 WORKDIR /home/gpuot
 COPY silent silent
 WORKDIR /home/gpuot/silent
-RUN make -j -s
 RUN chmod +x silent.sh
+RUN make -j -s
 
 # CMD ["tail", "-f", "/dev/null"]
 CMD ["./silent.sh"]

@@ -15,6 +15,76 @@ uint64_t* gen_choices(int depth) {
   return choices;
 }
 
+void init_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver, RCOTConfig config) {
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    config.id = gpu;
+    cudaSetDevice(gpu);
+    sender[gpu] = new SilentOTSender(config);
+    cudaSetDevice(NGPU-gpu-1);
+    recver[gpu] = new SilentOTRecver(config);
+  }
+}
+
+void free_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver) {
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    cudaSetDevice(gpu);
+    delete sender[gpu];
+    cudaSetDevice(NGPU-gpu-1);
+    delete recver[gpu];
+  }
+}
+
+void base_ot_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver) {
+  std::future<void> senderWorker;
+  std::future<void> recverWorker;
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    senderWorker = std::async([sender, gpu](){
+      cudaSetDevice(gpu);
+      if(gpu==0) Log::start(Sender, BaseOT);
+      sender[gpu]->base_ot();
+      if(gpu==0) Log::end(Sender, BaseOT);
+    });
+    recverWorker = std::async([recver, gpu](){
+      cudaSetDevice(NGPU-gpu-1);
+      if(gpu==0) Log::start(Recver, BaseOT);
+      recver[gpu]->base_ot();
+      if(gpu==0) Log::end(Recver, BaseOT);
+    });
+    senderWorker.get();
+    recverWorker.get();
+  }
+}
+
+void seed_exp_multi_gpu(SilentOT **party) {
+  std::future<void> worker[NGPU];
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    worker[gpu] = std::async([party, gpu](){
+      party[gpu]->mRole == Sender ? cudaSetDevice(gpu) : cudaSetDevice(NGPU-gpu-1);
+      if(gpu==0) Log::start(party[gpu]->mRole, SeedExp);
+      party[gpu]->pprf_expand();
+      if(gpu==0) Log::end(party[gpu]->mRole, SeedExp);
+    });
+  }
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    worker[gpu].get();
+  }
+}
+
+void lpn_compress_multi_gpu(SilentOT **party) {
+  std::future<void> worker[NGPU];
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    worker[gpu] = std::async([party, gpu](){
+      party[gpu]->mRole == Sender ? cudaSetDevice(gpu) : cudaSetDevice(NGPU-gpu-1);
+      if(gpu==0) Log::start(party[gpu]->mRole, LPN);
+      party[gpu]->lpn_compress();
+      if(gpu==0) Log::end(party[gpu]->mRole, LPN);
+    });
+  }
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    worker[gpu].get();
+  }
+}
+
 int main(int argc, char** argv) {
   int devCount = check_cuda();
   assert(devCount >= NGPU);
@@ -22,7 +92,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Usage: ./ot protocol logOT numTrees bandwidth(mbps)\n");
     return EXIT_FAILURE;
   }
-  
   int protocol = atoi(argv[1]);
   int logOT = atoi(argv[2]);
   int numTrees = atoi(argv[3]);
@@ -30,7 +99,7 @@ int main(int argc, char** argv) {
 
   std::cout << "logOT: " << logOT << ", trees: " << numTrees << std::endl;
   uint64_t depth = logOT - log2((float) numTrees);
-  SilentOTConfig config = {
+  RCOTConfig config = {
     .logOT = logOT,
     .nTree = (uint64_t)numTrees,
     .baseOT = SimplestOT_t,
@@ -41,91 +110,57 @@ int main(int argc, char** argv) {
     .ngpuAvail = devCount,
   };
 
-  SilentOTSender *sender;
-  SilentOTRecver *recver;
-
   std::ostringstream senderFile, recverFile;
   senderFile << "../results/gpu-silent-send-" << logOT << "-" << numTrees << ".txt";
   recverFile << "../results/gpu-silent-recv-" << logOT << "-" << numTrees << ".txt";
-  
-  // prevent simultaneous operation from congesting PCIe
-  std::atomic<int> step = 0;
 
   for (uint64_t i = 0; i < 2; i++) {
-    config.id = i;
     if(i == 0) std::cout << "initialisation..." << std::endl;
     if(i == 1) std::cout << "benchmarking..." << std::endl;
-    step = 0;
 
-    std::future<void> senderWorker = std::async(
-      [&sender, &step, &config, &bandwidth, &senderFile, i]() {
-        if(i == 1) Log::open(Sender, senderFile.str().c_str(), bandwidth, true);
-        if(i == 1) Log::start(Sender, CudaInit);
-        sender = new SilentOTSender(config);
-        if(i == 1) std::cout << "sender init" << std::endl;
-        if(i == 1) Log::mem(Sender, CudaInit);
-        if(i == 1) Log::end(Sender, CudaInit);
-        if(i == 1) Log::start(Sender, BaseOT);
-        sender->base_ot();
-        if(i == 1) Log::end(Sender, BaseOT);
-        if(i == 1) std::cout << "sender baseot" << std::endl;
-        if(i == 1) Log::start(Sender, SeedExp);
-        sender->pprf_expand();
-        if(i == 1) Log::end(Sender, SeedExp);
-        if(i == 1) std::cout << "sender seedexp" << std::endl;
-        if(i == 1) Log::start(Sender, LPN);
-        sender->lpn_compress();
-        if(i == 1) Log::end(Sender, LPN);
-        if(i == 1) std::cout << "sender lpn" << std::endl;
-        if(i == 1) Log::close(Sender);
-        step = 1;
-      }
-    );
-
+    SilentOTSender *sender[NGPU];
+    SilentOTRecver *recver[NGPU];
+    std::future<void> senderWorker[NGPU];
+    std::future<void> recverWorker[NGPU];
     config.choices = gen_choices(depth);
 
-    std::future<void> recverWorker = std::async(
-      [&recver, &step, &config, &bandwidth, &recverFile, i]() {
-        if(i == 1) Log::open(Recver, recverFile.str().c_str(), bandwidth, true);
-        if(i == 1) Log::start(Recver, CudaInit);
-        recver = new SilentOTRecver(config);
-        if(i == 1) std::cout << "recver init" << std::endl;
-        if(i == 1) Log::mem(Recver, CudaInit);
-        if(i == 1) Log::end(Recver, CudaInit);
-        if(i == 1) Log::start(Recver, BaseOT);
-        recver->base_ot();
-        if(i == 1) Log::end(Recver, BaseOT);
-        if(i == 1) std::cout << "recver baseot" << std::endl;
-        // while(step < 1);
-        // while(!recver->expandReady);
-        // recver->get_punctured_key();
-        // if(i == 1) Log::start(Recver, SeedExp);
-        // recver->pprf_expand();
-        // if(i == 1) Log::end(Recver, SeedExp);
-        // if(i == 1) std::cout << "recver seedexp" << std::endl;
-        // if(i == 1) Log::start(Recver, LPN);
-        // recver->lpn_compress();
-        // if(i == 1) Log::end(Recver, LPN);
-        // if(i == 1) std::cout << "recver lpn" << std::endl;
-        // if(i == 1) Log::close(Recver);
-      }
-    );
+    if (i == 1) {
+      Log::open(Sender, senderFile.str(), bandwidth, true);
+      Log::open(Recver, recverFile.str(), bandwidth, true);
+    }
 
-    senderWorker.get();
-    recverWorker.get();
-    if(i == 1) std::cout << "both done" << std::endl;
+    init_multi_gpu(sender, recver, config);
+    std::cout << "pair init" << std::endl;
+    base_ot_multi_gpu(sender, recver);
+    std::cout << "pair baseOT" << std::endl;
 
-    // cudaSetDevice(0);
-    // Mat recv(recver->puncVector[0]);
-    // Mat choice(recver->choiceVector);
-    // assert(check_cot(sender->fullVector[0], recv, choice, sender->delta[0]));
+    seed_exp_multi_gpu((SilentOT**)sender);
+    std::cout << "sender exp" << std::endl;
+    lpn_compress_multi_gpu((SilentOT**)sender);
+    std::cout << "sender lpn" << std::endl;
+
+    seed_exp_multi_gpu((SilentOT**)recver);
+    std::cout << "recver exp" << std::endl;
+    lpn_compress_multi_gpu((SilentOT**)recver);
+    std::cout << "recver lpn" << std::endl;
+
+    free_multi_gpu(sender, recver);
+    std::cout << "pair free" << std::endl;
+
+    if (i == 1) {
+      Log::close(Sender);
+      Log::close(Recver);
+    }
 
     delete[] config.choices;
-    delete sender;
-    delete recver;
+    // cudaSetDevice(0);
+    // Mat recv(recver[gpu]->puncVector[0]);
+    // Mat choice(recver[gpu]->choiceVector);
+    // assert(check_cot(sender[gpu]->fullVector[0], recv, choice, sender[gpu]->delta[0]));
   }
 
-  cudaDeviceReset();
+  std::cout << "all done" << std::endl;
+  cudaDeviceReset(); // needed for memleak checker
 
   return EXIT_SUCCESS;
 }

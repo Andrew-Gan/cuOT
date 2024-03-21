@@ -1,1294 +1,148 @@
+gpuot-test
 DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  62.29MB
+Sending build context to Docker daemon  62.47MB
 Step 1/13 : FROM nvidia/cuda:12.3.2-devel-ubuntu22.04
  ---> da3144977a75
-Step 2/13 : RUN apt-get update && apt-get -y install build-essential python3 cmake git libssl-dev
+Step 2/13 : RUN apt-get update && apt-get -y install build-essential libsodium-dev
  ---> Using cache
- ---> df35dead955c
+ ---> 317a916df78c
 Step 3/13 : WORKDIR /home/gpuot
  ---> Using cache
- ---> 84a517c3501a
+ ---> 7446ffb7d449
 Step 4/13 : RUN mkdir result
  ---> Using cache
- ---> 3be8b5efbb9d
+ ---> 829cfe452c69
 Step 5/13 : COPY gpu gpu
- ---> 0a407f6cd417
+ ---> Using cache
+ ---> 3ef14099c209
 Step 6/13 : WORKDIR /home/gpuot/gpu
- ---> Running in 02588bf154e6
- ---> Removed intermediate container 02588bf154e6
- ---> a3dd24933fd2
+ ---> Using cache
+ ---> 1f306653cadb
 Step 7/13 : RUN make -j -s
- ---> Running in 9ffff81d691b
- ---> Removed intermediate container 9ffff81d691b
- ---> 5f854e9f583b
+ ---> Using cache
+ ---> 119ea6c56d3d
 Step 8/13 : WORKDIR /home/gpuot
- ---> Running in 0014cc9288d2
- ---> Removed intermediate container 0014cc9288d2
- ---> 68c163a83d3b
-Step 9/13 : COPY ferret ferret
- ---> 052b69d4a531
-Step 10/13 : WORKDIR /home/gpuot/ferret
- ---> Running in 47aff61dc4c6
- ---> Removed intermediate container 47aff61dc4c6
- ---> e1d208a62eb8
-Step 11/13 : RUN python3 build.py --tool --ot
- ---> Running in 6f0d117e40ef
-[91mCloning into 'emp-tool'...
-[0m[91mCMake Warning:
-  No source or binary directory provided.  Both will be assumed to be the
-  same as the current working directory, but note that this warning will
-  become a fatal error in future CMake releases.
-
-
-[0m-- The C compiler identification is GNU 11.4.0
--- The CXX compiler identification is GNU 11.4.0
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Check for working C compiler: /usr/bin/cc - skipped
--- Detecting C compile features
--- Detecting C compile features - done
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Check for working CXX compiler: /usr/bin/c++ - skipped
--- Detecting CXX compile features
--- Detecting CXX compile features - done
-[91m[34m-- Platform: x86_64[m
-[0m-- [34mBuild type: Release[m
--- CXX Flags:  -g -pthread -Wall -funroll-loops -Wno-ignored-attributes -Wno-unused-result -march=native -maes -mrdseed -std=c++11 -O3
--- Performing Test RDSEED_RUN_RESULT
--- Performing Test RDSEED_RUN_RESULT - Success
-[91m[32m-- Source of Randomness: rdseed[m
-[0m-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
--- Configuring done
--- Generating done
-[91mCMake Warning:
-  Manually-specified variables were not used by the project:
-
-    CMAKE_CUDA_FLAGS
-
-
-[0m-- Build files have been written to: /home/gpuot/ferret/emp-tool
-[  2%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_add.cpp.o
-[  4%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/emp-tool.cpp.o
-[  6%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_cos.cpp.o
-[  8%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_div.cpp.o
-[ 10%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_eq.cpp.o
-[ 12%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_le.cpp.o
-[ 14%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_leq.cpp.o
-[ 16%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_mul.cpp.o
-[ 18%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_sin.cpp.o
-[ 20%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_sq.cpp.o
-[ 22%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_sqrt.cpp.o
-[ 24%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_sub.cpp.o
-[ 26%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_exp2.cpp.o
-[ 28%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_exp.cpp.o
-[ 30%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_ln.cpp.o
-[ 32%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_log2.cpp.o
-[ 34%] Linking CXX shared library libemp-tool.so
-[ 34%] Built target emp-tool
-[ 36%] Building CXX object test/CMakeFiles/test_hash.dir/hash.cpp.o
-[ 38%] Building CXX object test/CMakeFiles/test_prp.dir/prp.cpp.o
-[ 40%] Building CXX object test/CMakeFiles/test_prg.dir/prg.cpp.o
-[ 42%] Building CXX object test/CMakeFiles/test_netio.dir/netio.cpp.o
-[ 44%] Linking CXX executable ../bin/test_hash
-[ 46%] Linking CXX executable ../bin/test_prp
-[ 46%] Built target test_prp
-[ 46%] Built target test_hash
-[ 48%] Building CXX object test/CMakeFiles/test_netio2.dir/netio2.cpp.o
-[ 51%] Building CXX object test/CMakeFiles/test_bit.dir/bit.cpp.o
-[91mIn file included from /usr/include/string.h:535,
-                 from /usr/include/c++/11/cstring:42,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/utils/block.h:19,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:3,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/io/file_io_channel.h:5,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/emp-tool.h:2,
-                 from /home/gpuot/ferret/emp-tool/test/prg.cpp:1:
-In function ‘void* memcpy(void*, const void*, size_t)’,
-    inlined from ‘void emp::PRG::random_data_unaligned(void*, int)’ at /home/gpuot/ferret/emp-tool/emp-tool/utils/prg.h:85:10,
-    inlined from ‘int main()’ at /home/gpuot/ferret/emp-tool/test/prg.cpp:36:27:
-/usr/include/x86_64-linux-gnu/bits/string_fortified.h:29:33: warning: ‘void* __builtin_memcpy(void*, const void*, long unsigned int)’ forming offset [32, 395] is out of the bounds [0, 32] of object ‘tmp’ with type ‘emp::block [2]’ {aka ‘__m128i [2]’} [-Warray-bounds]
-   29 |   return __builtin___memcpy_chk (__dest, __src, __len,
-      |          ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
-   30 |                                  __glibc_objsize0 (__dest));
-      |                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~
-In file included from /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:4,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/io/file_io_channel.h:5,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/emp-tool.h:2,
-                 from /home/gpuot/ferret/emp-tool/test/prg.cpp:1:
-/home/gpuot/ferret/emp-tool/emp-tool/utils/prg.h: In function ‘int main()’:
-/home/gpuot/ferret/emp-tool/emp-tool/utils/prg.h:83:31: note: ‘tmp’ declared here
-   83 |                         block tmp[2];
-      |                               ^~~
-[0m[91mIn file included from /usr/include/string.h:535,
-                 from /usr/include/c++/11/cstring:42,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/utils/block.h:19,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:3,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/io/file_io_channel.h:5,
-                 from /home/gpuot/ferret/emp-tool/emp-tool/emp-tool.h:2,
-                 from /home/gpuot/ferret/emp-tool/test/netio.cpp:1:
-In function ‘void* memcpy(void*, const void*, size_t)’,
-    inlined from ‘void emp::RecverSubChannel::recv_data(void*, int)’ at /home/gpuot/ferret/emp-tool/emp-tool/io/highspeed_net_io_channel.h:94:10,
-    inlined from ‘void emp::HighSpeedNetIO::recv_data_internal(void*, int)’ at /home/gpuot/ferret/emp-tool/emp-tool/io/highspeed_net_io_channel.h:247:22,
-    inlined from ‘void emp::IOChannel<T>::recv_data(void*, size_t) [with T = emp::HighSpeedNetIO]’ at /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:19:31,
-    inlined from ‘void emp::IOChannel<T>::recv_bool_aligned(bool*, size_t) [with T = emp::HighSpeedNetIO]’ at /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:110:13,
-    inlined from ‘void emp::IOChannel<T>::recv_bool(bool*, size_t) [with T = emp::HighSpeedNetIO]’ at /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:75:21,
-    inlined from ‘void test(T*) [with T = emp::HighSpeedNetIO]’ at /home/gpuot/ferret/emp-tool/test/netio.cpp:39:16:
-/usr/include/x86_64-linux-gnu/bits/string_fortified.h:29:33: warning: ‘void* __builtin___memcpy_chk(void*, const void*, long unsigned int, long unsigned int)’ specified size between 18446744071562100737 and 18446744073709551615 exceeds maximum object size 9223372036854775807 [-Wstringop-overflow=]
-   29 |   return __builtin___memcpy_chk (__dest, __src, __len,
-      |          ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
-   30 |                                  __glibc_objsize0 (__dest));
-      |                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m[91mIn function ‘void* memcpy(void*, const void*, size_t)’,
-    inlined from ‘void emp::RecverSubChannel::recv_data(void*, int)’ at /home/gpuot/ferret/emp-tool/emp-tool/io/highspeed_net_io_channel.h:94:10,
-    inlined from ‘void emp::HighSpeedNetIO::recv_data_internal(void*, int)’ at /home/gpuot/ferret/emp-tool/emp-tool/io/highspeed_net_io_channel.h:247:22,
-    inlined from ‘void emp::IOChannel<T>::recv_data(void*, size_t) [with T = emp::HighSpeedNetIO]’ at /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:19:31,
-    inlined from ‘void emp::IOChannel<T>::recv_bool_aligned(bool*, size_t) [with T = emp::HighSpeedNetIO]’ at /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:110:13,
-    inlined from ‘void emp::IOChannel<T>::recv_bool(bool*, size_t) [with T = emp::HighSpeedNetIO]’ at /home/gpuot/ferret/emp-tool/emp-tool/io/io_channel.h:75:21,
-    inlined from ‘void test(T*) [with T = emp::HighSpeedNetIO]’ at /home/gpuot/ferret/emp-tool/test/netio.cpp:42:16:
-/usr/include/x86_64-linux-gnu/bits/string_fortified.h:29:33: warning: ‘void* __builtin___memcpy_chk(void*, const void*, long unsigned int, long unsigned int)’ specified size between 18446744071562100737 and 18446744073709551615 exceeds maximum object size 9223372036854775807 [-Wstringop-overflow=]
-   29 |   return __builtin___memcpy_chk (__dest, __src, __len,
-      |          ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
-   30 |                                  __glibc_objsize0 (__dest));
-      |                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~
-[0m[ 53%] Linking CXX executable ../bin/test_prg
-[ 53%] Built target test_prg
-[ 55%] Linking CXX executable ../bin/test_netio
-[ 57%] Building CXX object test/CMakeFiles/test_ecc.dir/ecc.cpp.o
-[ 57%] Built target test_netio
-[ 59%] Building CXX object test/CMakeFiles/test_int.dir/int.cpp.o
-[ 61%] Linking CXX executable ../bin/test_netio2
-[ 61%] Built target test_netio2
-[ 63%] Building CXX object test/CMakeFiles/test_float.dir/float.cpp.o
-[ 65%] Linking CXX executable ../bin/test_ecc
-[ 67%] Linking CXX executable ../bin/test_bit
-[ 67%] Built target test_ecc
-[ 69%] Building CXX object test/CMakeFiles/test_garble.dir/garble.cpp.o
-[ 69%] Built target test_bit
-[ 71%] Building CXX object test/CMakeFiles/test_gen_circuit.dir/gen_circuit.cpp.o
-[ 73%] Linking CXX executable ../bin/test_int
-[ 75%] Linking CXX executable ../bin/test_garble
-[ 75%] Built target test_int
-[ 75%] Built target test_garble
-[ 77%] Building CXX object test/CMakeFiles/test_mitccrh.dir/mitccrh.cpp.o
-[ 79%] Building CXX object test/CMakeFiles/test_f2k.dir/f2k.cpp.o
-[ 81%] Linking CXX executable ../bin/test_float
-[ 81%] Built target test_float
-[ 83%] Building CXX object test/CMakeFiles/test_halfgate.dir/halfgate.cpp.o
-[ 85%] Linking CXX executable ../bin/test_gen_circuit
-[ 85%] Built target test_gen_circuit
-[ 87%] Building CXX object test/CMakeFiles/test_to_bool.dir/to_bool.cpp.o
-[ 89%] Linking CXX executable ../bin/test_f2k
-[ 89%] Built target test_f2k
-[ 91%] Building CXX object test/CMakeFiles/test_aes_opt.dir/aes_opt.cpp.o
-[ 93%] Linking CXX executable ../bin/test_mitccrh
-[ 93%] Built target test_mitccrh
-[ 95%] Linking CXX executable ../bin/test_halfgate
-[ 95%] Built target test_halfgate
-[ 97%] Linking CXX executable ../bin/test_to_bool
-[ 97%] Built target test_to_bool
-[100%] Linking CXX executable ../bin/test_aes_opt
-[100%] Built target test_aes_opt
-Consolidate compiler generated dependencies of target emp-tool
-[ 34%] Built target emp-tool
-Consolidate compiler generated dependencies of target test_prg
-[ 38%] Built target test_prg
-Consolidate compiler generated dependencies of target test_hash
-[ 42%] Built target test_hash
-Consolidate compiler generated dependencies of target test_prp
-[ 46%] Built target test_prp
-Consolidate compiler generated dependencies of target test_netio
-[ 51%] Built target test_netio
-Consolidate compiler generated dependencies of target test_netio2
-[ 55%] Built target test_netio2
-Consolidate compiler generated dependencies of target test_bit
-[ 59%] Built target test_bit
-Consolidate compiler generated dependencies of target test_ecc
-[ 63%] Built target test_ecc
-Consolidate compiler generated dependencies of target test_int
-[ 67%] Built target test_int
-Consolidate compiler generated dependencies of target test_float
-[ 71%] Built target test_float
-Consolidate compiler generated dependencies of target test_garble
-[ 75%] Built target test_garble
-Consolidate compiler generated dependencies of target test_gen_circuit
-[ 79%] Built target test_gen_circuit
-Consolidate compiler generated dependencies of target test_mitccrh
-[ 83%] Built target test_mitccrh
-Consolidate compiler generated dependencies of target test_f2k
-[ 87%] Built target test_f2k
-Consolidate compiler generated dependencies of target test_halfgate
-[ 91%] Built target test_halfgate
-Consolidate compiler generated dependencies of target test_to_bool
-[ 95%] Built target test_to_bool
-Consolidate compiler generated dependencies of target test_aes_opt
-[100%] Built target test_aes_opt
-Install the project...
--- Install configuration: "Release"
--- Installing: /home/gpuot/ferret/lib/include//emp-tool
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/group.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/constants.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/tccrh.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/sse2neon.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/hash.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/aes.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/prg.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/aes_opt.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/ThreadPool.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/crh.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/group_openssl.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/block.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/utils.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/utils.hpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/mitccrh.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/ccrh.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/prp.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/utils/f2k.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/io
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/io/io_channel.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/io/highspeed_net_io_channel.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/io/file_io_channel.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/io/net_io_channel.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/io/mem_io_channel.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/emp-tool.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/execution
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/execution/plain_prot.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/execution/circuit_execution.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/execution/plain_circ.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/execution/protocol_execution.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_sub.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_eq.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/swappable.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/integer.hpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_add.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_exp2.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/number.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_sin.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/sha3_256.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_cos.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/circuit_file.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_log2.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_exp.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_div.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_fashion
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_fashion/aes_128.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_fashion/Keccak_f.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_fashion/sha512.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_fashion/aes_256.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_fashion/sha256.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_fashion/aes_192.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_format
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_format/sha-256-big.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_format/sha-1.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_format/AES-non-expanded.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_format/sha-256.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/files/bristol_format/adder_32bit.txt
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_le.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_mul.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/integer.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32.hpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/bit.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_sq.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_ln.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/comparable.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_sqrt.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/bit.hpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/float32_leq.cpp
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/circuits/aes_128_ctr.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/emp-tool.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/gc
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/gc/privacy_free_gen.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/gc/halfgate_eva.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/gc/privacy_free_eva.h
--- Installing: /home/gpuot/ferret/lib/include//emp-tool/gc/halfgate_gen.h
--- Up-to-date: /home/gpuot/ferret/lib/cmake/
--- Installing: /home/gpuot/ferret/lib/cmake//enable_crypto_circuit.cmake
--- Installing: /home/gpuot/ferret/lib/cmake//enable_rdseed.cmake
--- Installing: /home/gpuot/ferret/lib/cmake//enable_threading.cmake
--- Installing: /home/gpuot/ferret/lib/cmake//emp-base.cmake
--- Installing: /home/gpuot/ferret/lib/cmake//emp-tool-config.cmake
--- Installing: /home/gpuot/ferret/lib/lib/libemp-tool.so
-[91mCMake Warning:
-  No source or binary directory provided.  Both will be assumed to be the
-  same as the current working directory, but note that this warning will
-  become a fatal error in future CMake releases.
-
-
-[0m-- The C compiler identification is GNU 11.4.0
--- The CXX compiler identification is GNU 11.4.0
--- The CUDA compiler identification is NVIDIA 12.3.107
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Check for working C compiler: /usr/bin/cc - skipped
--- Detecting C compile features
--- Detecting C compile features - done
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Check for working CXX compiler: /usr/bin/c++ - skipped
--- Detecting CXX compile features
--- Detecting CXX compile features - done
--- Detecting CUDA compiler ABI info
--- Detecting CUDA compiler ABI info - done
--- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
--- Detecting CUDA compile features
--- Detecting CUDA compile features - done
-[91m[34m-- Platform: x86_64[m
-[0m-- [34mBuild type: Release[m
--- CXX Flags:  -g -pthread -Wall -funroll-loops -Wno-ignored-attributes -Wno-unused-result -march=native -maes -mrdseed -std=c++11 -O3
--- Performing Test RDSEED_RUN_RESULT
--- Performing Test RDSEED_RUN_RESULT - Success
-[91m[32m-- Source of Randomness: rdseed[m
-[0m-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
--- Found emp-tool: /home/gpuot/ferret/lib/include  
--- Configuring done
-[91mCMake Warning (dev) in test/CMakeLists.txt:
-  Policy CMP0104 is not set: CMAKE_CUDA_ARCHITECTURES now detected for NVCC,
-  empty CUDA_ARCHITECTURES not allowed.  Run "cmake --help-policy CMP0104"
-  for policy details.  Use the cmake_policy command to set the policy and
-  suppress this warning.
-
-  CUDA_ARCHITECTURES is empty for target "test_ot".
-This warning is for project developers.  Use -Wno-dev to suppress it.
-
-[0m[91mCMake Warning (dev) in test/CMakeLists.txt:
-  Policy CMP0104 is not set: CMAKE_CUDA_ARCHITECTURES now detected for NVCC,
-  empty CUDA_ARCHITECTURES not allowed.  Run "cmake --help-policy CMP0104"
-  for policy details.  Use the cmake_policy command to set the policy and
-  suppress this warning.
-
-  CUDA_ARCHITECTURES is empty for target "test_ferret".
-This warning is for project developers.  Use -Wno-dev to suppress it.
-
-[0m[91mCMake Warning (dev) in test/CMakeLists.txt:
-  Policy CMP0104 is not set: CMAKE_CUDA_ARCHITECTURES now detected for NVCC,
-  empty CUDA_ARCHITECTURES not allowed.  Run "cmake --help-policy CMP0104"
-  for policy details.  Use the cmake_policy command to set the policy and
-  suppress this warning.
-
-  CUDA_ARCHITECTURES is empty for target "test_bench_lpn".
-This warning is for project developers.  Use -Wno-dev to suppress it.
-
-[0m-- Generating done
--- Build files have been written to: /home/gpuot/ferret/emp-ot
-[ 11%] Building CXX object test/CMakeFiles/test_ferret.dir/ferret.cpp.o
-[ 22%] Building CUDA object test/CMakeFiles/test_ferret.dir/__/emp-ot/ferret/cuda_layer.cu.o
-[ 33%] Building CXX object test/CMakeFiles/test_bench_lpn.dir/bench_lpn.cpp.o
-[ 44%] Building CXX object test/CMakeFiles/test_ot.dir/ot.cpp.o
-[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(75): error: array of reference is not allowed
-  void cuda_spcot_sender_compute(Span &tree[1], int t, int depth, Mat &lSum, Mat &rSum) {
-                                       ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(87): error: expression must have class type but it has type "<error-type> *"
-    buffer[gpu].resize({tree.size()});
-                        ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(88): error: expression must have class type but it has type "<error-type> *"
-    separated[gpu].resize({tree.size()});
-                           ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(89): error: expression must have class type but it has type "<error-type> *"
-    input[gpu] = new Span(buffer[gpu], 0, tree.size());
-                                          ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(95): error: no instance of overloaded function "Mat::data" matches the argument list
-            argument types are: (int)
-            object type is: Mat
-     cudaMemcpyAsync(lSum.data({d, 0}), separated[gpu].data(0), treePerGPU*sizeof(blk), cudaMemcpyDeviceToDevice);
-                                                       ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(96): error: no instance of overloaded function "Mat::data" matches the argument list
-            argument types are: (int)
-            object type is: Mat
-     cudaMemcpyAsync(rSum.data({d, 0}), separated[gpu].data(treePerGPU), treePerGPU*sizeof(blk), cudaMemcpyDeviceToDevice);
-                                                       ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(125): error: class "Span" has no member "size_bytes"
-    buffer[gpu].resize({tree.size_bytes()});
-                             ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(126): error: class "Span" has no member "size_bytes"
-    separated[gpu].resize({tree.size_bytes()});
-                                ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(127): error: no instance of overloaded function "cudaMalloc" matches the argument list
-            argument types are: (uint64_t **, unsigned long, int)
-    cudaMalloc(&activeParent[gpu], treePerGPU*sizeof(uint64_t), 0);
-    ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(129): error: no instance of overloaded function "cudaMalloc" matches the argument list
-            argument types are: (bool **, unsigned long, int)
-    cudaMalloc(&choice_d[gpu], depth*treePerGPU*sizeof(bool), 0);
-    ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(132): error: no instance of overloaded function "AesExpand::expand" matches the argument list
-            argument types are: (Span, Mat [1], unsigned long)
-            object type is: AesExpand
-     aesExpand.expand(tree, separated, inWidth*treePerGPU);
-               ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(137): error: invalid narrowing conversion from "int" to "unsigned long"
-      fill_punc_tree<<<grid, block>>>(cSum.data({d, treePerGPU}), 2*inWidth, activeParent[gpu], choice_d[gpu]+(d*treePerGPU),
-                                                    ^
-
-[0m[91m12 errors detected in the compilation of "/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu".
-[0m[91mmake[2]: *** [test/CMakeFiles/test_ferret.dir/build.make:90: test/CMakeFiles/test_ferret.dir/__/emp-ot/ferret/cuda_layer.cu.o] Error 2
-make[2]: *** Waiting for unfinished jobs....
-[0m[ 55%] Building CUDA object test/CMakeFiles/test_ot.dir/__/emp-ot/ferret/cuda_layer.cu.o
-[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:5,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpn_f2.h: In member function ‘void LpnF2<IO, d>::compute(Mat&, Mat&, uint64_t)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpn_f2.h:57:34: error: ‘class Mat’ has no member named ‘span’
-   57 |                 Span nnSpan = nn.span();
-      |                                  ^~~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend(Span&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:70:31: error: ‘class Mat’ has no member named ‘span’
-   70 |         Span kSpan = ot_input.span(mpcot->consist_check_cot_num);
-      |                               ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend(Mat&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:81:33: error: ‘class Mat’ has no member named ‘span’
-   81 |         Span otSpan = ot_output.span();
-      |                                 ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend_f2k()’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:109:28: error: ‘class Mat’ has no member named ‘span’
-  109 |         Span tmp = ot_data.span();
-      |                            ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::rcot(Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:183:54: error: no matching function for call to ‘Mat::data(int64_t&)’
-  183 |                 cuda_memcpy(data.data(), ot_data.data(ot_used), num*sizeof(block), D2D);
-      |                                          ~~~~~~~~~~~~^~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:190:54: error: no matching function for call to ‘Mat::data(int64_t&)’
-  190 |                 cuda_memcpy(data.data(), ot_data.data(ot_used), gened*sizeof(block), D2D);
-      |                                          ~~~~~~~~~~~~^~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:205:38: error: ‘class Mat’ has no member named ‘span’
-  205 |                 Span dataSpan = data.span(pt, pt + ot_limit + M);
-      |                                      ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:212:38: error: no matching function for call to ‘Mat::data(uint64_t&)’
-  212 |                 cuda_memcpy(data.data(pt), ot_data.data(), ot_limit*sizeof(blk), D2D);
-      |                             ~~~~~~~~~^~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘uint64_t’ {aka ‘long unsigned int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:217:38: error: no matching function for call to ‘Mat::data(uint64_t&)’
-  217 |                 cuda_memcpy(data.data(pt), ot_data.data(), last_round_ot*sizeof(blk), D2D);
-      |                             ~~~~~~~~~^~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘uint64_t’ {aka ‘long unsigned int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘int64_t emp::FerretCOT<T>::rcot_inplace(Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:298:63: error: no matching function for call to ‘Mat::data(int64_t)’
-  298 |                 cuda_memcpy(ot_pre_data.data(), ot_buffer.data(ot_limit*(i+1)), M*sizeof(block), D2D);
-      |                                                 ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:5,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpn_f2.h: In member function ‘void LpnF2<IO, d>::compute(Mat&, Mat&, uint64_t)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpn_f2.h:57:34: error: ‘class Mat’ has no member named ‘span’
-   57 |                 Span nnSpan = nn.span();
-      |                                  ^~~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend(Span&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:70:31: error: ‘class Mat’ has no member named ‘span’
-   70 |         Span kSpan = ot_input.span(mpcot->consist_check_cot_num);
-      |                               ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend(Mat&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:81:33: error: ‘class Mat’ has no member named ‘span’
-   81 |         Span otSpan = ot_output.span();
-      |                                 ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend_f2k()’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:109:28: error: ‘class Mat’ has no member named ‘span’
-  109 |         Span tmp = ot_data.span();
-      |                            ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::rcot(Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:183:54: error: no matching function for call to ‘Mat::data(int64_t&)’
-  183 |                 cuda_memcpy(data.data(), ot_data.data(ot_used), num*sizeof(block), D2D);
-      |                                          ~~~~~~~~~~~~^~~~~~~~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:190:54: error: no matching function for call to ‘Mat::data(int64_t&)’
-  190 |                 cuda_memcpy(data.data(), ot_data.data(ot_used), gened*sizeof(block), D2D);
-      |                                          ~~~~~~~~~~~~^~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:205:38: error: ‘class Mat’ has no member named ‘span’
-  205 |                 Span dataSpan = data.span(pt, pt + ot_limit + M);
-      |                                      ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:212:38: error: no matching function for call to ‘Mat::data(uint64_t&)’
-  212 |                 cuda_memcpy(data.data(pt), ot_data.data(), ot_limit*sizeof(blk), D2D);
-      |                             ~~~~~~~~~^~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘uint64_t’ {aka ‘long unsigned int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:217:38: error: no matching function for call to ‘Mat::data(uint64_t&)’
-  217 |                 cuda_memcpy(data.data(pt), ot_data.data(), last_round_ot*sizeof(blk), D2D);
-      |                             ~~~~~~~~~^~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘uint64_t’ {aka ‘long unsigned int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘int64_t emp::FerretCOT<T>::rcot_inplace(Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:298:63: error: no matching function for call to ‘Mat::data(int64_t)’
-  298 |                 cuda_memcpy(ot_pre_data.data(), ot_buffer.data(ot_limit*(i+1)), M*sizeof(block), D2D);
-      |                                                 ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/bench_lpn.cpp:3:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:5,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpn_f2.h: In member function ‘void LpnF2<IO, d>::compute(Mat&, Mat&, uint64_t)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpn_f2.h:57:34: error: ‘class Mat’ has no member named ‘span’
-   57 |                 Span nnSpan = nn.span();
-      |                                  ^~~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend(Span&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:70:31: error: ‘class Mat’ has no member named ‘span’
-   70 |         Span kSpan = ot_input.span(mpcot->consist_check_cot_num);
-      |                               ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend(Mat&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:81:33: error: ‘class Mat’ has no member named ‘span’
-   81 |         Span otSpan = ot_output.span();
-      |                                 ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend_f2k()’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:109:28: error: ‘class Mat’ has no member named ‘span’
-  109 |         Span tmp = ot_data.span();
-      |                            ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::rcot(Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:183:54: error: no matching function for call to ‘Mat::data(int64_t&)’
-  183 |                 cuda_memcpy(data.data(), ot_data.data(ot_used), num*sizeof(block), D2D);
-      |                                          ~~~~~~~~~~~~^~~~~~~~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:190:54: error: no matching function for call to ‘Mat::data(int64_t&)’
-  190 |                 cuda_memcpy(data.data(), ot_data.data(ot_used), gened*sizeof(block), D2D);
-      |                                          ~~~~~~~~~~~~^~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:205:38: error: ‘class Mat’ has no member named ‘span’
-  205 |                 Span dataSpan = data.span(pt, pt + ot_limit + M);
-      |                                      ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:212:38: error: no matching function for call to ‘Mat::data(uint64_t&)’
-  212 |                 cuda_memcpy(data.data(pt), ot_data.data(), ot_limit*sizeof(blk), D2D);
-      |                             ~~~~~~~~~^~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘uint64_t’ {aka ‘long unsigned int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:217:38: error: no matching function for call to ‘Mat::data(uint64_t&)’
-  217 |                 cuda_memcpy(data.data(pt), ot_data.data(), last_round_ot*sizeof(blk), D2D);
-      |                             ~~~~~~~~~^~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘uint64_t’ {aka ‘long unsigned int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘int64_t emp::FerretCOT<T>::rcot_inplace(Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:298:63: error: no matching function for call to ‘Mat::data(int64_t)’
-  298 |                 cuda_memcpy(ot_pre_data.data(), ot_buffer.data(ot_limit*(i+1)), M*sizeof(block), D2D);
-      |                                                 ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’:
-/home/gpuot/ferret/emp-ot/test/ferret.cpp:11:98:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:16:35: warning: narrowing conversion of ‘param.emp::PrimalLPNParameter::n_pre’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-   16 |         ot_pre_data.resize({param.n_pre});
-      |                             ~~~~~~^~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:16:35: warning: narrowing conversion of ‘param.emp::PrimalLPNParameter::n_pre’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/test/ferret.cpp:2:
-/home/gpuot/ferret/emp-ot/test/test.h: In instantiation of ‘double test_rcot(T*, emp::NetIO*, int, int64_t, bool) [with T = emp::FerretCOT<emp::NetIO>; int64_t = long int]’:
-/home/gpuot/ferret/emp-ot/test/ferret.cpp:18:72:   required from here
-/home/gpuot/ferret/emp-ot/test/test.h:143:30: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  143 |                 bVec.resize({length});
-      |                              ^~~~~~
-/home/gpuot/ferret/emp-ot/test/test.h:143:30: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-/home/gpuot/ferret/emp-ot/test/test.h:151:30: warning: narrowing conversion of ‘mem_size’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  151 |                 bVec.resize({mem_size});
-      |                              ^~~~~~~~
-/home/gpuot/ferret/emp-ot/test/test.h:151:30: warning: narrowing conversion of ‘mem_size’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’:
-/home/gpuot/ferret/emp-ot/test/ot.cpp:33:70:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:16:35: warning: narrowing conversion of ‘param.emp::PrimalLPNParameter::n_pre’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-   16 |         ot_pre_data.resize({param.n_pre});
-      |                             ~~~~~~^~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:16:35: warning: narrowing conversion of ‘param.emp::PrimalLPNParameter::n_pre’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::setup(std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:25:15:   required from ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/test/ferret.cpp:11:98:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:163:37: warning: narrowing conversion of ‘(((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::k_pre + ((int64_t)mpcot_ini.MpcotReg<emp::NetIO>::consist_check_cot_num))’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  163 |                 Mat tmp({param.k_pre+mpcot_ini.consist_check_cot_num});
-      |                          ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:163:37: warning: narrowing conversion of ‘(((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::k_pre + ((int64_t)mpcot_ini.MpcotReg<emp::NetIO>::consist_check_cot_num))’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::rcot(Mat&) [with T = emp::NetIO]’:
-/home/gpuot/ferret/emp-ot/test/test.h:147:11:   required from ‘double test_rcot(T*, emp::NetIO*, int, int64_t, bool) [with T = emp::FerretCOT<emp::NetIO>; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/ferret.cpp:18:72:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:177:39: warning: narrowing conversion of ‘((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::n’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  177 |                 ot_data.resize({param.n});
-      |                                 ~~~~~~^
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:177:39: warning: narrowing conversion of ‘((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::n’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::setup(std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:25:15:   required from ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:33:70:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:163:37: warning: narrowing conversion of ‘(((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::k_pre + ((int64_t)mpcot_ini.MpcotReg<emp::NetIO>::consist_check_cot_num))’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  163 |                 Mat tmp({param.k_pre+mpcot_ini.consist_check_cot_num});
-      |                          ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:163:37: warning: narrowing conversion of ‘(((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::k_pre + ((int64_t)mpcot_ini.MpcotReg<emp::NetIO>::consist_check_cot_num))’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::send_cot(emp::block*, int64_t) [with T = emp::NetIO; emp::block = __m128i; int64_t = long int]’:
-/home/gpuot/ferret/emp-ot/test/test.h:59:15:   required from ‘double test_cot(T*, emp::NetIO*, int, int64_t) [with T = emp::FerretCOT<emp::NetIO>; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:35:74:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:328:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  328 |         Mat data_d({length});
-      |                     ^~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:328:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::recv_cot(emp::block*, const bool*, int64_t) [with T = emp::NetIO; emp::block = __m128i; int64_t = long int]’:
-/home/gpuot/ferret/emp-ot/test/test.h:62:15:   required from ‘double test_cot(T*, emp::NetIO*, int, int64_t) [with T = emp::FerretCOT<emp::NetIO>; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:35:74:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:337:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  337 |         Mat data_d({length});
-      |                     ^~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:337:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::rcot(Mat&) [with T = emp::NetIO]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:330:2:   required from ‘void emp::FerretCOT<T>::send_cot(emp::block*, int64_t) [with T = emp::NetIO; emp::block = __m128i; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/test.h:59:15:   required from ‘double test_cot(T*, emp::NetIO*, int, int64_t) [with T = emp::FerretCOT<emp::NetIO>; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:35:74:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:177:39: warning: narrowing conversion of ‘((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::n’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  177 |                 ot_data.resize({param.n});
-      |                                 ~~~~~~^
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:177:39: warning: narrowing conversion of ‘((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::n’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h: In instantiation of ‘void MpcotReg<IO>::recver_init() [with IO = emp::NetIO]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:65:25:   required from ‘void emp::FerretCOT<T>::extend(Span&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&) [with T = emp::NetIO]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:82:8:   required from ‘void emp::FerretCOT<T>::extend(Mat&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&) [with T = emp::NetIO]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:166:9:   required from ‘void emp::FerretCOT<T>::setup(std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:25:15:   required from ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/test/ferret.cpp:11:98:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:57:47: warning: narrowing conversion of ‘((MpcotReg<emp::NetIO>*)this)->MpcotReg<emp::NetIO>::item_n’ from ‘int’ to ‘std::vector<unsigned int>::size_type’ {aka ‘long unsigned int’} [-Wnarrowing]
-   57 |                 item_pos_recver.resize({this->item_n});
-      |                                         ~~~~~~^~~~~~
-[0m[91mmake[2]: *** [test/CMakeFiles/test_bench_lpn.dir/build.make:76: test/CMakeFiles/test_bench_lpn.dir/bench_lpn.cpp.o] Error 1
-[0m[91mmake[1]: *** [CMakeFiles/Makefile2:154: test/CMakeFiles/test_bench_lpn.dir/all] Error 2
-make[1]: *** Waiting for unfinished jobs....
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h: In instantiation of ‘void MpcotReg<IO>::recver_init() [with IO = emp::NetIO]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:65:25:   required from ‘void emp::FerretCOT<T>::extend(Span&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&) [with T = emp::NetIO]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:82:8:   required from ‘void emp::FerretCOT<T>::extend(Mat&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&) [with T = emp::NetIO]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:166:9:   required from ‘void emp::FerretCOT<T>::setup(std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:25:15:   required from ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:33:70:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:57:47: warning: narrowing conversion of ‘((MpcotReg<emp::NetIO>*)this)->MpcotReg<emp::NetIO>::item_n’ from ‘int’ to ‘std::vector<unsigned int>::size_type’ {aka ‘long unsigned int’} [-Wnarrowing]
-   57 |                 item_pos_recver.resize({this->item_n});
-      |                                         ~~~~~~^~~~~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/ferret.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::send_cot(emp::block*, int64_t) [with T = emp::NetIO; emp::block = __m128i; int64_t = long int]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:327:6:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:328:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  328 |         Mat data_d({length});
-      |                     ^~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:328:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::recv_cot(emp::block*, const bool*, int64_t) [with T = emp::NetIO; emp::block = __m128i; int64_t = long int]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:336:6:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:337:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  337 |         Mat data_d({length});
-      |                     ^~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:337:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(75): error: array of reference is not allowed
-  void cuda_spcot_sender_compute(Span &tree[1], int t, int depth, Mat &lSum, Mat &rSum) {
-                                       ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(87): error: expression must have class type but it has type "<error-type> *"
-    buffer[gpu].resize({tree.size()});
-                        ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(88): error: expression must have class type but it has type "<error-type> *"
-    separated[gpu].resize({tree.size()});
-                           ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(89): error: expression must have class type but it has type "<error-type> *"
-    input[gpu] = new Span(buffer[gpu], 0, tree.size());
-                                          ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(95): error: no instance of overloaded function "Mat::data" matches the argument list
-            argument types are: (int)
-            object type is: Mat
-     cudaMemcpyAsync(lSum.data({d, 0}), separated[gpu].data(0), treePerGPU*sizeof(blk), cudaMemcpyDeviceToDevice);
-                                                       ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(96): error: no instance of overloaded function "Mat::data" matches the argument list
-            argument types are: (int)
-            object type is: Mat
-     cudaMemcpyAsync(rSum.data({d, 0}), separated[gpu].data(treePerGPU), treePerGPU*sizeof(blk), cudaMemcpyDeviceToDevice);
-                                                       ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(125): error: class "Span" has no member "size_bytes"
-    buffer[gpu].resize({tree.size_bytes()});
-                             ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(126): error: class "Span" has no member "size_bytes"
-    separated[gpu].resize({tree.size_bytes()});
-                                ^
-
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(127): error: no instance of overloaded function "cudaMalloc" matches the argument list
-            argument types are: (uint64_t **, unsigned long, int)
-    cudaMalloc(&activeParent[gpu], treePerGPU*sizeof(uint64_t), 0);
-    ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(129): error: no instance of overloaded function "cudaMalloc" matches the argument list
-            argument types are: (bool **, unsigned long, int)
-    cudaMalloc(&choice_d[gpu], depth*treePerGPU*sizeof(bool), 0);
-    ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(132): error: no instance of overloaded function "AesExpand::expand" matches the argument list
-            argument types are: (Span, Mat [1], unsigned long)
-            object type is: AesExpand
-     aesExpand.expand(tree, separated, inWidth*treePerGPU);
-               ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu(137): error: invalid narrowing conversion from "int" to "unsigned long"
-      fill_punc_tree<<<grid, block>>>(cSum.data({d, treePerGPU}), 2*inWidth, activeParent[gpu], choice_d[gpu]+(d*treePerGPU),
-                                                    ^
-
-[0m[91m12 errors detected in the compilation of "/home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.cu".
-[0m[91mmake[2]: *** [test/CMakeFiles/test_ot.dir/build.make:90: test/CMakeFiles/test_ot.dir/__/emp-ot/ferret/cuda_layer.cu.o] Error 2
-make[2]: *** Waiting for unfinished jobs....
-[0m[91mmake[2]: *** [test/CMakeFiles/test_ferret.dir/build.make:76: test/CMakeFiles/test_ferret.dir/ferret.cpp.o] Error 1
-[0m[91mmake[1]: *** [CMakeFiles/Makefile2:128: test/CMakeFiles/test_ferret.dir/all] Error 2
-[0m[91mmake[2]: *** [test/CMakeFiles/test_ot.dir/build.make:76: test/CMakeFiles/test_ot.dir/ot.cpp.o] Error 1
-[0m[91mmake[1]: *** [CMakeFiles/Makefile2:102: test/CMakeFiles/test_ot.dir/all] Error 2
-[0m[91mmake: *** [Makefile:146: all] Error 2
-[0mConsolidate compiler generated dependencies of target test_ot
-[ 11%] Building CXX object test/CMakeFiles/test_ot.dir/ot.cpp.o
-[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:5,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpn_f2.h: In member function ‘void LpnF2<IO, d>::compute(Mat&, Mat&, uint64_t)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpn_f2.h:57:34: error: ‘class Mat’ has no member named ‘span’
-   57 |                 Span nnSpan = nn.span();
-      |                                  ^~~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend(Span&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:70:31: error: ‘class Mat’ has no member named ‘span’
-   70 |         Span kSpan = ot_input.span(mpcot->consist_check_cot_num);
-      |                               ^~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend(Mat&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:81:33: error: ‘class Mat’ has no member named ‘span’
-   81 |         Span otSpan = ot_output.span();
-      |                                 ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::extend_f2k()’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:109:28: error: ‘class Mat’ has no member named ‘span’
-  109 |         Span tmp = ot_data.span();
-      |                            ^~~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘void emp::FerretCOT<T>::rcot(Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:183:54: error: no matching function for call to ‘Mat::data(int64_t&)’
-  183 |                 cuda_memcpy(data.data(), ot_data.data(ot_used), num*sizeof(block), D2D);
-      |                                          ~~~~~~~~~~~~^~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:190:54: error: no matching function for call to ‘Mat::data(int64_t&)’
-  190 |                 cuda_memcpy(data.data(), ot_data.data(ot_used), gened*sizeof(block), D2D);
-      |                                          ~~~~~~~~~~~~^~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:205:38: error: ‘class Mat’ has no member named ‘span’
-  205 |                 Span dataSpan = data.span(pt, pt + ot_limit + M);
-      |                                      ^~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:212:38: error: no matching function for call to ‘Mat::data(uint64_t&)’
-  212 |                 cuda_memcpy(data.data(pt), ot_data.data(), ot_limit*sizeof(blk), D2D);
-      |                             ~~~~~~~~~^~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘uint64_t’ {aka ‘long unsigned int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:217:38: error: no matching function for call to ‘Mat::data(uint64_t&)’
-  217 |                 cuda_memcpy(data.data(pt), ot_data.data(), last_round_ot*sizeof(blk), D2D);
-      |                             ~~~~~~~~~^~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘uint64_t’ {aka ‘long unsigned int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In member function ‘int64_t emp::FerretCOT<T>::rcot_inplace(Mat&)’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:298:63: error: no matching function for call to ‘Mat::data(int64_t)’
-  298 |                 cuda_memcpy(ot_pre_data.data(), ot_buffer.data(ot_limit*(i+1)), M*sizeof(block), D2D);
-      |                                                 ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
-In file included from /home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_tests.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/cuda_layer.h:4,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/spcot_sender.h:8,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:6,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note: candidate: ‘blk* Mat::data() const’
-   17 |   blk* data() const { return (blk*) mPtr; }
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:17:8: note:   candidate expects 0 arguments, 1 provided
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:8: note: candidate: ‘blk* Mat::data(std::vector<long unsigned int>) const’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |        ^~~~
-/home/gpuot/ferret/emp-ot/test/../../../gpu/gpu_matrix.h:18:35: note:   no known conversion for argument 1 from ‘int64_t’ {aka ‘long int’} to ‘std::vector<long unsigned int>’
-   18 |   blk* data(std::vector<uint64_t> pos) const;
-      |             ~~~~~~~~~~~~~~~~~~~~~~^~~
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:102,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’:
-/home/gpuot/ferret/emp-ot/test/ot.cpp:33:70:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:16:35: warning: narrowing conversion of ‘param.emp::PrimalLPNParameter::n_pre’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-   16 |         ot_pre_data.resize({param.n_pre});
-      |                             ~~~~~~^~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:16:35: warning: narrowing conversion of ‘param.emp::PrimalLPNParameter::n_pre’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::setup(std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:25:15:   required from ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:33:70:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:163:37: warning: narrowing conversion of ‘(((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::k_pre + ((int64_t)mpcot_ini.MpcotReg<emp::NetIO>::consist_check_cot_num))’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  163 |                 Mat tmp({param.k_pre+mpcot_ini.consist_check_cot_num});
-      |                          ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:163:37: warning: narrowing conversion of ‘(((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::k_pre + ((int64_t)mpcot_ini.MpcotReg<emp::NetIO>::consist_check_cot_num))’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::send_cot(emp::block*, int64_t) [with T = emp::NetIO; emp::block = __m128i; int64_t = long int]’:
-/home/gpuot/ferret/emp-ot/test/test.h:59:15:   required from ‘double test_cot(T*, emp::NetIO*, int, int64_t) [with T = emp::FerretCOT<emp::NetIO>; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:35:74:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:328:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  328 |         Mat data_d({length});
-      |                     ^~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:328:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::recv_cot(emp::block*, const bool*, int64_t) [with T = emp::NetIO; emp::block = __m128i; int64_t = long int]’:
-/home/gpuot/ferret/emp-ot/test/test.h:62:15:   required from ‘double test_cot(T*, emp::NetIO*, int, int64_t) [with T = emp::FerretCOT<emp::NetIO>; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:35:74:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:337:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  337 |         Mat data_d({length});
-      |                     ^~~~~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:337:21: warning: narrowing conversion of ‘length’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp: In instantiation of ‘void emp::FerretCOT<T>::rcot(Mat&) [with T = emp::NetIO]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:330:2:   required from ‘void emp::FerretCOT<T>::send_cot(emp::block*, int64_t) [with T = emp::NetIO; emp::block = __m128i; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/test.h:59:15:   required from ‘double test_cot(T*, emp::NetIO*, int, int64_t) [with T = emp::FerretCOT<emp::NetIO>; int64_t = long int]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:35:74:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:177:39: warning: narrowing conversion of ‘((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::n’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-  177 |                 ot_data.resize({param.n});
-      |                                 ~~~~~~^
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:177:39: warning: narrowing conversion of ‘((emp::FerretCOT<emp::NetIO>*)this)->emp::FerretCOT<emp::NetIO>::param.emp::PrimalLPNParameter::n’ from ‘int64_t’ {aka ‘long int’} to ‘long unsigned int’ [-Wnarrowing]
-[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.h:3,
-                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
-                 from /home/gpuot/ferret/emp-ot/test/test.h:2,
-                 from /home/gpuot/ferret/emp-ot/test/ot.cpp:1:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h: In instantiation of ‘void MpcotReg<IO>::recver_init() [with IO = emp::NetIO]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:65:25:   required from ‘void emp::FerretCOT<T>::extend(Span&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&) [with T = emp::NetIO]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:82:8:   required from ‘void emp::FerretCOT<T>::extend(Mat&, MpcotReg<T>*, OTPre<IO>*, LpnF2<T, 10>*, Mat&) [with T = emp::NetIO]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:166:9:   required from ‘void emp::FerretCOT<T>::setup(std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/ferret_cot.hpp:25:15:   required from ‘emp::FerretCOT<T>::FerretCOT(int, T*, bool, bool, emp::PrimalLPNParameter, std::string) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
-/home/gpuot/ferret/emp-ot/test/ot.cpp:33:70:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/mpcot_reg.h:57:47: warning: narrowing conversion of ‘((MpcotReg<emp::NetIO>*)this)->MpcotReg<emp::NetIO>::item_n’ from ‘int’ to ‘std::vector<unsigned int>::size_type’ {aka ‘long unsigned int’} [-Wnarrowing]
-   57 |                 item_pos_recver.resize({this->item_n});
-      |                                         ~~~~~~^~~~~~
-[0m[91mmake[2]: *** [test/CMakeFiles/test_ot.dir/build.make:76: test/CMakeFiles/test_ot.dir/ot.cpp.o] Error 1
-[0m[91mmake[1]: *** [CMakeFiles/Makefile2:102: test/CMakeFiles/test_ot.dir/all] Error 2
-[0m[91mmake: *** [Makefile:146: all] Error 2
-[0m
-if [ ! -d "emp-tool" ]; then
-    git clone https://github.com/emp-toolkit/emp-tool.git --branch master
-fi
-cd emp-tool
-cmake -DCMAKE_INSTALL_PREFIX=../lib     -DCMAKE_C_FLAGS='-g'     -DCMAKE_CUDA_FLAGS='-g -G'
-
-make -j4
-make install
-cd ..
-
-
-if [ ! -d "emp-ot" ]; then
-    git clone https://github.com/emp-toolkit/emp-ot.git --branch master
-fi
-cd emp-ot
-cmake -DCMAKE_INSTALL_PREFIX=../lib     -DCMAKE_C_FLAGS='-g'     -DCMAKE_CUDA_FLAGS='-g -G'
-
-make -j4
-make install
-cd ..
-
- ---> Removed intermediate container 6f0d117e40ef
- ---> ac61884eebfb
-Step 12/13 : RUN chmod +x ferret.sh
- ---> Running in be78ef67bd7d
- ---> Removed intermediate container be78ef67bd7d
- ---> eb1ef1e897ac
-Step 13/13 : CMD ["./ferret.sh"]
- ---> Running in 670dc04ae1ae
- ---> Removed intermediate container 670dc04ae1ae
- ---> 35953cf65c92
-Successfully built 35953cf65c92
+ ---> Using cache
+ ---> 2da372fbac1f
+Step 9/13 : COPY silent silent
+ ---> 9259cecccd4a
+Step 10/13 : WORKDIR /home/gpuot/silent
+ ---> Running in 4aca0663b8f2
+ ---> Removed intermediate container 4aca0663b8f2
+ ---> 5ce5980ce671
+Step 11/13 : RUN chmod +x silent.sh
+ ---> Running in 866d59bd6372
+ ---> Removed intermediate container 866d59bd6372
+ ---> 9d236cd7f097
+Step 12/13 : RUN make -j -s
+ ---> Running in cfff9e853b7a
+ ---> Removed intermediate container cfff9e853b7a
+ ---> 5f2c634e08af
+Step 13/13 : CMD ["./silent.sh"]
+ ---> Running in 678b436c3680
+ ---> Removed intermediate container 678b436c3680
+ ---> a17536832af8
+Successfully built a17536832af8
 Successfully tagged gpuot:latest
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.3.2
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Found following devices
+0: NVIDIA RTX A6000
+1: NVIDIA RTX A6000
+logOT: 22, trees: 8
+initialisation...
+pair init
+pair baseOT
+sender exp
+sender lpn
+recver exp
+recver lpn
+pair free
+benchmarking...
+pair init
+pair baseOT
+sender exp
+sender lpn
+recver exp
+recver lpn
+pair free
+all done
+Found following devices
+0: NVIDIA RTX A6000
+1: NVIDIA RTX A6000
+logOT: 23, trees: 8
+initialisation...
+pair init
+pair baseOT
+sender exp
+sender lpn
+recver exp
+recver lpn
+pair free
+benchmarking...
+pair init
+pair baseOT
+sender exp
+sender lpn
+recver exp
+recver lpn
+pair free
+all done
+Found following devices
+0: NVIDIA RTX A6000
+1: NVIDIA RTX A6000
+logOT: 24, trees: 8
+initialisation...
+pair init
+pair baseOT
+sender exp
+sender lpn
+recver exp
+recver lpn
+pair free
+benchmarking...
+pair init
+pair baseOT
+sender exp
+sender lpn
+recver exp
+recver lpn
+pair free
+all done
+Found following devices
+0: NVIDIA RTX A6000
+1: NVIDIA RTX A6000
+logOT: 25, trees: 8
+initialisation...
+pair init
+pair baseOT
+sender exp
+sender lpn
+recver exp
+recver lpn
+pair free
+benchmarking...
+pair init
+pair baseOT
+sender exp
+sender lpn
+recver exp
+recver lpn
+pair free
+all done
