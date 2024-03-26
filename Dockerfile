@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 FROM nvidia/cuda:12.3.2-devel-ubuntu22.04
-RUN apt-get update && apt-get -y install build-essential libsodium-dev
+RUN apt-get update && apt-get -y install build-essential python3 cmake git libssl-dev
 
 WORKDIR /home/gpuot
 RUN mkdir result
@@ -11,10 +11,10 @@ WORKDIR /home/gpuot/gpu
 RUN make -j -s
 
 WORKDIR /home/gpuot
-COPY silent silent
-WORKDIR /home/gpuot/silent
-RUN chmod +x silent.sh
-RUN make -j -s
+COPY ferret ferret
+WORKDIR /home/gpuot/ferret
+RUN python3 build.py --tool --ot
+RUN chmod +x ferret.sh
 
 # CMD ["tail", "-f", "/dev/null"]
-CMD ["./silent.sh"]
+CMD ["./ferret.sh"]

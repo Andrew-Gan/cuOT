@@ -15,13 +15,13 @@ public:
 	Span *ggm_tree;
 	Mat cSum;
 	bool *b;
-	int choice_pos, depth, leave_n;
+	uint64_t choice_pos, depth, leave_n;
 	IO *io;
 
 	blk secret_sum_f2;
-	int tree_n;
+	uint64_t tree_n;
 
-	SPCOT_Recver(IO *io, int tree_n, int depth_in) {
+	SPCOT_Recver(IO *io, uint64_t tree_n, uint64_t depth_in) {
 		this->io = io;
 		this->tree_n = tree_n;
 		this->depth = depth_in;
@@ -32,13 +32,12 @@ public:
 	}
 
 	~SPCOT_Recver(){
-		// delete[] m;
 		delete[] b;
 	}
 
-	int get_index(int t) {
+	int get_index(uint64_t t) {
 		choice_pos = 0;
-		for(int i = t * (depth-1); i < (t+1) * (depth-1); ++i) {
+		for(uint64_t i = t * (depth-1); i < (t+1) * (depth-1); ++i) {
 			choice_pos<<=1;
 			if(!b[i])
 				choice_pos +=1;
@@ -48,7 +47,7 @@ public:
 
 	// receive the message and reconstruct the tree
 	// j: position of the secret, begins from 0
-	void compute(Span *tree) {
+	void compute(Span &tree) {
 		this->ggm_tree = &tree;
 		// ggm_tree_reconstruction(b, m);
 		// ggm_tree[choice_pos] = zero_block;

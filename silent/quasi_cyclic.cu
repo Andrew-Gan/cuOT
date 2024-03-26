@@ -1,4 +1,4 @@
-#include "lpn.h"
+#include "quasi_cyclic.h"
 #include <cmath>
 #include "gpu_tests.h"
 #include "gpu_matrix.h"
