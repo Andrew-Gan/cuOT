@@ -18,18 +18,14 @@ uint64_t* gen_choices(int depth) {
 void init_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver, SilentConfig config) {
   for (int gpu = 0; gpu < NGPU; gpu++) {
     config.id = gpu;
-    cudaSetDevice(gpu);
     sender[gpu] = new SilentOTSender(config);
-    cudaSetDevice(NGPU-gpu-1);
     recver[gpu] = new SilentOTRecver(config);
   }
 }
 
 void free_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver) {
   for (int gpu = 0; gpu < NGPU; gpu++) {
-    cudaSetDevice(gpu);
     delete sender[gpu];
-    cudaSetDevice(NGPU-gpu-1);
     delete recver[gpu];
   }
 }
@@ -39,13 +35,11 @@ void base_ot_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver) {
   std::future<void> recverWorker;
   for (int gpu = 0; gpu < NGPU; gpu++) {
     senderWorker = std::async([sender, gpu](){
-      cudaSetDevice(gpu);
       if(gpu==0) Log::start(Sender, BaseOT);
       sender[gpu]->base_ot();
       if(gpu==0) Log::end(Sender, BaseOT);
     });
     recverWorker = std::async([recver, gpu](){
-      cudaSetDevice(NGPU-gpu-1);
       if(gpu==0) Log::start(Recver, BaseOT);
       recver[gpu]->base_ot();
       if(gpu==0) Log::end(Recver, BaseOT);
@@ -55,34 +49,32 @@ void base_ot_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver) {
   }
 }
 
-void seed_exp_multi_gpu(SilentOT **party) {
+void seed_exp_multi_gpu(SilentOT **rcot) {
+  Log::start(rcot[0]->mRole, SeedExp);
   std::future<void> worker[NGPU];
   for (int gpu = 0; gpu < NGPU; gpu++) {
-    worker[gpu] = std::async([party, gpu](){
-      party[gpu]->mRole == Sender ? cudaSetDevice(gpu) : cudaSetDevice(NGPU-gpu-1);
-      if(gpu==0) Log::start(party[gpu]->mRole, SeedExp);
-      party[gpu]->seed_expand();
-      if(gpu==0) Log::end(party[gpu]->mRole, SeedExp);
+    worker[gpu] = std::async([rcot, gpu](){
+      rcot[gpu]->seed_expand();
     });
   }
   for (int gpu = 0; gpu < NGPU; gpu++) {
     worker[gpu].get();
   }
+  Log::end(rcot[0]->mRole, SeedExp);
 }
 
-void dual_lpn_multi_gpu(SilentOT **party) {
+void dual_lpn_multi_gpu(SilentOT **rcot) {
+  Log::start(rcot[0]->mRole, LPN);
   std::future<void> worker[NGPU];
   for (int gpu = 0; gpu < NGPU; gpu++) {
-    worker[gpu] = std::async([party, gpu](){
-      party[gpu]->mRole == Sender ? cudaSetDevice(gpu) : cudaSetDevice(NGPU-gpu-1);
-      if(gpu==0) Log::start(party[gpu]->mRole, LPN);
-      party[gpu]->dual_lpn();
-      if(gpu==0) Log::end(party[gpu]->mRole, LPN);
+    worker[gpu] = std::async([rcot, gpu](){
+      rcot[gpu]->dual_lpn();
     });
   }
   for (int gpu = 0; gpu < NGPU; gpu++) {
     worker[gpu].get();
   }
+  Log::end(rcot[0]->mRole, LPN);
 }
 
 int main(int argc, char** argv) {

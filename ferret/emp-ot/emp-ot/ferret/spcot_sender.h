@@ -13,16 +13,16 @@ template<typename IO>
 class SPCOT_Sender {
 public:
 	blk seed;
-	blk delta;
+	blk *delta;
 	Span *ggm_tree;
 	Mat lSum, rSum;
 	IO *io;
-	int depth, leave_n;
+	uint64_t depth, leave_n;
 	PRG prg;
 	blk secret_sum_f2;
-	int tree_n;
+	uint64_t tree_n;
 
-	SPCOT_Sender(IO *io, int tree_n, int depth_in) {
+	SPCOT_Sender(IO *io, uint64_t tree_n, uint64_t depth_in) {
 		this->tree_n = tree_n;
 		initialization(io, depth_in);
 		block seed128;
@@ -30,16 +30,16 @@ public:
 		memcpy(&seed, &seed128, sizeof(block));
 	}
 
-	void initialization(IO *io, int depth_in) {
+	void initialization(IO *io, uint64_t depth_in) {
 		this->io = io;
 		this->depth = depth_in;
 		this->leave_n = 1<<(this->depth);
-		lSum.resize({(uint64_t)depth-1, (uint64_t)tree_n});
-		rSum.resize({(uint64_t)depth-1, (uint64_t)tree_n});
+		lSum.resize({depth-1, tree_n});
+		rSum.resize({depth-1, tree_n});
 	}
 	
 	// generate GGM tree, transfer secret, F2^k
-	void compute(Span *tree, blk secret) {
+	void compute(Span &tree, blk *secret) {
 		this->ggm_tree = &tree;
 		this->delta = secret;
 		cuda_spcot_sender_compute(tree, tree_n, depth, lSum, rSum);

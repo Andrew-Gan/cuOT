@@ -130,14 +130,14 @@ double test_rot(T* ot, NetIO *io, int party, int64_t length) {
 }
 
 template <typename T>
-double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
+double test_rcot(T* ot, NetIO *io, int party, uint64_t length, bool inplace) {
 	block *b;
 	Mat bVec;
 	PRG prg;
 
 	io->sync();
 	auto start = clock_start();
-	int64_t mem_size;
+	uint64_t mem_size;
 	if(!inplace) {
 		mem_size = length;
 		bVec.resize({length});
@@ -147,7 +147,7 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
 		ot->rcot(bVec);
 	} else {
 		// Call byte_memory_need_inplace() to get the buffer size needed
-		mem_size = ot->byte_memory_need_inplace((uint64_t)length);
+		mem_size = (uint64_t)ot->byte_memory_need_inplace(length);
 		bVec.resize({mem_size});
 
 		// The RCOTs will be generated directly to this buffer

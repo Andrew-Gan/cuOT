@@ -8,6 +8,8 @@ std::array<std::atomic<SilentOTRecver*>, 16> silentOTRecvers;
 
 SilentOTRecver::SilentOTRecver(RCOTConfig config) : SilentOT(config) {
   mRole = Recver;
+  mDev = NGPU - mConfig.id - 1;
+  cudaSetDevice(mDev);
   silentOTRecvers[mConfig.id] = this;
   if(silentOTSenders[mConfig.id] == nullptr) {
     std::runtime_error(
@@ -43,6 +45,7 @@ SilentOTRecver::SilentOTRecver(RCOTConfig config) : SilentOT(config) {
 }
 
 SilentOTRecver::~SilentOTRecver() {
+  cudaSetDevice(mDev);
   cudaFree(puncPos);
   cudaFree(activeParent);
   delete expander;
@@ -54,6 +57,7 @@ SilentOTRecver::~SilentOTRecver() {
 
 
 void SilentOTRecver::base_ot() {
+  cudaSetDevice(mDev);
   Log::mem(Recver, BaseOT);
   std::vector<std::future<Mat>> workers;
   for (int d = 0; d < depth; d++) {
@@ -85,6 +89,7 @@ void choice_bits_to_pos(uint64_t *choiceVector, uint64_t *choiceBits, uint64_t d
 }
 
 void SilentOTRecver::get_choice_vector() {
+  cudaSetDevice(mDev);
   uint64_t *choices_d;
   cudaMalloc(&choices_d, depth * sizeof(*choices_d));
   cudaMemcpyAsync(choices_d, mConfig.choices, depth * sizeof(*choices_d), cudaMemcpyHostToDevice);
@@ -113,6 +118,7 @@ void fill_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeP
 }
 
 void SilentOTRecver::get_punctured_key() {
+  cudaSetDevice(mDev);
   for (uint64_t d = 0; d < depth+1; d++) {
     m0.at(d) = other->m0.at(d);
     m1.at(d) = other->m1.at(d);
@@ -120,6 +126,7 @@ void SilentOTRecver::get_punctured_key() {
 }
 
 void SilentOTRecver::seed_expand() {
+  cudaSetDevice(mDev);
   Log::mem(Recver, SeedExp);
   Mat *input;
   Mat *output;
@@ -156,6 +163,7 @@ void SilentOTRecver::seed_expand() {
 }
 
 void SilentOTRecver::dual_lpn() {
+  cudaSetDevice(mDev);
   Log::mem(Recver, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
   puncVector->bit_transpose();

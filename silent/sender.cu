@@ -9,6 +9,8 @@ std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 SilentOTSender::SilentOTSender(RCOTConfig config) : SilentOT(config) {
   blk seed_h, delta_h;
   mRole = Sender;
+  mDev = mConfig.id;
+  cudaSetDevice(mDev);
   silentOTSenders[mConfig.id] = this;
   for (int i = 0; i < 4; i++) delta_h.data[i] = rand();
 
@@ -41,6 +43,7 @@ SilentOTSender::SilentOTSender(RCOTConfig config) : SilentOT(config) {
 }
 
 SilentOTSender::~SilentOTSender() {
+  cudaSetDevice(mDev);
   delete fullVector;
   delete buffer;
   delete expander;
@@ -52,6 +55,7 @@ SilentOTSender::~SilentOTSender() {
 }
 
 void SilentOTSender::base_ot() {
+  cudaSetDevice(mDev);
   Log::mem(Sender, BaseOT);
   std::vector<std::future<std::array<Mat, 2>>> workers;
   for (int d = 0; d < depth; d++) {
@@ -75,6 +79,7 @@ void SilentOTSender::base_ot() {
 }
 
 void SilentOTSender::seed_expand() {
+  cudaSetDevice(mDev);
   Log::mem(Sender, SeedExp);
   Mat *input = buffer;
   Mat *output = fullVector;
@@ -100,6 +105,7 @@ void SilentOTSender::seed_expand() {
 }
 
 void SilentOTSender::dual_lpn() {
+  cudaSetDevice(mDev);
   Log::mem(Sender, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
   fullVector->bit_transpose();

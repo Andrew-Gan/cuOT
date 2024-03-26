@@ -3,18 +3,14 @@
 
 #include "emp-tool/emp-tool.h"
 #include <set>
-#include "emp-ot/ferret/spcot_sender.h"
-#include "emp-ot/ferret/spcot_recver.h"
-#include "emp-ot/ferret/preot.h"
-#include "logger.h"
-
-using namespace emp;
-using std::future;
+#include "spcot_sender.h"
+#include "spcot_recver.h"
+#include "preot.h"
 
 template<typename IO>
 class MpcotReg {
 public:
-	int party;
+	Role party;
 	int item_n, idx_max, m;
 	int tree_height, leave_n;
 	int tree_n;
@@ -22,18 +18,16 @@ public:
 	bool is_malicious;
 
 	PRG prg;
-	IO *netio;
-	IO *ios;
-	blk Delta_f2k;
+	IO *io;
+	blk *Delta_f2k;
 	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
 
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
 
-	MpcotReg(int party, int n, int t, int log_bin_sz, IO *ios) {
+	MpcotReg(Role party, int n, int t, int log_bin_sz, IO *io) {
 		this->party = party;
-		netio = ios;
-		this->ios = ios;
+		this->io = io;
 		consist_check_cot_num = 128;
 
 		this->is_malicious = false;
@@ -49,7 +43,7 @@ public:
 		this->is_malicious = true;
 	}
 
-	void sender_init(blk delta) {
+	void sender_init(blk *delta) {
 		Delta_f2k = delta;
 	}
 
@@ -58,19 +52,19 @@ public:
 	}
 
 	// MPFSS F_2k
-	void mpcot(Span *sparse_vector, OTPre<IO> * ot, Mat &pre_cot_data) {
+	void mpcot(Span &sparse_vector, OTPre<IO> * ot, Mat &pre_cot_data) {
 		if(party == BOB) consist_check_chi_alpha = new block[item_n];
 		consist_check_VW = new block[item_n];
 
-		SPCOT_Sender<IO> sender(netio, tree_n, tree_height);
-		SPCOT_Recver<IO> recver(netio, tree_n, tree_height);
+		SPCOT_Sender<IO> sender(io, tree_n, tree_height);
+		SPCOT_Recver<IO> recver(io, tree_n, tree_height);
 
 		if(party == ALICE) {
 			mpcot_init_sender(ot);
-			exec_f2k_sender(sender, ot, sparse_vector, ios);
+			exec_f2k_sender(sender, ot, sparse_vector, io);
 		} else {
 			mpcot_init_recver(recver, ot);
-			exec_f2k_recver(recver, ot, sparse_vector, ios);
+			exec_f2k_recver(recver, ot, sparse_vector, io);
 		}
 
 		if(is_malicious)
@@ -82,7 +76,7 @@ public:
 
 	void mpcot_init_sender(OTPre<IO> *ot) {
 		ot->choices_sender();
-		netio->flush();
+		// netio->flush();
 		ot->reset();
 	}
 
@@ -91,11 +85,11 @@ public:
 		for(int i = 0; i < tree_n; ++i) {
 			item_pos_recver[i] = recver.get_index(i);
 		}
-		netio->flush();
+		// netio->flush();
 		ot->reset();
 	}
 
-	void exec_f2k_sender(SPCOT_Sender<IO> &sender, OTPre<IO> *ot, Span *tree, IO *io) {
+	void exec_f2k_sender(SPCOT_Sender<IO> &sender, OTPre<IO> *ot, Span &tree, IO *io) {
 		Log::start(0, SeedExp);
 		sender.compute(tree, Delta_f2k);
 		Log::mem(0, SeedExp);
@@ -103,13 +97,13 @@ public:
 
 		sender.template send_f2k<OTPre<IO>>(ot, io);
 
-		io->flush();
+		// io->flush();
 		// to do: all tree joint consistency check
 		if(is_malicious)
 			sender.consistency_check_msg_gen(consist_check_VW);
 	}
 
-	void exec_f2k_recver(SPCOT_Recver<IO> &recver, OTPre<IO> *ot, Span *tree, IO *io) {
+	void exec_f2k_recver(SPCOT_Recver<IO> &recver, OTPre<IO> *ot, Span &tree, IO *io) {
 		recver.template recv_f2k<OTPre<IO>>(ot, io);
 
 		Log::start(1, SeedExp);
@@ -167,50 +161,5 @@ public:
 		// 		std::cout << "SPCOT consistency check fails" << std::endl;
 		// }
 	}
-
-	// void exec_parallel_sender(SPCOT_Sender<IO> &senders,
-	// 		OTPre<IO> *ot, Mat &sparse_vector) {
-	// 	vector<future<void>> fut;
-	// 	int width = tree_n / threads;
-	// 	int start = 0, end = width;
-	// 	exec_f2k_sender(senders[i], ot, sparse_vector.data(i*leave_n),
-	// 	for(int i = 0; i < threads - 1; ++i) {
-	// 		fut.push_back(this->pool->enqueue([this, start, end, width,
-	// 					senders, ot, sparse_vector](){
-	// 			for(int i = start; i < end; ++i)
-	// 				exec_f2k_sender(senders[i], ot, sparse_vector.data(i*leave_n),
-	// 						ios[start/width], i);
-	// 		}));
-	// 		start = end;
-	// 		end += width;
-	// 	}
-	// 	end = tree_n;
-	// 	for(int i = start; i < end; ++i)
-	// 		exec_f2k_sender(senders[i], ot, sparse_vector.data(i*leave_n),
-	// 				ios[threads - 1], i);
-	// 	for (auto & f : fut) f.get();
-	// }
-
-	// void exec_parallel_recver(vector<SPCOT_Recver<IO>*> &recvers,
-	// 		OTPre<IO> *ot, Mat &sparse_vector) {
-	// 	vector<future<void>> fut;
-	// 	int width = tree_n / threads;
-	// 	int start = 0, end = width;
-	// 	for(int i = 0; i < threads - 1; ++i) {
-	// 		fut.push_back(this->pool->enqueue([this, start, end, width,
-	// 					recvers, ot, sparse_vector](){
-	// 			for(int i = start; i < end; ++i)
-	// 				exec_f2k_recver(recvers[i], ot, sparse_vector.data(i*leave_n),
-	// 						ios[start/width], i);
-	// 		}));
-	// 		start = end;
-	// 		end += width;
-	// 	}
-	// 	end = tree_n;
-	// 	for(int i = start; i < end; ++i)
-	// 		exec_f2k_recver(recvers[i], ot, sparse_vector.data(i*leave_n),
-	// 				ios[threads - 1], i);
-	// 	for (auto & f : fut) f.get();
-	// }
 };
 #endif

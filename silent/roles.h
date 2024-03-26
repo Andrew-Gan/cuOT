@@ -7,7 +7,7 @@
 #include "gpu_matrix.h"
 #include "base_ot.h"
 #include "pprf.h"
-#include "lpn.h"
+#include "quasi_cyclic.h"
 
 // number of gpu used per party
 #define NGPU 2
@@ -29,10 +29,11 @@ struct SilentConfig {
 class SilentOT {
 public:
   Role mRole;
+  int mDev;
   SilentConfig mConfig;
   uint64_t depth, numOT, numLeaves;
   Pprf *expander;
-  Lpn *lpn;
+  QuasiCyclic *lpn;
 
   SilentOT(SilentConfig config) : mConfig(config) {
     depth = mConfig.logOT - std::log2(mConfig.nTree) + 0;

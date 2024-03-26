@@ -1,13 +1,11 @@
 #ifndef EMP_FERRET_COT_H_
 #define EMP_FERRET_COT_H_
 
-#include "emp-ot/ferret/mpcot_reg.h"
-#include "emp-ot/ferret/base_cot.h"
-#include "emp-ot/ferret/lpn_f2.h"
-#include "emp-ot/ferret/constants.h"
+#include "mpcot_reg.h"
+#include "base_cot.h"
+#include "lpnf2.h"
 
 #include "pprf.h"
-#include "lpn.h"
 #include <iostream>
 #include <fstream>
 
@@ -51,77 +49,128 @@ struct FerretConfig {
   uint64_t *choices;
   std::string preFile;
   bool runSetup = false;
-  blk delta;
+  blk *delta;
 };
 
-class FerretOT {
+class FerretOT : public COT<NetIO>  {
 public:
+  using COT<NetIO>::io;
+  using COT<NetIO>::Delta;
   Role mRole;
+  int mDev;
 	FerretConfig mConfig;
   uint64_t depth, numLeaves;
-	uint64_t otUsed, otLimit;
-  Pprf *mpcot;
-	Lpn *lpn;
+	uint64_t ot_used, ot_limit;
+  MpcotReg<NetIO> *mpcot;
+	LpnF2<NetIO> *lpn;
+	Mat ot_data;
 
 	FerretOT(FerretConfig config) : mConfig(config) {
-    depth = mConfig.logOT - std::log2(mConfig.nTree) + 0;
+    depth = mConfig.logOT - std::log2(mConfig.lpnParam.t) + 0;
     numLeaves = pow(2, depth);
+    cudaMalloc(&ch, 2*sizeof(blk));
+    cudaMemset(&ch[0], 0, sizeof(blk));
   }
 	virtual ~FerretOT() {}
+  virtual void seed_expand(Span &ot_output) = 0;
+  virtual void primal_lpn(Span &ot_output) = 0;
 
-  virtual void ot_pre_initialisation() = 0;
-  virtual void seed_expand() = 0;
-  virtual void primal_lpn() = 0;
+  virtual void rcot_init(Mat &data) {
+    int64_t num = (int64_t) data.size();
+    if(ot_data.size() == 0) {
+      ot_data.resize({(uint64_t)mConfig.lpnParam.n});
+      ot_data.clear();
+    }
+    if(extend_initialized == false)
+      std::runtime_error("FerretOT::rcot run setup before extending");
+    if(num <= silent_ot_left()) {
+      cudaMemcpy(data.data(), ot_data.data({ot_used}), num*sizeof(blk), cudaMemcpyDeviceToDevice);
+      ot_used += num;
+      return;
+    }
+    uint64_t pt = 0;
+    int64_t gened = silent_ot_left();
+    if(gened > 0) {
+      cudaMemcpy(data.data(), ot_data.data({ot_used}), gened*sizeof(blk), cudaMemcpyDeviceToDevice);
+      pt += gened;
+    }
+    int64_t round_inplace = (num-gened-M) / ot_limit;
+    int64_t last_round_ot = num-gened-round_inplace*ot_limit;
+    bool round_memcpy = last_round_ot>ot_limit?true:false;
+    if(round_memcpy) last_round_ot -= ot_limit;
+
+    printf("num OT requested = %ld\n", num);
+    printf("OT per iteration = %ld\n", ot_limit);
+    printf("iterations = %ld\n", round_inplace);
+  }
+
+protected:
+	blk *ch;
 
 private:
-	blk ch[2];
 	int64_t M;
 	bool extend_initialized = false;
+  bool is_malicious = false;
 
 	blk one;
-	Mat ot_data;
   Mat *buffer;
 
 	Mat ot_pre_data;
 	std::string pre_ot_filename;
 
-	BaseCot<T> *base_cot = nullptr;
-	OTPre<T> *pre_ot = nullptr;
+	BaseCot<NetIO> *base_cot = nullptr;
+	OTPre<NetIO> *pre_ot = nullptr;
 
-	virtual void extend_initialization();
-	uint64_t silent_ot_left() { return otLimit - otUsed; }
+	void extend_initialization() {
+    cuda_init(mRole);
+    lpn = new LpnF2(mRole, mConfig.lpnParam.n, mConfig.lpnParam.k, io);
+    mpcot = new MpcotReg<NetIO>(mRole, mConfig.lpnParam.n, mConfig.lpnParam.t, mConfig.lpnParam.log_bin_sz, io);
+    if(is_malicious) mpcot->set_malicious();
 
-	virtual void write_pre_data_to_file(void* loc, blk *delta, std::string filename) {
+    pre_ot = new OTPre<NetIO>(io, mpcot->tree_n*(mpcot->tree_height-1), 1);
+    M = mConfig.lpnParam.k + pre_ot->n + mpcot->consist_check_cot_num;
+    ot_limit = mConfig.lpnParam.n - M;
+    ot_used = ot_limit;
+    extend_initialized = true;
+  }
+
+	uint64_t silent_ot_left() { return ot_limit - ot_used; }
+
+	void write_pre_data_to_file(void* loc, blk *delta, std::string filename) {
     std::ofstream fio(filename, std::ios_base::binary | std::ios_base::out);
-    if(!outfile.is_open()) {
-      std::cerr << "Attempted to create directory at " << filename << std::endl;
+    if(!fio.is_open()) {
       std::runtime_error(
-        "FerretOT::write_pre_data_to_file create directory to store pre-OT data\n"
+        "FerretOT::write_pre_data create directory to store pre-OT data\n"
       );
     }
     else {
       fio << mRole;
-      if(mRole == Sender) fio << *delta;
-      fio << mConfig.n << mConfig.t << mConfig.k;
-      fio.write(loc, mConfig.n_pre*16);
+      blk d;
+      cudaMemcpy(&d, delta, sizeof(blk), cudaMemcpyDeviceToHost);
+      if(mRole == Sender) fio.write((const char*)&d, sizeof(blk));
+      fio << mConfig.lpnParam.n << mConfig.lpnParam.t << mConfig.lpnParam.k;
+      fio.write((const char*)loc, mConfig.lpnParam.n_pre*16);
     }
   }
 
-	blk read_pre_data_from_file(void* pre_loc, std::string filename) {
+	blk* read_pre_data_from_file(void* pre_loc, std::string filename) {
     std::ifstream fio(filename, std::ios_base::binary | std::ios_base::in);
     uint64_t role;
     fio >> role;
     if(role != mRole)
       std::runtime_error("FerretOT::read_pre_data_from_file wrong party");
-    blk delta;
-    if(mRole == Sender) fio >> delta;
+    blk d;
+    if(mRole == Sender) fio.read((char*)&d, sizeof(blk));
+    blk *delta;
+    cudaMalloc(&delta, sizeof(blk));
+    cudaMemcpy(delta, &d, sizeof(blk), cudaMemcpyDeviceToHost);
     int64_t nin, tin, kin;
     fio >> nin;
-    fio >> tin;int64_t
+    fio >> tin;
     fio >> kin;
-    if(nin != mConfig.n || tin != mConfig.t || kin != mConfig.k)
+    if(nin != mConfig.lpnParam.n || tin != mConfig.lpnParam.t || kin != mConfig.lpnParam.k)
       std::runtime_error("FerretOT::read_pre_data_from_file wrong parameters");
-    fio.read(pre_loc, mConfig.n_pre*16);
+    fio.read((char*)pre_loc, mConfig.lpnParam.n_pre*16);
     std::remove(filename.c_str());
     return delta;
   }
@@ -130,23 +179,25 @@ private:
 class FerretOTSender : public FerretOT {
 public:
   Mat *fullVector;
-  blk *delta;
 
-  FerretOTSender(SilentConfig config) : FerretOT(config) {
+  FerretOTSender(FerretConfig config) : FerretOT(config) {
     cudaMemcpy(delta, config.delta, sizeof(blk), cudaMemcpyHostToDevice);
     setup(config.preFile);
-    cudaMemcpy(ch[1], delta, sizeof(blk), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(&ch[1], delta, sizeof(blk), cudaMemcpyDeviceToDevice);
   }
   virtual ~FerretOTSender();
-  virtual void ot_pre_initialisation();
-  virtual void seed_expand();
-  virtual void primal_lpn();
-  
+  virtual void seed_expand(Span &ot_output);
+  virtual void primal_lpn(Span &ot_output);
+
+private:
   virtual void setup(std::string pre_file);
-	virtual void extend(Span &otOutput, OTPre<T> *preot, Mat &ot_input);
+	virtual void extend(Span &otOutput, OTPre<NetIO> *preot, Mat &ot_input);
 	virtual void extend_f2k(Span &otBuffer);
-  virtual void send_cot(blk * data, int64_t length) override;
+  virtual void send_cot(blk * data, int64_t length);
   virtual void online_sender(blk *data, int64_t length);
+
+  virtual void seed_expand(Span *ot_output, MpcotReg<NetIO> *mpcot,
+    OTPre<NetIO> *preot, Mat &ot_input);
 };
 
 class FerretOTRecver : public FerretOT {
@@ -156,20 +207,23 @@ public:
   FerretOTSender *other = nullptr;
   uint64_t *activeParent;
 
-  FerretOTRecver(SilentConfig config) : FerretOT(config) {
+  FerretOTRecver(FerretConfig config) : FerretOT(config) {
     setup(config.preFile);
   }
   virtual ~FerretOTRecver();
-  virtual void ot_pre_initialisation();
-  virtual void seed_expand();
-  virtual void primal_lpn();
+  virtual void seed_expand(Span &ot_output);
+  virtual void primal_lpn(Span &ot_output);
   virtual void get_choice_vector();
 
+private:
   virtual void setup(std::string pre_file);
-	virtual void extend(Span &otOutput, OTPre<T> *preot, Mat &ot_input);
+	virtual void extend(Span &otOutput, OTPre<NetIO> *preot, Mat &ot_input);
 	virtual void extend_f2k(Span &otBuffer);
-	virtual void recv_cot(blk* data, const bool * b, int64_t length) override;
+	virtual void recv_cot(blk* data, const bool * b, int64_t length);
   virtual void online_recver(blk *data, const bool *b, int64_t length);
+
+  virtual void seed_expand(Span *ot_output, MpcotReg<NetIO> *mpcot,
+    OTPre<NetIO> *preot, Mat &ot_input);
 };
 
 extern std::array<std::atomic<FerretOTSender*>, 8> ferretOTSenders;

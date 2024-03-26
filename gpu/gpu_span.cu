@@ -1,6 +1,18 @@
 #include <stdexcept>
 #include "gpu_span.h"
 
+Span::Span(Mat &data) : obj(data) {
+  start = std::vector<uint64_t>(data.dims().size(), 0);
+  range = data.dims();
+}
+
+Span::Span(Mat &data, std::vector<uint64_t> start) : obj(data) {
+  start = std::vector<uint64_t>(data.dims().size(), 0);
+  for (uint64_t d : data.dims()) {
+    range.push_back(d - start.at(d));
+  }
+}
+
 Span::Span(Mat &data, std::vector<uint64_t> start, std::vector<uint64_t> end) : obj(data) {
   if (data.dims().size() != start.size() || data.dims().size() != end.size())
     throw std::invalid_argument("Span::Span() start end dim does not match matrix dim\n");
@@ -21,10 +33,6 @@ std::vector<uint64_t> _vector_sum(std::vector<uint64_t> a, std::vector<uint64_t>
     c.push_back(a.at(d) + b.at(d));
   }
   return c;
-}
-
-blk* Span::data() const {
-  return obj.data(start);
 }
 
 blk* Span::data(std::vector<uint64_t> i) const {
