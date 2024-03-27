@@ -56,7 +56,6 @@ SilentOTSender::~SilentOTSender() {
 
 void SilentOTSender::base_ot() {
   cudaSetDevice(mDev);
-  Log::mem(Sender, BaseOT);
   std::vector<std::future<std::array<Mat, 2>>> workers;
   for (int d = 0; d < depth; d++) {
     workers.push_back(std::async([d, this]() {
@@ -75,7 +74,6 @@ void SilentOTSender::base_ot() {
   }
   m0.push_back(m0.back());
   m1.push_back(m1.back());
-  Log::mem(Sender, BaseOT);
 }
 
 void SilentOTSender::seed_expand() {

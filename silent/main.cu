@@ -35,14 +35,10 @@ void base_ot_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver) {
   std::future<void> recverWorker;
   for (int gpu = 0; gpu < NGPU; gpu++) {
     senderWorker = std::async([sender, gpu](){
-      if(gpu==0) Log::start(Sender, BaseOT);
       sender[gpu]->base_ot();
-      if(gpu==0) Log::end(Sender, BaseOT);
     });
     recverWorker = std::async([recver, gpu](){
-      if(gpu==0) Log::start(Recver, BaseOT);
       recver[gpu]->base_ot();
-      if(gpu==0) Log::end(Recver, BaseOT);
     });
     senderWorker.get();
     recverWorker.get();

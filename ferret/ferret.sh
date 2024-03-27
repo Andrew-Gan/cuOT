@@ -3,7 +3,7 @@
 EXE=./ot
 LOGOT=24
 
-# $EXE $LOGOT
+$EXE $LOGOT
 
 # for LOGOT in 22 23 24 25
 # do
