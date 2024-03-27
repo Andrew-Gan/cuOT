@@ -58,7 +58,6 @@ SilentOTRecver::~SilentOTRecver() {
 
 void SilentOTRecver::base_ot() {
   cudaSetDevice(mDev);
-  Log::mem(Recver, BaseOT);
   std::vector<std::future<Mat>> workers;
   for (int d = 0; d < depth; d++) {
     workers.push_back(std::async([d, this]() {
@@ -74,28 +73,6 @@ void SilentOTRecver::base_ot() {
     auto res = worker.get();
     mc.push_back(res);
   }
-  Log::mem(Recver, BaseOT);
-}
-
-__global__
-void choice_bits_to_pos(uint64_t *choiceVector, uint64_t *choiceBits, uint64_t depth) {
-  uint64_t t = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t id = 0;
-  for (uint64_t d = 0; d < depth; d++) {
-    id *= 2;
-    id += 1-(choiceBits[d] >> t & 1);
-  }
-  choiceVector[t] = id + t * (1 << depth);
-}
-
-void SilentOTRecver::get_choice_vector() {
-  cudaSetDevice(mDev);
-  uint64_t *choices_d;
-  cudaMalloc(&choices_d, depth * sizeof(*choices_d));
-  cudaMemcpyAsync(choices_d, mConfig.choices, depth * sizeof(*choices_d), cudaMemcpyHostToDevice);
-  choice_bits_to_pos<<<1, mConfig.nTree>>>(puncPos, choices_d, depth);
-  cudaDeviceSynchronize();
-  cudaFree(choices_d);
 }
 
 __global__

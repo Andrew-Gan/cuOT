@@ -1,7 +1,6 @@
 #include "emp-tool/emp-tool.h"
 #include "emp-ot/emp-ot.h"
 #include <iostream>
-#include "../emp-ot/ferret/cuda_layer.h"
 using namespace emp;
 
 template <typename T>
@@ -157,7 +156,7 @@ double test_rcot(T* ot, NetIO *io, int party, uint64_t length, bool inplace) {
 	return 0.0f; //debug
 
 	b = new block[bVec.size()];
-	cuda_memcpy(b, bVec.data(), bVec.size_bytes(), D2H);
+	memcpy_D2H_dev(b, bVec.data(), bVec.size_bytes());
 
 	long long t = time_from(start);
 	io->sync();

@@ -1,6 +1,6 @@
 #Testing macro
 macro (add_test_executable_with_lib _name libs)
-	add_executable(test_${_name} ../../../gpu/gpu.o ${_name}.cu ../emp-ot/ferret/cuda_layer.cu)
+	add_executable(test_${_name} ../../../gpu/gpu.o ${_name}.cpp ../emp-ot/ferret/dev_layer.cu)
 	target_include_directories(test_${_name} PUBLIC ../../../gpu)
 	target_link_libraries(test_${_name} ${EMP-TOOL_LIBRARIES} "cuda" "cudart" "curand")
 endmacro()

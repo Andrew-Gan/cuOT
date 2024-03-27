@@ -4,10 +4,10 @@
 #include "emp-tool/emp-tool.h"
 #include "emp-ot/emp-ot.h"
 #include "emp-ot/ferret/twokeyprp.h"
+#include "gpu_span.h"
+#include "pprf.h"
 
-#include "cuda_layer.h"
-
-using namespace emp;
+#include "dev_layer.h"
 
 template<typename IO>
 class SPCOT_Recver {
@@ -49,31 +49,36 @@ public:
 	// j: position of the secret, begins from 0
 	void compute(Span &tree) {
 		this->ggm_tree = &tree;
-		// ggm_tree_reconstruction(b, m);
-		// ggm_tree[choice_pos] = zero_block;
-		// block nodes_sum = zero_block;
-		// block one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
-		// for(int i = 0; i < leave_n; ++i) {
-		// 	ggm_tree[i] = ggm_tree[i] & one;
-		// 	nodes_sum = nodes_sum ^ ggm_tree[i];
-		// }
-		// ggm_tree[choice_pos] = nodes_sum ^ secret_sum_f2;
+		uint32_t k0_blk[4] = {3242342};
+		uint32_t k1_blk[4] = {8993849};
+		Span *input;
+		Span *output;
+		AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
+		Mat buffer({tree.size()});
+		Mat separated({tree.size()});
+		uint64_t *activeParent;
+		bool *choice;
 
-		cuda_spcot_recver_compute(tree, tree_n, depth, cSum, b);
+		malloc_dev((void**)&activeParent, tree_n * sizeof(uint64_t));
+		malloc_dev((void**)&choice, depth * tree_n);
+		memset_dev(activeParent, 0, tree_n * sizeof(uint64_t));
+		memcpy_H2D_dev(choice, b, depth * tree_n);
+		input = new Span(buffer);
+		output = &tree;
+		for (uint64_t d = 0, inWidth = 1; d < depth-1; d++, inWidth *= 2) {
+			std::swap(input, output);
+			aesExpand.expand(*input, *output, separated, tree_n*inWidth);
+			separated.sum(2 * tree_n, inWidth);
+			SPCOT_recver_compute_dev(tree_n, cSum, inWidth, activeParent,
+				separated, tree, depth, d, choice);
+		}
+		if (output != &tree) {
+			memcpy_D2D_dev(tree.data(), output->data(), tree.size_bytes());
+		}
 
-		// TBD: confirm handled by code above
-		// cudaMemset(ggm_tree.data(choice_pos), 0, sizeof(blk));
-		// blk one = { .data = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFE} };
-		// blk *one_d;
-		// cudaMalloc(&one_d, sizeof(*one_d));
-		// cudaMemcpy(one_d, &one, sizeof(*one_d), cudaMemcpyHostToDevice);
-
-		// ggm_tree.and_scalar(one_d);
-		// Mat nodes_sum(leave_n + 1);
-		// nodes_sum = ggm_tree;
-		// nodes_sum.set(leave_n, secret_sum);
-		// nodes_sum.sum(1, leave_n+1);
-		// ggm_tree.set(choice_pos, nodes_sum.data(0));
+		delete input;
+		free_dev(choice);
+		free_dev(activeParent);
 	}
 
 	// receive the message and reconstruct the tree
@@ -81,12 +86,9 @@ public:
 	template<typename OT>
 	void recv_f2k(OT * ot, IO * io2) {
 		block *cSum_cpu = new block[tree_n*(depth-1)];
-
 		ot->recv(cSum_cpu, b, tree_n*(depth-1), io2, 0);
 		io2->recv_data(&secret_sum_f2, sizeof(blk));
-
-		cuda_memcpy(cSum.data(), cSum_cpu, tree_n*(depth-1)*sizeof(blk), H2D);
-
+		memcpy_H2D_dev(cSum.data(), cSum_cpu, tree_n*(depth-1)*sizeof(blk));
 		delete[] cSum_cpu;
 	}
 
@@ -101,36 +103,5 @@ public:
 		// vector_inn_prdt_sum_red(W, chi, ggm_tree, leave_n);
 		// delete[] chi;
 	}
-
-	// void ggm_tree_reconstruction(bool *b, block *m) {
-	// 	int to_fill_idx = 0;
-	// 	TwoKeyPRP prp(zero_block, makeBlock(0, 1));
-	// 	for(int i = 1; i < depth; ++i) {
-	// 		to_fill_idx = to_fill_idx * 2;
-	// 		ggm_tree[to_fill_idx] = ggm_tree[to_fill_idx+1] = zero_block;
-	// 		if(b[i-1] == false) {
-	// 			layer_recover(i, 0, to_fill_idx, m[i-1], &prp);
-	// 			to_fill_idx += 1;
-	// 		} else layer_recover(i, 1, to_fill_idx+1, m[i-1], &prp);
-	// 	}
-	// }
-
-	// void layer_recover(int depth, int lr, int to_fill_idx, block sum, TwoKeyPRP *prp) {
-	// 	int layer_start = 0;
-	// 	int item_n = 1<<depth;
-	// 	block nodes_sum = zero_block;
-	// 	int lr_start = lr==0?layer_start:(layer_start+1);
-
-	// 	for(int i = lr_start; i < item_n; i+=2)
-	// 		nodes_sum = nodes_sum ^ ggm_tree[i];
-	// 	ggm_tree[to_fill_idx] = nodes_sum ^ sum;
-	// 	if(depth == this->depth) return;
-	// 	if(item_n == 2)
-	// 		prp->node_expand_2to4(&ggm_tree[0], &ggm_tree[0]);
-	// 	else {
-	// 		for(int i = item_n-4; i >= 0; i-=4)
-	// 			prp->node_expand_4to8(&ggm_tree[i*2], &ggm_tree[i]);
-	// 	}
-	// }
 };
 #endif

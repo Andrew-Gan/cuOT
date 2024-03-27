@@ -22,7 +22,6 @@ class COT : public OT<T>{ public:
 		mitccrh.setS(s);
 		io->flush();
 
-		Log::start(0, BaseOT);
 		block pad[2*ot_bsize];
 		for(int64_t i = 0; i < length; i+=ot_bsize) {
 			for(int64_t j = i; j < min(i+ot_bsize, length); ++j) {
@@ -37,8 +36,6 @@ class COT : public OT<T>{ public:
 			io->send_data(pad, 2*sizeof(block)*min(ot_bsize,length-i));
 		}
 		delete[] data;
-		Log::mem(0, BaseOT);
-		Log::end(0, BaseOT);
 	}
 
 	void recv(block* data, const bool* r, int64_t length) override {
@@ -47,8 +44,6 @@ class COT : public OT<T>{ public:
 		io->recv_block(&s,1);
 		mitccrh.setS(s);
 		io->flush();
-
-		Log::start(1, BaseOT);
 		block res[2*ot_bsize];
 		block pad[ot_bsize];
 		for(int64_t i = 0; i < length; i+=ot_bsize) {
@@ -59,8 +54,6 @@ class COT : public OT<T>{ public:
 				data[i+j] = res[2*j+r[i+j]] ^ pad[j];
 			}
 		}
-		Log::mem(1, BaseOT);
-		Log::end(1, BaseOT);
 	}
 
 	void send_rot(block* data0, block* data1, int64_t length) {

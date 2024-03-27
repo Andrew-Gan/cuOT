@@ -17,10 +17,10 @@ public:
 	int consist_check_cot_num;
 	bool is_malicious;
 
-	PRG prg;
+	// PRG prg;
 	IO *io;
 	blk *Delta_f2k;
-	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
+	// block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
 
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
@@ -48,13 +48,13 @@ public:
 	}
 
 	void recver_init() {
-		item_pos_recver.resize({this->item_n});
+		item_pos_recver.resize({(uint64_t)this->item_n});
 	}
 
 	// MPFSS F_2k
 	void mpcot(Span &sparse_vector, OTPre<IO> * ot, Mat &pre_cot_data) {
-		if(party == BOB) consist_check_chi_alpha = new block[item_n];
-		consist_check_VW = new block[item_n];
+		// if(party == BOB) consist_check_chi_alpha = new block[item_n];
+		// consist_check_VW = new block[item_n];
 
 		SPCOT_Sender<IO> sender(io, tree_n, tree_height);
 		SPCOT_Recver<IO> recver(io, tree_n, tree_height);
@@ -70,8 +70,8 @@ public:
 		if(is_malicious)
 			consistency_check_f2k(pre_cot_data, tree_n);
 
-		if(party == BOB) delete[] consist_check_chi_alpha;
-		delete[] consist_check_VW;
+		// if(party == BOB) delete[] consist_check_chi_alpha;
+		// delete[] consist_check_VW;
 	}
 
 	void mpcot_init_sender(OTPre<IO> *ot) {
@@ -90,30 +90,22 @@ public:
 	}
 
 	void exec_f2k_sender(SPCOT_Sender<IO> &sender, OTPre<IO> *ot, Span &tree, IO *io) {
-		Log::start(0, SeedExp);
 		sender.compute(tree, Delta_f2k);
-		Log::mem(0, SeedExp);
-		Log::end(0, SeedExp);
-
 		sender.template send_f2k<OTPre<IO>>(ot, io);
 
 		// io->flush();
 		// to do: all tree joint consistency check
-		if(is_malicious)
-			sender.consistency_check_msg_gen(consist_check_VW);
+		// if(is_malicious)
+		// 	sender.consistency_check_msg_gen(consist_check_VW);
 	}
 
 	void exec_f2k_recver(SPCOT_Recver<IO> &recver, OTPre<IO> *ot, Span &tree, IO *io) {
 		recver.template recv_f2k<OTPre<IO>>(ot, io);
-
-		Log::start(1, SeedExp);
 		recver.compute(tree);
-		Log::mem(1, SeedExp);
-		Log::end(1, SeedExp);
 
 		// to do: all tree joint consistency check
-		if(is_malicious)
-			recver.consistency_check_msg_gen(consist_check_chi_alpha, consist_check_VW);
+		// if(is_malicious)
+		// 	recver.consistency_check_msg_gen(consist_check_chi_alpha, consist_check_VW);
 	}
 
 	// f2k consistency check

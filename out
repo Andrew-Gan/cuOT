@@ -3,38 +3,38 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon   61.7MB
+Sending build context to Docker daemon  61.76MB
 Step 1/13 : FROM nvidia/cuda:12.3.2-devel-ubuntu22.04
  ---> da3144977a75
 Step 2/13 : RUN apt-get update && apt-get -y install build-essential python3 cmake git libssl-dev
  ---> Using cache
- ---> 04e0a2546df8
+ ---> c0c6ae6145f6
 Step 3/13 : WORKDIR /home/gpuot
  ---> Using cache
- ---> e4eeabb1b726
+ ---> 7aab32305a8f
 Step 4/13 : RUN mkdir result
  ---> Using cache
- ---> c938dcd33971
+ ---> fe8d80fe0ee4
 Step 5/13 : COPY gpu gpu
  ---> Using cache
- ---> 13e53ba12899
+ ---> 8f6dd372974c
 Step 6/13 : WORKDIR /home/gpuot/gpu
  ---> Using cache
- ---> c786c8dd267e
+ ---> 88d820e7d147
 Step 7/13 : RUN make -j -s
  ---> Using cache
- ---> 1eefd1c55ba7
+ ---> 821700ac4511
 Step 8/13 : WORKDIR /home/gpuot
  ---> Using cache
- ---> 62e6c0b189aa
+ ---> cbf82214f8d3
 Step 9/13 : COPY ferret ferret
- ---> 93288b4a2a08
+ ---> 469db4afc861
 Step 10/13 : WORKDIR /home/gpuot/ferret
- ---> Running in 259371aede20
- ---> Removed intermediate container 259371aede20
- ---> 99a9d6e34837
+ ---> Running in 5371bb5cbed5
+ ---> Removed intermediate container 5371bb5cbed5
+ ---> 67e16a035902
 Step 11/13 : RUN python3 build.py --tool --ot
- ---> Running in ea1be6e773c8
+ ---> Running in b3b56a3a638b
 [91mCloning into 'emp-tool'...
 [0m[91mCMake Warning:
   No source or binary directory provided.  Both will be assumed to be the
@@ -70,10 +70,10 @@ Step 11/13 : RUN python3 build.py --tool --ot
 
 
 [0m-- Build files have been written to: /home/gpuot/ferret/emp-tool
-[  2%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_div.cpp.o
-[  4%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/emp-tool.cpp.o
-[  6%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_cos.cpp.o
-[  8%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_add.cpp.o
+[  2%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/emp-tool.cpp.o
+[  4%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_div.cpp.o
+[  6%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_add.cpp.o
+[  8%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_cos.cpp.o
 [ 10%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_eq.cpp.o
 [ 12%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_le.cpp.o
 [ 14%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_leq.cpp.o
@@ -89,9 +89,9 @@ Step 11/13 : RUN python3 build.py --tool --ot
 [ 34%] Linking CXX shared library libemp-tool.so
 [ 34%] Built target emp-tool
 [ 38%] Building CXX object test/CMakeFiles/test_prg.dir/prg.cpp.o
-[ 38%] Building CXX object test/CMakeFiles/test_prp.dir/prp.cpp.o
-[ 40%] Building CXX object test/CMakeFiles/test_hash.dir/hash.cpp.o
-[ 42%] Building CXX object test/CMakeFiles/test_netio.dir/netio.cpp.o
+[ 40%] Building CXX object test/CMakeFiles/test_netio.dir/netio.cpp.o
+[ 42%] Building CXX object test/CMakeFiles/test_hash.dir/hash.cpp.o
+[ 42%] Building CXX object test/CMakeFiles/test_prp.dir/prp.cpp.o
 [ 44%] Linking CXX executable ../bin/test_hash
 [ 46%] Linking CXX executable ../bin/test_prp
 [ 46%] Built target test_prp
@@ -337,10 +337,10 @@ Install the project...
 -- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
 -- Detecting CUDA compile features
 -- Detecting CUDA compile features - done
--- [34mBuild type: Release[m
--- CXX Flags:  -g -pthread -Wall -funroll-loops -Wno-ignored-attributes -Wno-unused-result -march=native -maes -mrdseed -std=c++11 -O3
 [91m[34m-- Platform: x86_64[m
-[0m-- Performing Test RDSEED_RUN_RESULT
+[0m-- [34mBuild type: Release[m
+-- CXX Flags:  -g -pthread -Wall -funroll-loops -Wno-ignored-attributes -Wno-unused-result -march=native -maes -mrdseed -std=c++11 -O3
+-- Performing Test RDSEED_RUN_RESULT
 -- Performing Test RDSEED_RUN_RESULT - Success
 [91m[32m-- Source of Randomness: rdseed[m
 [0m-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
@@ -355,701 +355,71 @@ Install the project...
   CUDA_ARCHITECTURES is empty for target "test_main".
 This warning is for project developers.  Use -Wno-dev to suppress it.
 
-[0m[91mCMake Warning (dev) in test/CMakeLists.txt:
-  Policy CMP0104 is not set: CMAKE_CUDA_ARCHITECTURES now detected for NVCC,
-  empty CUDA_ARCHITECTURES not allowed.  Run "cmake --help-policy CMP0104"
-  for policy details.  Use the cmake_policy command to set the policy and
-  suppress this warning.
-
-  CUDA_ARCHITECTURES is empty for target "test_main".
-This warning is for project developers.  Use -Wno-dev to suppress it.
-
 [0m-- Generating done
 -- Build files have been written to: /home/gpuot/ferret/emp-ot
-[ 33%] Building CUDA object test/CMakeFiles/test_main.dir/main.cu.o
-[ 66%] Building CUDA object test/CMakeFiles/test_main.dir/__/emp-ot/ferret/cuda_layer.cu.o
-[91m/home/gpuot/ferret/lib/include/emp-tool/utils/aes.h(135): warning #1675-D: unrecognized GCC pragma
-  #pragma GCC optimize ("unroll-loops")
-              ^
+[ 33%] Building CXX object test/CMakeFiles/test_main.dir/main.cpp.o
+[ 66%] Building CUDA object test/CMakeFiles/test_main.dir/__/emp-ot/ferret/dev_layer.cu.o
+[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
+                 from /home/gpuot/ferret/emp-ot/test/main.cpp:1:
+/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h: In instantiation of ‘void FerretOT<T>::rcot_init(Mat&) [with T = emp::NetIO]’:
+/home/gpuot/ferret/emp-ot/test/main.cpp:23:25:   required from here
+/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h:100:12: warning: comparison of integer expressions of different signedness: ‘int64_t’ {aka ‘long int’} and ‘uint64_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+  100 |     if(num <= silent_ot_left()) {
+      |        ~~~~^~~~~~~~~~~~~~~~~~~
+[0m[91mIn file included from /home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h:6,
+                 from /home/gpuot/ferret/emp-ot/emp-ot/emp-ot.h:7,
+                 from /home/gpuot/ferret/emp-ot/test/main.cpp:1:
+/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h: In instantiation of ‘LpnF2<IO>::LpnF2(Role, uint64_t, uint64_t, IO*) [with IO = emp::NetIO; uint64_t = long unsigned int]’:
+/home/gpuot/ferret/emp-ot/test/../emp-ot/ferret/sender.h:91:16:   required from ‘void FerretOTSender<T>::setup(std::string*) [with T = emp::NetIO; std::string = std::__cxx11::basic_string<char>]’
+/home/gpuot/ferret/emp-ot/test/../emp-ot/ferret/sender.h:41:7:   required from ‘FerretOTSender<T>::FerretOTSender(FerretConfig) [with T = emp::NetIO]’
+/home/gpuot/ferret/emp-ot/test/main.cpp:17:53:   required from here
+/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h:28:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘uint64_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+   28 |     while(mask < k) {
+      |           ~~~~~^~~
+[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h: In instantiation of ‘void LpnF2<IO>::encode(Span&, Span&) [with IO = emp::NetIO]’:
+/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h:176:16:   required from ‘void FerretOT<T>::primal_lpn(Span&, int, LpnF2<T>*, Mat&) [with T = emp::NetIO]’
+/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h:121:15:   required from ‘void FerretOT<T>::primal_lpn(Span&) [with T = emp::NetIO]’
+/home/gpuot/ferret/emp-ot/test/main.cpp:73:25:   required from here
+/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h:39:9: warning: unused variable ‘n_0’ [-Wunused-variable]
+   39 |     int n_0 = nn.size();
+      |         ^~~
+/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h:40:9: warning: unused variable ‘k_0’ [-Wunused-variable]
+   40 |     int k_0 = kk.size();
+      |         ^~~
+[0m[91m/home/gpuot/ferret/emp-ot/test/main.cpp: In function ‘int main(int, char**)’:
+/home/gpuot/ferret/emp-ot/test/main.cpp:98:8: warning: ‘role’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+   98 |   Role role;
+      |        ^~~~
+[0m[100%] Linking CXX executable ../bin/test_main
+[100%] Built target test_main
+Consolidate compiler generated dependencies of target test_main
+[100%] Built target test_main
+Install the project...
+-- Install configuration: "Release"
+-- Installing: /home/gpuot/ferret/lib/cmake/emp-ot-config.cmake
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/cot.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/emp-ot.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/roles.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/dev_layer.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/dev_layer.cu
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/base_cot.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/sbox_E.cuh
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/mpcot_reg.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/sender.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/spcot_sender.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/preot.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/lpnf2.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/recver.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/spcot_recver.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ferret/twokeyprp.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/iknp.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/co.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ideal.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/np.h
+-- Installing: /home/gpuot/ferret/lib/include//emp-ot/ot.h
 
-Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/execution/circuit_execution.h(23): warning #68-D: integer conversion resulted in a change of sign
-    return -1;
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(84): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d\n", &num_gate, &num_wire);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(84): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d\n", &num_gate, &num_wire);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(85): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d%d\n", &n1, &n2, &n3);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(85): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d%d\n", &n1, &n2, &n3);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(86): warning #1650-D: result of call is not used
-    (void)fscanf(f, "\n");
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(86): warning #1650-D: result of call is not used
-    (void)fscanf(f, "\n");
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(91): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(91): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-     ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(93): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+1], &gates[4*i+2], str);
-            ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(93): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+1], &gates[4*i+2], str);
-      ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(98): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+2], str);
-            ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(98): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+2], str);
-      ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(147): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d\n", &num_gate, &num_wire);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(147): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d\n", &num_gate, &num_wire);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(149): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d", &niov);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(149): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d", &niov);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(151): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(151): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-     ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(154): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d", &niov);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(154): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d", &niov);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(156): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(156): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-     ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(164): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(164): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-     ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(166): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+1], &gates[4*i+2], str);
-            ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(166): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+1], &gates[4*i+2], str);
-      ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(171): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+2], str);
-            ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(171): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+2], str);
-      ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/utils/crh.h(25): warning #1675-D: unrecognized GCC pragma
-  #pragma GCC optimize ("unroll-loops")
-              ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/utils/ccrh.h(25): warning #1675-D: unrecognized GCC pragma
-  #pragma GCC optimize ("unroll-loops")
-              ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/utils/tccrh.h(25): warning #1675-D: unrecognized GCC pragma
-  #pragma GCC optimize ("unroll-loops")
-              ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/twokeyprp.h(12): warning #191-D: type qualifier is meaningless on cast type
-    AES_set_encrypt_key((const block)seed0, aes_key);
-                         ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/twokeyprp.h(13): warning #191-D: type qualifier is meaningless on cast type
-    AES_set_encrypt_key((const block)seed1, &aes_key[1]);
-                         ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h(196): warning #997-D: function "emp::COT<T>::send_cot(emp::block *, int64_t) [with T=emp::NetIO]" is hidden by "FerretOTSender::send_cot" -- virtual function override intended?
-    virtual void send_cot(blk * data, int64_t length);
-                 ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h(184): error: identifier "delta" is undefined
-      cudaMemcpy(delta, config.delta, sizeof(blk), cudaMemcpyHostToDevice);
-                 ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h(222): warning #997-D: function "emp::COT<T>::recv_cot(emp::block *, const bool *, int64_t) [with T=emp::NetIO]" is hidden by "FerretOTRecver::recv_cot" -- virtual function override intended?
-   virtual void recv_cot(blk* data, const bool * b, int64_t length);
-                ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(16): error: object of abstract class type "FerretOTSender" is not allowed:
-            pure virtual function "emp::COT<T>::send_cot [with T=emp::NetIO]" has no overrider
-            pure virtual function "emp::COT<T>::recv_cot [with T=emp::NetIO]" has no overrider
-          rcot[gpu] = new FerretOTSender(config);
-                          ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(19): error: object of abstract class type "FerretOTRecver" is not allowed:
-            pure virtual function "emp::COT<T>::send_cot [with T=emp::NetIO]" has no overrider
-            pure virtual function "emp::COT<T>::recv_cot [with T=emp::NetIO]" has no overrider
-          rcot[gpu] = new FerretOTRecver(config);
-                          ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(23): error: identifier "io" is undefined
-      io->sync();
-      ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(39): error: a value of type "FerretOT *" cannot be used to initialize an entity of type "Mat *"
-      Mat *ot = rcot[gpu];
-                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(41): error: an enclosing-function local variable cannot be referenced in a lambda body unless it is in the capture list
-        switch (phase) {
-                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(42): error: identifier "Iterations" is undefined
-          case Iterations: output = new Span(ot->data, pt);
-               ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(42): error: a pointer to a bound function may only be used to call the function
-          case Iterations: output = new Span(ot->data, pt);
-                                                 ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(42): error: identifier "pt" is undefined
-          case Iterations: output = new Span(ot->data, pt);
-                                                       ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(42): error: expression must be a modifiable lvalue
-          case Iterations: output = new Span(ot->data, pt);
-                           ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(45): error: class "Mat" has no member "ot_data"
-          case LastRound: output = new Span(ot->ot_data);
-                                                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(45): error: expression must be a modifiable lvalue
-          case LastRound: output = new Span(ot->ot_data);
-                          ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(48): error: class "Mat" has no member "send_preot"
-        ot->send_preot();
-            ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(49): error: class "Mat" has no member "seed_expand"
-        ot->seed_expand(*output);
-            ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(65): error: a value of type "FerretOT *" cannot be used to initialize an entity of type "Mat *"
-      Mat *ot = rcot[gpu];
-                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(68): error: identifier "Iterations" is undefined
-          case Iterations: output = new Span(ot->data, ot->pt);
-               ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(68): error: a pointer to a bound function may only be used to call the function
-          case Iterations: output = new Span(ot->data, ot->pt);
-                                                 ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(68): error: class "Mat" has no member "pt"
-          case Iterations: output = new Span(ot->data, ot->pt);
-                                                           ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(68): error: expression must be a modifiable lvalue
-          case Iterations: output = new Span(ot->data, ot->pt);
-                           ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(71): error: class "Mat" has no member "ot_data"
-          case LastRound: output = new Span(ot->ot_data);
-                                                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(71): error: expression must be a modifiable lvalue
-          case LastRound: output = new Span(ot->ot_data);
-                          ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(74): error: class "Mat" has no member "primal_lpn"
-        ot->primal_lpn(*output);
-            ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(75): error: class "Mat" has no member "ot_used"
-        ot->ot_used = 0;
-            ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(78): error: class "Mat" has no member "ot_limit"
-          case Memcpy: cpySize = ot->ot_limit;
-                                     ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(80): error: class "Mat" has no member "last_round_ot"
-          case LastRound: cpySize = ot->last_round_ot;
-                                        ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(84): error: expression must have class type but it has type "Mat *const"
-          cudaMemcpy(data.data(ot->pt), ot->ot_data.data(), cpySize*sizeof(blk), cudaMemcpyDeviceToDevice);
-                     ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(84): error: class "Mat" has no member "pt"
-          cudaMemcpy(data.data(ot->pt), ot->ot_data.data(), cpySize*sizeof(blk), cudaMemcpyDeviceToDevice);
-                                   ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(84): error: class "Mat" has no member "ot_data"
-          cudaMemcpy(data.data(ot->pt), ot->ot_data.data(), cpySize*sizeof(blk), cudaMemcpyDeviceToDevice);
-                                            ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(107): error: no default constructor exists for class "emp::NetIO"
-   NetIO ios[2];
-         ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(108): error: expected a ";"
-    for (int gpu = 0; gpu < 2) {
-                             ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(109): error: no operator "=" matches these operands
-            operand types are: emp::NetIO = emp::NetIO *
-      ios[gpu] = new NetIO(party == Sender ? nullptr : "127.0.0.1", port+gpu);
-               ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(119): error: identifier "ferretLPN" is undefined
-      .primalLPN = ferretLPN,
-                   ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(126): error: expression must have class type but it has type "Mat *"
-      data[gpu].resize({logOT});
-      ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(133): error: no suitable user-defined conversion from "std::ostringstream" to "std::string" exists
-      if (i == 1) Log::open(party, filename, 1000, true);
-                                   ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(135): error: argument of type "int" is incompatible with parameter of type "Role"
-      init_multi_gpu(party, ot, config, data);
-                     ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(135): error: argument of type "Mat **" is incompatible with parameter of type "Mat *"
-      init_multi_gpu(party, ot, config, data);
-                                        ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(137): error: identifier "round_inplace" is undefined
-      for(uint64_t i = 0; i < round_inplace; ++i) {
-                              ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(138): error: identifier "rcot" is undefined
-        seed_exp_multi_gpu(rcot, NotLastRound);
-                           ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(139): error: argument of type "Mat **" is incompatible with parameter of type "Mat *"
-        primal_lpn_multi_gpu(rcot, data, NotLastRound);
-                                   ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(145): error: identifier "rcot" is undefined
-      if(rcot[gpu]->round_memcpy) {
-         ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(145): error: identifier "gpu" is undefined
-      if(rcot[gpu]->round_memcpy) {
-              ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(147): error: argument of type "Mat **" is incompatible with parameter of type "Mat *"
-        primal_lpn_multi_gpu(rcot, data, Memcpy);
-                                   ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(152): error: identifier "last_round_ot" is undefined
-      if(last_round_ot > 0) {
-         ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(154): error: argument of type "Mat **" is incompatible with parameter of type "Mat *"
-        primal_lpn_multi_gpu(rcot, data, LastRound);
-                                   ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(160): warning #780-D: reference is to variable "i" (declared at line 130) -- under old for-init scoping rules it would have been variable "i" (declared at line 137)
-      if (i == 1) Log::close(party);
-          ^
-
-[0m[91m44 errors detected in the compilation of "/home/gpuot/ferret/emp-ot/test/main.cu".
-[0m[91mmake[2]: *** [test/CMakeFiles/test_main.dir/build.make:76: test/CMakeFiles/test_main.dir/main.cu.o] Error 2
-make[2]: *** Waiting for unfinished jobs....
-[0m[91mmake[1]: *** [CMakeFiles/Makefile2:98: test/CMakeFiles/test_main.dir/all] Error 2
-[0m[91mmake: *** [Makefile:146: all] Error 2
-[0mConsolidate compiler generated dependencies of target test_main
-[ 33%] Building CUDA object test/CMakeFiles/test_main.dir/main.cu.o
-[91m/home/gpuot/ferret/lib/include/emp-tool/utils/aes.h(135): warning #1675-D: unrecognized GCC pragma
-  #pragma GCC optimize ("unroll-loops")
-              ^
-
-Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/execution/circuit_execution.h(23): warning #68-D: integer conversion resulted in a change of sign
-    return -1;
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(84): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d\n", &num_gate, &num_wire);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(84): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d\n", &num_gate, &num_wire);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(85): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d%d\n", &n1, &n2, &n3);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(85): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d%d\n", &n1, &n2, &n3);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(86): warning #1650-D: result of call is not used
-    (void)fscanf(f, "\n");
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(86): warning #1650-D: result of call is not used
-    (void)fscanf(f, "\n");
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(91): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(91): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-     ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(93): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+1], &gates[4*i+2], str);
-            ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(93): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+1], &gates[4*i+2], str);
-      ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(98): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+2], str);
-            ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(98): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+2], str);
-      ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(147): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d\n", &num_gate, &num_wire);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(147): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d%d\n", &num_gate, &num_wire);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(149): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d", &niov);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(149): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d", &niov);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(151): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(151): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-     ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(154): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d", &niov);
-          ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(154): warning #1650-D: result of call is not used
-    (void)fscanf(f, "%d", &niov);
-    ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(156): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(156): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-     ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(164): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-           ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(164): warning #1650-D: result of call is not used
-     (void)fscanf(f, "%d", &tmp);
-     ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(166): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+1], &gates[4*i+2], str);
-            ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(166): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+1], &gates[4*i+2], str);
-      ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(171): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+2], str);
-            ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/circuits/circuit_file.h(171): warning #1650-D: result of call is not used
-      (void)fscanf(f, "%d%d%d%s", &tmp, &gates[4*i], &gates[4*i+2], str);
-      ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/utils/crh.h(25): warning #1675-D: unrecognized GCC pragma
-  #pragma GCC optimize ("unroll-loops")
-              ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/utils/ccrh.h(25): warning #1675-D: unrecognized GCC pragma
-  #pragma GCC optimize ("unroll-loops")
-              ^
-
-[0m[91m/home/gpuot/ferret/lib/include/emp-tool/utils/tccrh.h(25): warning #1675-D: unrecognized GCC pragma
-  #pragma GCC optimize ("unroll-loops")
-              ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/twokeyprp.h(12): warning #191-D: type qualifier is meaningless on cast type
-    AES_set_encrypt_key((const block)seed0, aes_key);
-                         ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/twokeyprp.h(13): warning #191-D: type qualifier is meaningless on cast type
-    AES_set_encrypt_key((const block)seed1, &aes_key[1]);
-                         ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h(196): warning #997-D: function "emp::COT<T>::send_cot(emp::block *, int64_t) [with T=emp::NetIO]" is hidden by "FerretOTSender::send_cot" -- virtual function override intended?
-    virtual void send_cot(blk * data, int64_t length);
-                 ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h(184): error: identifier "delta" is undefined
-      cudaMemcpy(delta, config.delta, sizeof(blk), cudaMemcpyHostToDevice);
-                 ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h(222): warning #997-D: function "emp::COT<T>::recv_cot(emp::block *, const bool *, int64_t) [with T=emp::NetIO]" is hidden by "FerretOTRecver::recv_cot" -- virtual function override intended?
-   virtual void recv_cot(blk* data, const bool * b, int64_t length);
-                ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(16): error: object of abstract class type "FerretOTSender" is not allowed:
-            pure virtual function "emp::COT<T>::send_cot [with T=emp::NetIO]" has no overrider
-            pure virtual function "emp::COT<T>::recv_cot [with T=emp::NetIO]" has no overrider
-          rcot[gpu] = new FerretOTSender(config);
-                          ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(19): error: object of abstract class type "FerretOTRecver" is not allowed:
-            pure virtual function "emp::COT<T>::send_cot [with T=emp::NetIO]" has no overrider
-            pure virtual function "emp::COT<T>::recv_cot [with T=emp::NetIO]" has no overrider
-          rcot[gpu] = new FerretOTRecver(config);
-                          ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(23): error: identifier "io" is undefined
-      io->sync();
-      ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(39): error: a value of type "FerretOT *" cannot be used to initialize an entity of type "Mat *"
-      Mat *ot = rcot[gpu];
-                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(41): error: an enclosing-function local variable cannot be referenced in a lambda body unless it is in the capture list
-        switch (phase) {
-                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(42): error: identifier "Iterations" is undefined
-          case Iterations: output = new Span(ot->data, pt);
-               ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(42): error: a pointer to a bound function may only be used to call the function
-          case Iterations: output = new Span(ot->data, pt);
-                                                 ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(42): error: identifier "pt" is undefined
-          case Iterations: output = new Span(ot->data, pt);
-                                                       ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(42): error: expression must be a modifiable lvalue
-          case Iterations: output = new Span(ot->data, pt);
-                           ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(45): error: class "Mat" has no member "ot_data"
-          case LastRound: output = new Span(ot->ot_data);
-                                                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(45): error: expression must be a modifiable lvalue
-          case LastRound: output = new Span(ot->ot_data);
-                          ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(48): error: class "Mat" has no member "send_preot"
-        ot->send_preot();
-            ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(49): error: class "Mat" has no member "seed_expand"
-        ot->seed_expand(*output);
-            ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(65): error: a value of type "FerretOT *" cannot be used to initialize an entity of type "Mat *"
-      Mat *ot = rcot[gpu];
-                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(68): error: identifier "Iterations" is undefined
-          case Iterations: output = new Span(ot->data, ot->pt);
-               ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(68): error: a pointer to a bound function may only be used to call the function
-          case Iterations: output = new Span(ot->data, ot->pt);
-                                                 ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(68): error: class "Mat" has no member "pt"
-          case Iterations: output = new Span(ot->data, ot->pt);
-                                                           ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(68): error: expression must be a modifiable lvalue
-          case Iterations: output = new Span(ot->data, ot->pt);
-                           ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(71): error: class "Mat" has no member "ot_data"
-          case LastRound: output = new Span(ot->ot_data);
-                                                ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(71): error: expression must be a modifiable lvalue
-          case LastRound: output = new Span(ot->ot_data);
-                          ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(74): error: class "Mat" has no member "primal_lpn"
-        ot->primal_lpn(*output);
-            ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(75): error: class "Mat" has no member "ot_used"
-        ot->ot_used = 0;
-            ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(78): error: class "Mat" has no member "ot_limit"
-          case Memcpy: cpySize = ot->ot_limit;
-                                     ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(80): error: class "Mat" has no member "last_round_ot"
-          case LastRound: cpySize = ot->last_round_ot;
-                                        ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(84): error: expression must have class type but it has type "Mat *const"
-          cudaMemcpy(data.data(ot->pt), ot->ot_data.data(), cpySize*sizeof(blk), cudaMemcpyDeviceToDevice);
-                     ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(84): error: class "Mat" has no member "pt"
-          cudaMemcpy(data.data(ot->pt), ot->ot_data.data(), cpySize*sizeof(blk), cudaMemcpyDeviceToDevice);
-                                   ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(84): error: class "Mat" has no member "ot_data"
-          cudaMemcpy(data.data(ot->pt), ot->ot_data.data(), cpySize*sizeof(blk), cudaMemcpyDeviceToDevice);
-                                            ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(107): error: no default constructor exists for class "emp::NetIO"
-   NetIO ios[2];
-         ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(108): error: expected a ";"
-    for (int gpu = 0; gpu < 2) {
-                             ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(109): error: no operator "=" matches these operands
-            operand types are: emp::NetIO = emp::NetIO *
-      ios[gpu] = new NetIO(party == Sender ? nullptr : "127.0.0.1", port+gpu);
-               ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(119): error: identifier "ferretLPN" is undefined
-      .primalLPN = ferretLPN,
-                   ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(126): error: expression must have class type but it has type "Mat *"
-      data[gpu].resize({logOT});
-      ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(133): error: no suitable user-defined conversion from "std::ostringstream" to "std::string" exists
-      if (i == 1) Log::open(party, filename, 1000, true);
-                                   ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(135): error: argument of type "int" is incompatible with parameter of type "Role"
-      init_multi_gpu(party, ot, config, data);
-                     ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(135): error: argument of type "Mat **" is incompatible with parameter of type "Mat *"
-      init_multi_gpu(party, ot, config, data);
-                                        ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(137): error: identifier "round_inplace" is undefined
-      for(uint64_t i = 0; i < round_inplace; ++i) {
-                              ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(138): error: identifier "rcot" is undefined
-        seed_exp_multi_gpu(rcot, NotLastRound);
-                           ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(139): error: argument of type "Mat **" is incompatible with parameter of type "Mat *"
-        primal_lpn_multi_gpu(rcot, data, NotLastRound);
-                                   ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(145): error: identifier "rcot" is undefined
-      if(rcot[gpu]->round_memcpy) {
-         ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(145): error: identifier "gpu" is undefined
-      if(rcot[gpu]->round_memcpy) {
-              ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(147): error: argument of type "Mat **" is incompatible with parameter of type "Mat *"
-        primal_lpn_multi_gpu(rcot, data, Memcpy);
-                                   ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(152): error: identifier "last_round_ot" is undefined
-      if(last_round_ot > 0) {
-         ^
-
-/home/gpuot/ferret/emp-ot/test/main.cu(154): error: argument of type "Mat **" is incompatible with parameter of type "Mat *"
-        primal_lpn_multi_gpu(rcot, data, LastRound);
-                                   ^
-
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cu(160): warning #780-D: reference is to variable "i" (declared at line 130) -- under old for-init scoping rules it would have been variable "i" (declared at line 137)
-      if (i == 1) Log::close(party);
-          ^
-
-[0m[91m44 errors detected in the compilation of "/home/gpuot/ferret/emp-ot/test/main.cu".
-[0m[91mmake[2]: *** [test/CMakeFiles/test_main.dir/build.make:76: test/CMakeFiles/test_main.dir/main.cu.o] Error 2
-[0m[91mmake[1]: *** [CMakeFiles/Makefile2:98: test/CMakeFiles/test_main.dir/all] Error 2
-[0m[91mmake: *** [Makefile:146: all] Error 2
-[0m
 if [ ! -d "emp-tool" ]; then
     git clone https://github.com/emp-toolkit/emp-tool.git --branch master
 fi
@@ -1071,17 +441,17 @@ make -j4
 make install
 cd ..
 
- ---> Removed intermediate container ea1be6e773c8
- ---> f119e02c24c6
+ ---> Removed intermediate container b3b56a3a638b
+ ---> 0e1d5fbb7069
 Step 12/13 : RUN chmod +x ferret.sh
- ---> Running in 78b123d64547
- ---> Removed intermediate container 78b123d64547
- ---> 10f037a5e900
+ ---> Running in 9d5ccff452ae
+ ---> Removed intermediate container 9d5ccff452ae
+ ---> 487064ea7777
 Step 13/13 : CMD ["./ferret.sh"]
- ---> Running in 5b53f5f3c6b5
- ---> Removed intermediate container 5b53f5f3c6b5
- ---> f2133be554a7
-Successfully built f2133be554a7
+ ---> Running in fe79b7a24ff9
+ ---> Removed intermediate container fe79b7a24ff9
+ ---> c14db15f1f52
+Successfully built c14db15f1f52
 Successfully tagged gpuot:latest
 
 ==========
@@ -1098,3 +468,4 @@ https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
 
 A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
 
+/home/gpuot/ferret/ferret.sh: line 6: ./ot: No such file or directory
