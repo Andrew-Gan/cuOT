@@ -28,17 +28,23 @@ public:
   uint64_t *puncPos;
   uint64_t *activeParent;
 
-  FerretOTRecver(FerretConfig config) : FerretOT<T>(config) {
+  FerretOTRecver(FerretConfig config, int port) : FerretOT<T>(config) {
+    std::cout << "r0" << std::endl;
     mRole = Recver;
     mDev = NGPU - mConfig.id - 1;
     set_dev(mDev);
+    std::cout << "127.0.0.1 " << port+mConfig.id << std::endl;
+    this->io = new NetIO("127.0.0.1", port+mConfig.id);
+    std::cout << "r1" << std::endl;
     one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
     base_cot = new BaseCot<T>(mRole, io, mConfig.malicious);
     ot_pre_data.resize({(uint64_t)mConfig.lpnParam->n_pre});
+    std::cout << "r2" << std::endl;
 
     if(mConfig.runSetup) {
       setup(mConfig.preFile);
     }
+    std::cout << "r3" << std::endl;
   }
 
   virtual ~FerretOTRecver() {
@@ -75,9 +81,9 @@ private:
 
     ot_pre_data.resize({(uint64_t)mConfig.lpnParam->n_pre});
     bool hasfile = file_exists(pre_ot_filename), hasfile2;
-    io->recv_data(&hasfile2, sizeof(bool));
-    io->send_data(&hasfile, sizeof(bool));
-    io->flush();
+    this->io->recv_data(&hasfile2, sizeof(bool));
+    this->io->send_data(&hasfile, sizeof(bool));
+    this->io->flush();
     if(hasfile & hasfile2) {
       Delta = (block)this->read_pre_data_from_file((void*)ot_pre_data.data(), pre_ot_filename);
     } else {
@@ -116,7 +122,7 @@ private:
     // for(int64_t i = 0; i < length; ++i) {
     //   bo[i] = b[i] ^ getLSB(data[i]);
     // }
-    // io->send_bool(bo, length*sizeof(bool));
+    // this->io->send_bool(bo, length*sizeof(bool));
     // delete[] bo;
   }
 

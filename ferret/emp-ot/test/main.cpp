@@ -9,15 +9,15 @@
 
 enum Phase { NotLastRound, MemcpyRound, LastRound };
 
-void init_multi_gpu(Role role, FerretOT<NetIO> **rcot, FerretConfig config, Mat *data) {
+void init_multi_gpu(Role role, FerretOT<NetIO> **rcot, FerretConfig config, Mat *data, int port) {
   for (int gpu = 0; gpu < NGPU; gpu++) {
     config.id = gpu;
     switch(role) {
       case Sender:
-        rcot[gpu] = new FerretOTSender<NetIO>(config);
+        rcot[gpu] = new FerretOTSender<NetIO>(config, port);
         break;
       case Recver:
-        rcot[gpu] = new FerretOTRecver<NetIO>(config);
+        rcot[gpu] = new FerretOTRecver<NetIO>(config, port);
         break;
     }
     rcot[gpu]->rcot_init(data[gpu]);
@@ -82,6 +82,7 @@ void primal_lpn_multi_gpu(FerretOT<NetIO> **rcot, Mat *data, Phase phase) {
         case LastRound:
           ot->primal_lpn(dataSpan);
           memcpy_D2D_dev(pt.data(), ot->ot_data.data(), ot->last_round_ot*sizeof(blk));
+          ot->ot_used = ot->last_round_ot;
           break;
       }
       sync_dev();
@@ -111,11 +112,6 @@ int main(int argc, char** argv) {
   else filename << "recv-";
   filename << logOT << ".txt";
 
-	NetIO *ios[NGPU];
-  for (int gpu = 0; gpu < NGPU; gpu++) {
-    ios[gpu] = new NetIO(role == Sender ? nullptr : "127.0.0.1", port+gpu);
-  }
-
   std::future<void> worker[NGPU];
   FerretConfig config = {
     .logOT = logOT,
@@ -132,43 +128,39 @@ int main(int argc, char** argv) {
   Mat data[NGPU];
   for (int gpu = 0; gpu < NGPU; gpu++) {
     set_dev(gpu);
-    data[gpu].resize({(uint64_t)logOT});
+    data[gpu].resize({(uint64_t)(1<<logOT)});
   }
 
   FerretOT<NetIO> *rcot[NGPU];
+  std::string partyName(role==Sender?"Sender":"Recver");
+
 	for (int i = 0; i < 2; i++) {
 		if (i == 0) std::cout << "initialisation..." << std::endl;
     if (i == 1) std::cout << "benchmarking..." << std::endl;
     if (i == 1) Log::open(role, filename.str(), 1000, true);
 
-    init_multi_gpu(role, rcot, config, data);
+    init_multi_gpu(role, rcot, config, data, port);
+    std::cout << "pair init" << std::endl;
 
     for(int64_t r = 0; r < rcot[0]->round_inplace; r++) {
       seed_exp_multi_gpu(rcot, data, NotLastRound);
+      std::cout << partyName << " iter expand" << std::endl;
       primal_lpn_multi_gpu(rcot, data, NotLastRound);
-      for (int gpu = 0; gpu < NGPU; gpu++) {
-        rcot[gpu]->ot_used = rcot[gpu]->ot_limit;
-        rcot[gpu]->pt += rcot[gpu]->ot_limit;
-      }
+      std::cout << partyName << " iter lpn" << std::endl;
     }
     if(rcot[0]->round_memcpy) {
       seed_exp_multi_gpu(rcot, data, MemcpyRound);
+      std::cout << partyName << " memcpy expand" << std::endl;
       primal_lpn_multi_gpu(rcot, data, MemcpyRound);
-      for (int gpu = 0; gpu < NGPU; gpu++) {
-        rcot[gpu]->pt += rcot[gpu]->ot_limit;
-      }
+      std::cout << partyName << " memcpy lpn" << std::endl;
     }
     if(rcot[0]->last_round_ot > 0) {
       seed_exp_multi_gpu(rcot, data, LastRound);
+      std::cout << partyName << " last expand" << std::endl;
       primal_lpn_multi_gpu(rcot, data, LastRound);
-      for (int gpu = 0; gpu < NGPU; gpu++) {
-        rcot[gpu]->ot_used = rcot[gpu]->last_round_ot;
-      }
+      std::cout << partyName << " last lpn" << std::endl;
     }
 
     if (i == 1) Log::close(role);
 	}
-  for (int gpu = 0; gpu < NGPU; gpu++) {
-    delete ios[gpu];
-  }
 }

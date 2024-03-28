@@ -46,7 +46,7 @@ public:
 
   block seed_gen() {
     block seed;
-    if(party == ALICE) {
+    if(party == Sender) {
       PRG prg;
       prg.random_block(&seed, 1);
       io->send_data(&seed, sizeof(block));

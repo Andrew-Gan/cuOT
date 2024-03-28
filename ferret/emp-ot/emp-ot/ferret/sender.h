@@ -25,13 +25,18 @@ public:
   using COT<T>::io;
   using COT<T>::Delta;
 
-  FerretOTSender(FerretConfig config) : FerretOT<T>(config) {
+  FerretOTSender(FerretConfig config, int port) : FerretOT<T>(config) {
+    std::cout << "s0" << std::endl;
     mRole = Sender;
     mDev = mConfig.id;
     set_dev(mDev);
+    std::cout << "nullptr" << port+mConfig.id << std::endl;
+    this->io = new NetIO(nullptr, port+mConfig.id);
+    std::cout << "s1" << std::endl;
     one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
     base_cot = new BaseCot<T>(mRole, io, mConfig.malicious);
     ot_pre_data.resize({(uint64_t)mConfig.lpnParam->n_pre});
+    std::cout << "s2" << std::endl;
 
     if(mConfig.runSetup) {
       PRG prg;
@@ -41,6 +46,7 @@ public:
       setup(mConfig.preFile);
       memcpy_H2D_dev(&ch[1], &Delta, sizeof(blk));
     }
+    std::cout << "s3" << std::endl;
   }
 
   virtual ~FerretOTSender() {
@@ -77,9 +83,9 @@ private:
 
     ot_pre_data.resize({(uint64_t)mConfig.lpnParam->n_pre});
     bool hasfile = file_exists(pre_ot_filename), hasfile2;
-    io->send_data(&hasfile, sizeof(bool));
-    io->flush();
-    io->recv_data(&hasfile2, sizeof(bool));
+    this->io->send_data(&hasfile, sizeof(bool));
+    this->io->flush();
+    this->io->recv_data(&hasfile2, sizeof(bool));
     if(hasfile & hasfile2) {
       Delta = (block)this->read_pre_data_from_file((void*)ot_pre_data.data(), pre_ot_filename);
     } else {
@@ -115,7 +121,7 @@ private:
   virtual void online_sender(blk *data, int64_t length) {
     // set_dev(mDev);
     // bool *bo = new bool[length];
-    // io->recv_bool(bo, length*sizeof(bool));
+    // this->io->recv_bool(bo, length*sizeof(bool));
     // for(int64_t i = 0; i < length; ++i) {
     //   data[i] = data[i] ^ ch[bo[i]];
     // }

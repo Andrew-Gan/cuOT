@@ -53,13 +53,13 @@ public:
 
 	// MPFSS F_2k
 	void mpcot(Span &sparse_vector, OTPre<IO> * ot, Mat &pre_cot_data) {
-		// if(party == BOB) consist_check_chi_alpha = new block[item_n];
+		// if(party == Recver) consist_check_chi_alpha = new block[item_n];
 		// consist_check_VW = new block[item_n];
 
 		SPCOT_Sender<IO> sender(io, tree_n, tree_height);
 		SPCOT_Recver<IO> recver(io, tree_n, tree_height);
 
-		if(party == ALICE) {
+		if(party == Sender) {
 			mpcot_init_sender(ot);
 			exec_f2k_sender(sender, ot, sparse_vector, io);
 		} else {
@@ -70,7 +70,7 @@ public:
 		if(is_malicious)
 			consistency_check_f2k(pre_cot_data, tree_n);
 
-		// if(party == BOB) delete[] consist_check_chi_alpha;
+		// if(party == Recver) delete[] consist_check_chi_alpha;
 		// delete[] consist_check_VW;
 	}
 
@@ -110,7 +110,7 @@ public:
 
 	// f2k consistency check
 	void consistency_check_f2k(Mat &pre_cot_data, int num) {
-		// if(this->party == ALICE) {
+		// if(this->party == Sender) {
 		// 	block r1, r2;
 		// 	vector_self_xor(&r1, this->consist_check_VW, num);
 		// 	bool x_prime[128];

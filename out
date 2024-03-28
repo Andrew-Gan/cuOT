@@ -3,38 +3,38 @@ DEPRECATED: The legacy builder is deprecated and will be removed in a future rel
             Install the buildx component to build images with BuildKit:
             https://docs.docker.com/go/buildx/
 
-Sending build context to Docker daemon  61.76MB
+Sending build context to Docker daemon  61.82MB
 Step 1/13 : FROM nvidia/cuda:12.3.2-devel-ubuntu22.04
  ---> da3144977a75
-Step 2/13 : RUN apt-get update && apt-get -y install build-essential python3 cmake git libssl-dev
+Step 2/13 : RUN apt-get update && apt-get -y install build-essential python3 cmake git libssl-dev valgrind
  ---> Using cache
- ---> c0c6ae6145f6
+ ---> 85b6b13362d7
 Step 3/13 : WORKDIR /home/gpuot
  ---> Using cache
- ---> 7aab32305a8f
+ ---> 2d96a1400e71
 Step 4/13 : RUN mkdir result
  ---> Using cache
- ---> fe8d80fe0ee4
+ ---> 336f110a61b5
 Step 5/13 : COPY gpu gpu
  ---> Using cache
- ---> 8f6dd372974c
+ ---> 9e9d74326b65
 Step 6/13 : WORKDIR /home/gpuot/gpu
  ---> Using cache
- ---> 88d820e7d147
+ ---> 5cd47629e5ba
 Step 7/13 : RUN make -j -s
  ---> Using cache
- ---> 821700ac4511
+ ---> 626d369a5353
 Step 8/13 : WORKDIR /home/gpuot
  ---> Using cache
- ---> cbf82214f8d3
+ ---> 8d5486f1f6ac
 Step 9/13 : COPY ferret ferret
- ---> 469db4afc861
+ ---> dc962a15a11e
 Step 10/13 : WORKDIR /home/gpuot/ferret
- ---> Running in 5371bb5cbed5
- ---> Removed intermediate container 5371bb5cbed5
- ---> 67e16a035902
+ ---> Running in 1b1d19d7ed7e
+ ---> Removed intermediate container 1b1d19d7ed7e
+ ---> 5f8e3e424020
 Step 11/13 : RUN python3 build.py --tool --ot
- ---> Running in b3b56a3a638b
+ ---> Running in c81dad8ffd54
 [91mCloning into 'emp-tool'...
 [0m[91mCMake Warning:
   No source or binary directory provided.  Both will be assumed to be the
@@ -54,10 +54,10 @@ Step 11/13 : RUN python3 build.py --tool --ot
 -- Check for working CXX compiler: /usr/bin/c++ - skipped
 -- Detecting CXX compile features
 -- Detecting CXX compile features - done
--- [34mBuild type: Release[m
--- CXX Flags:  -g -pthread -Wall -funroll-loops -Wno-ignored-attributes -Wno-unused-result -march=native -maes -mrdseed -std=c++11 -O3
 [91m[34m-- Platform: x86_64[m
-[0m-- Performing Test RDSEED_RUN_RESULT
+[0m-- [34mBuild type: Release[m
+-- CXX Flags:  -g -pthread -Wall -funroll-loops -Wno-ignored-attributes -Wno-unused-result -march=native -maes -mrdseed -std=c++11 -O3
+-- Performing Test RDSEED_RUN_RESULT
 -- Performing Test RDSEED_RUN_RESULT - Success
 [91m[32m-- Source of Randomness: rdseed[m
 [0m-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
@@ -70,10 +70,10 @@ Step 11/13 : RUN python3 build.py --tool --ot
 
 
 [0m-- Build files have been written to: /home/gpuot/ferret/emp-tool
-[  2%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/emp-tool.cpp.o
-[  4%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_div.cpp.o
-[  6%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_add.cpp.o
-[  8%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_cos.cpp.o
+[  2%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_add.cpp.o
+[  6%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_cos.cpp.o
+[  6%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_div.cpp.o
+[  8%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/emp-tool.cpp.o
 [ 10%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_eq.cpp.o
 [ 12%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_le.cpp.o
 [ 14%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_leq.cpp.o
@@ -88,14 +88,14 @@ Step 11/13 : RUN python3 build.py --tool --ot
 [ 32%] Building CXX object CMakeFiles/emp-tool.dir/emp-tool/circuits/float32_log2.cpp.o
 [ 34%] Linking CXX shared library libemp-tool.so
 [ 34%] Built target emp-tool
+[ 36%] Building CXX object test/CMakeFiles/test_hash.dir/hash.cpp.o
 [ 38%] Building CXX object test/CMakeFiles/test_prg.dir/prg.cpp.o
-[ 40%] Building CXX object test/CMakeFiles/test_netio.dir/netio.cpp.o
-[ 42%] Building CXX object test/CMakeFiles/test_hash.dir/hash.cpp.o
-[ 42%] Building CXX object test/CMakeFiles/test_prp.dir/prp.cpp.o
+[ 40%] Building CXX object test/CMakeFiles/test_prp.dir/prp.cpp.o
+[ 42%] Building CXX object test/CMakeFiles/test_netio.dir/netio.cpp.o
 [ 44%] Linking CXX executable ../bin/test_hash
 [ 46%] Linking CXX executable ../bin/test_prp
-[ 46%] Built target test_prp
 [ 46%] Built target test_hash
+[ 46%] Built target test_prp
 [ 48%] Building CXX object test/CMakeFiles/test_netio2.dir/netio2.cpp.o
 [ 51%] Building CXX object test/CMakeFiles/test_bit.dir/bit.cpp.o
 [91mIn file included from /usr/include/string.h:535,
@@ -162,16 +162,16 @@ In function ‘void* memcpy(void*, const void*, size_t)’,
 [ 61%] Built target test_netio2
 [ 63%] Building CXX object test/CMakeFiles/test_float.dir/float.cpp.o
 [ 65%] Linking CXX executable ../bin/test_ecc
-[ 65%] Built target test_ecc
-[ 67%] Building CXX object test/CMakeFiles/test_garble.dir/garble.cpp.o
-[ 69%] Linking CXX executable ../bin/test_bit
+[ 67%] Linking CXX executable ../bin/test_bit
+[ 67%] Built target test_ecc
+[ 69%] Building CXX object test/CMakeFiles/test_garble.dir/garble.cpp.o
 [ 69%] Built target test_bit
 [ 71%] Building CXX object test/CMakeFiles/test_gen_circuit.dir/gen_circuit.cpp.o
 [ 73%] Linking CXX executable ../bin/test_int
 [ 75%] Linking CXX executable ../bin/test_garble
 [ 75%] Built target test_int
-[ 75%] Built target test_garble
 [ 77%] Building CXX object test/CMakeFiles/test_mitccrh.dir/mitccrh.cpp.o
+[ 77%] Built target test_garble
 [ 79%] Building CXX object test/CMakeFiles/test_f2k.dir/f2k.cpp.o
 [ 81%] Linking CXX executable ../bin/test_float
 [ 81%] Built target test_float
@@ -337,10 +337,10 @@ Install the project...
 -- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
 -- Detecting CUDA compile features
 -- Detecting CUDA compile features - done
-[91m[34m-- Platform: x86_64[m
-[0m-- [34mBuild type: Release[m
+-- [34mBuild type: Release[m
 -- CXX Flags:  -g -pthread -Wall -funroll-loops -Wno-ignored-attributes -Wno-unused-result -march=native -maes -mrdseed -std=c++11 -O3
--- Performing Test RDSEED_RUN_RESULT
+[91m[34m-- Platform: x86_64[m
+[0m-- Performing Test RDSEED_RUN_RESULT
 -- Performing Test RDSEED_RUN_RESULT - Success
 [91m[32m-- Source of Randomness: rdseed[m
 [0m-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
@@ -376,20 +376,6 @@ This warning is for project developers.  Use -Wno-dev to suppress it.
 /home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h:28:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘uint64_t’ {aka ‘long unsigned int’} [-Wsign-compare]
    28 |     while(mask < k) {
       |           ~~~~~^~~
-[0m[91m/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h: In instantiation of ‘void LpnF2<IO>::encode(Span&, Span&) [with IO = emp::NetIO]’:
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h:176:16:   required from ‘void FerretOT<T>::primal_lpn(Span&, int, LpnF2<T>*, Mat&) [with T = emp::NetIO]’
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/roles.h:121:15:   required from ‘void FerretOT<T>::primal_lpn(Span&) [with T = emp::NetIO]’
-/home/gpuot/ferret/emp-ot/test/main.cpp:73:25:   required from here
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h:39:9: warning: unused variable ‘n_0’ [-Wunused-variable]
-   39 |     int n_0 = nn.size();
-      |         ^~~
-/home/gpuot/ferret/emp-ot/emp-ot/ferret/lpnf2.h:40:9: warning: unused variable ‘k_0’ [-Wunused-variable]
-   40 |     int k_0 = kk.size();
-      |         ^~~
-[0m[91m/home/gpuot/ferret/emp-ot/test/main.cpp: In function ‘int main(int, char**)’:
-/home/gpuot/ferret/emp-ot/test/main.cpp:98:8: warning: ‘role’ may be used uninitialized in this function [-Wmaybe-uninitialized]
-   98 |   Role role;
-      |        ^~~~
 [0m[100%] Linking CXX executable ../bin/test_main
 [100%] Built target test_main
 Consolidate compiler generated dependencies of target test_main
@@ -441,17 +427,17 @@ make -j4
 make install
 cd ..
 
- ---> Removed intermediate container b3b56a3a638b
- ---> 0e1d5fbb7069
+ ---> Removed intermediate container c81dad8ffd54
+ ---> eb755225a7da
 Step 12/13 : RUN chmod +x ferret.sh
- ---> Running in 9d5ccff452ae
- ---> Removed intermediate container 9d5ccff452ae
- ---> 487064ea7777
+ ---> Running in 3c8237375d32
+ ---> Removed intermediate container 3c8237375d32
+ ---> bed328bc9ccb
 Step 13/13 : CMD ["./ferret.sh"]
- ---> Running in fe79b7a24ff9
- ---> Removed intermediate container fe79b7a24ff9
- ---> c14db15f1f52
-Successfully built c14db15f1f52
+ ---> Running in cf426f2a4df3
+ ---> Removed intermediate container cf426f2a4df3
+ ---> bf6dd57fc182
+Successfully built bf6dd57fc182
 Successfully tagged gpuot:latest
 
 ==========
@@ -468,4 +454,31 @@ https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
 
 A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
 
-/home/gpuot/ferret/ferret.sh: line 6: ./ot: No such file or directory
+==27== Memcheck, a memory error detector
+==27== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==27== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==27== Command: ./emp-ot/run ./emp-ot/bin/test_main 24
+==27== 
+connected
+connected
+connected
+connected
+initialisation...
+initialisation...
+./emp-ot/run: line 2:    30 Segmentation fault      (core dumped) $1 2 12345 ${@:2}
+==27== 
+==27== HEAP SUMMARY:
+==27==     in use at exit: 59,552 bytes in 626 blocks
+==27==   total heap usage: 737 allocs, 111 frees, 78,494 bytes allocated
+==27== 
+==27== LEAK SUMMARY:
+==27==    definitely lost: 0 bytes in 0 blocks
+==27==    indirectly lost: 0 bytes in 0 blocks
+==27==      possibly lost: 0 bytes in 0 blocks
+==27==    still reachable: 59,552 bytes in 626 blocks
+==27==         suppressed: 0 bytes in 0 blocks
+==27== Reachable blocks (those to which a pointer was found) are not shown.
+==27== To see them, rerun with: --leak-check=full --show-leak-kinds=all
+==27== 
+==27== For lists of detected and suppressed errors, rerun with: -s
+==27== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

@@ -47,14 +47,13 @@ public:
     
     uint32_t k0_blk[4] = {3242342};
     uint32_t k1_blk[4] = {8993849};
-    Span *input;
-    Span *output;
-    AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
     Mat buffer({tree.size()});
+    Span bufferSpan(buffer);
+    Span *input = &bufferSpan;
+    Span *output = &tree;
+    AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
     Mat separated({tree.size()});
 
-    input = new Span(buffer);
-    output = &tree;
     for (uint64_t d = 0, inWidth = 1; d < depth-1; d++, inWidth *= 2) {
       std::swap(input, output);
       aesExpand.expand(*input, *output, separated, tree_n * inWidth);
@@ -65,8 +64,6 @@ public:
     if (output != &tree) {
       memcpy_D2D_dev(tree.data(), output->data(), tree.size_bytes());
     }
-
-    delete input;
   }
 
   // send the nodes by oblivious transfer, F2^k
