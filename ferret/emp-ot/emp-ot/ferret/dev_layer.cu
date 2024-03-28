@@ -54,11 +54,13 @@ void SPCOT_recver_compute_dev(uint64_t tree_n, Mat &cSum, uint64_t inWidth,
   int grid = (tree_n + block - 1) / block;
   fill_punc_tree<<<grid, block>>>(cSum.data({d, 0}), 2*inWidth, activeParent,
     choice+(d*tree_n), separated.data(), tree.data(), tree_n);
-  if (d == depth-2) {
-    fill_punc_tree<<<grid, block>>>(cSum.data({d, tree_n}),
-    2*inWidth, activeParent, choice+(d*tree_n), separated.data(),
-    tree.data(), tree_n);
-  }
+  // final punctured node recovered elsewhere
+  // look at emp-ot spcot_recver.h:53
+  // if (d == depth-2) {
+  //   fill_punc_tree<<<grid, block>>>(cSum.data({d, tree_n}),
+  //   2*inWidth, activeParent, choice+(d*tree_n), separated.data(),
+  //   tree.data(), tree_n);
+  // }
 }
 
 __global__

@@ -85,16 +85,20 @@ public:
     memset_dev(&ch[0], 0, sizeof(blk));
   }
 
-  virtual ~FerretOT() {}
+  virtual ~FerretOT() { delete io; }
   virtual void seed_expand(Span &ot_output) = 0;
 
   virtual void rcot_init(Mat &data) {
-    io->sync();
-    int64_t num = (int64_t) data.size();
+    std::cout << 0 << std::endl;
+    this->io->sync();
+    std::cout << 1 << std::endl;
+    uint64_t num = data.size();
+    std::cout << 2 << std::endl;
     if(ot_data.size() == 0) {
       ot_data.resize({(uint64_t)mConfig.lpnParam->n});
       ot_data.clear();
     }
+    std::cout << 3 << std::endl;
     if(extend_initialized == false)
       std::runtime_error("FerretOT::rcot run setup before extending");
     if(num <= silent_ot_left()) {
@@ -102,11 +106,13 @@ public:
       ot_used += num;
       return;
     }
+    std::cout << 4 << std::endl;
     int64_t gened = silent_ot_left();
     if(gened > 0) {
       memcpy_D2D_dev(data.data(), ot_data.data({ot_used}), gened*sizeof(blk));
       pt += gened;
     }
+    std::cout << 5 << std::endl;
     round_inplace = (num-gened-M) / ot_limit;
     last_round_ot = num-gened-round_inplace*ot_limit;
     round_memcpy = last_round_ot>ot_limit?true:false;
