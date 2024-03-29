@@ -24,16 +24,11 @@ void LpnF2_LpnF2_dev(uint32_t *rdKey, Mat &pubMat) {
   cudaFree(key);
 }
 
-__device__
-void blk_xor(blk *a, blk *b) {
-  for (int i = 0; i < 4; i++) {
-    a->data[i] ^= b->data[i];
-  }
-}
-
 __global__
-void fill_punc_tree(blk *cSum, uint64_t outWidth, uint64_t *activeParent,
+void fill_tree(blk *cSum, uint64_t outWidth, uint64_t *activeParent,
 	bool *choice, blk *puncSum, blk *layer, int numTree) {
+  
+  return; //debug
 		
 	uint64_t t = blockIdx.x * blockDim.x + threadIdx.x;
 	if (t >= numTree) return;
@@ -41,8 +36,9 @@ void fill_punc_tree(blk *cSum, uint64_t outWidth, uint64_t *activeParent,
 
 	uint64_t fillIndex = t * outWidth + 2 * activeParent[t] + c;
 	blk val = layer[fillIndex];
-	blk_xor(&val, &cSum[t]);
-	blk_xor(&val, &puncSum[c * numTree + t]);
+  uint64_t puncOffset = c * numTree + t;
+  for (int i = 0; i < 4; i++)
+    val.data[i] ^= cSum[t].data[i] ^ puncSum[puncOffset].data[i];
 	layer[fillIndex] = val;
 	activeParent[t] = 2 * activeParent[t] + (1-c);
 }
@@ -52,12 +48,12 @@ void SPCOT_recver_compute_dev(uint64_t tree_n, Mat &cSum, uint64_t inWidth,
   uint64_t d, bool *choice) {
   int block = std::min(tree_n, 1024UL);
   int grid = (tree_n + block - 1) / block;
-  fill_punc_tree<<<grid, block>>>(cSum.data({d, 0}), 2*inWidth, activeParent,
+  fill_tree<<<grid, block>>>(cSum.data({d, 0}), 2*inWidth, activeParent,
     choice+(d*tree_n), separated.data(), tree.data(), tree_n);
   // final punctured node recovered elsewhere
   // look at emp-ot spcot_recver.h:53
   // if (d == depth-2) {
-  //   fill_punc_tree<<<grid, block>>>(cSum.data({d, tree_n}),
+  //   fill_tree<<<grid, block>>>(cSum.data({d, tree_n}),
   //   2*inWidth, activeParent, choice+(d*tree_n), separated.data(),
   //   tree.data(), tree_n);
   // }

@@ -25,18 +25,14 @@ public:
   using COT<T>::io;
   using COT<T>::Delta;
 
-  FerretOTSender(FerretConfig config, int port) : FerretOT<T>(config) {
-    std::cout << "s0" << std::endl;
+  FerretOTSender(FerretConfig config, T *io) : FerretOT<T>(config) {
     mRole = Sender;
     mDev = mConfig.id;
     set_dev(mDev);
-    std::cout << "nullptr" << port+mConfig.id << std::endl;
-    this->io = new NetIO(nullptr, port+mConfig.id);
-    std::cout << "s1" << std::endl;
+    this->io = io;
     one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
     base_cot = new BaseCot<T>(mRole, io, mConfig.malicious);
     ot_pre_data.resize({(uint64_t)mConfig.lpnParam->n_pre});
-    std::cout << "s2" << std::endl;
 
     if(mConfig.runSetup) {
       PRG prg;
@@ -46,7 +42,6 @@ public:
       setup(mConfig.preFile);
       memcpy_H2D_dev(&ch[1], &Delta, sizeof(blk));
     }
-    std::cout << "s3" << std::endl;
   }
 
   virtual ~FerretOTSender() {
@@ -65,7 +60,7 @@ public:
   virtual void seed_expand(Span &ot_output) {
     this->seed_expand(ot_output, mpcot, pre_ot, ot_pre_data);
   }
-  
+
   virtual void send_cot(block* data0, int64_t length) {}
   virtual void recv_cot(block* data, const bool* b, int64_t length) {}
 
