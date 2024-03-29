@@ -1,21 +1,21 @@
-#ifndef __DEV_LAYER_H__
-#define __DEV_LAYER_H__
+#ifndef __CUDA_LAYER_H__
+#define __CUDA_LAYER_H__
 
-#include "gpu_define.h"
+#include "gpu_tests.h"
+#include "gpu_matrix.h"
 #include "gpu_span.h"
 
-void LpnF2_LpnF2_dev(uint32_t *rdKey, Mat &pubMat);
-void SPCOT_recver_compute_dev(uint64_t tree_n, Mat &cSum, uint64_t inWidth,
-  uint64_t *activeParent, Mat &separated, Span &tree, uint64_t depth,
-  uint64_t d, bool *choice);
-void LpnF2_encode_dev(Mat &pubMat, uint64_t n, uint64_t k, uint64_t d, Span &nn, Span &kk);
-void set_dev(int dev);
-void malloc_dev(void **mem, size_t size);
-void free_dev(void *mem);
-void memset_dev(void *des, int val, size_t size);
-void memcpy_H2D_dev(void *des, void *src, size_t size);
-void memcpy_D2H_dev(void *des, void *src, size_t size);
-void memcpy_D2D_dev(void *des, void *src, size_t size);
-void sync_dev();
+typedef enum { H2H, H2D, D2H, D2D } cudaMemcpy_t;
+
+void cuda_init(int party);
+void cuda_malloc(void **ptr, size_t n);
+void cuda_memcpy(void *dest, void *src, size_t n, cudaMemcpy_t type);
+void cuda_free(void *ptr);
+
+void cuda_spcot_sender_compute(Span *tree, int t, int depth, Mat &lSum, Mat &rSum);
+void cuda_spcot_recver_compute(Span *tree, int t, int depth, Mat &cSum, bool *b);
+
+void cuda_gen_matrices(Mat &pubMat, uint32_t *key);
+void cuda_lpn_f2_compute(blk *pubMat, int d, int n, int k, Span &nn, Span &kk);
 
 #endif

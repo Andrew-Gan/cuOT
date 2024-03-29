@@ -47,9 +47,7 @@ class IKNP: public COT<T> { public:
 			memcpy(k0, in_k0, 128*sizeof(block));
 		} else {
 			this->base_ot = new OTCO<T>(io);
-			std::cout << "setup_send recv" << io->addr << io->port << std::endl;
 			base_ot->recv(k0, s, 128);
-			std::cout << "setup_send recv done" << std::endl;
 			delete base_ot;
 		}
 		for(int64_t i = 0; i < 128; ++i)
@@ -67,9 +65,7 @@ class IKNP: public COT<T> { public:
 			this->base_ot = new OTCO<T>(io);
 			prg.random_block(k0, 128);
 			prg.random_block(k1, 128);
-			std::cout << "setup_recv send" << io->addr << io->port << std::endl;
 			base_ot->send(k0, k1, 128);
-			std::cout << "setup_recv send done" << std::endl;
 			delete base_ot;
 		}
 		for(int64_t i = 0; i < 128; ++i) {

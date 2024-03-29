@@ -1,7 +1,6 @@
 #ifndef EMP_COT_H__
 #define EMP_COT_H__
 #include "emp-ot/ot.h"
-#include "logger.h"
 
 namespace emp {
 
@@ -21,7 +20,6 @@ class COT : public OT<T>{ public:
 		io->send_block(&s,1);
 		mitccrh.setS(s);
 		io->flush();
-
 		block pad[2*ot_bsize];
 		for(int64_t i = 0; i < length; i+=ot_bsize) {
 			for(int64_t j = i; j < min(i+ot_bsize, length); ++j) {
@@ -44,6 +42,7 @@ class COT : public OT<T>{ public:
 		io->recv_block(&s,1);
 		mitccrh.setS(s);
 		io->flush();
+
 		block res[2*ot_bsize];
 		block pad[ot_bsize];
 		for(int64_t i = 0; i < length; i+=ot_bsize) {

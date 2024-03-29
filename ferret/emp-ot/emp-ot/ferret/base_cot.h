@@ -5,14 +5,14 @@
 
 template<typename IO>
 class BaseCot { public:
-   Role party;
+   int party;
 	block one, minusone;
 	block ot_delta;
 	IO *io;
 	IKNP<IO> *iknp;
 	bool malicious = false;
 
-	BaseCot(Role party, IO *io, bool malicious = false) {
+	BaseCot(int party, IO *io, bool malicious = false) {
 		this->party = party;
 		this->io = io;
 		this->malicious = malicious;
@@ -26,20 +26,18 @@ class BaseCot { public:
 	}
 
 	void cot_gen_pre(block deltain) {
-		if (this->party == Sender) {
+		if (this->party == ALICE) {
 			this->ot_delta = deltain;
 			bool delta_bool[128];
 			block_to_bool(delta_bool, ot_delta);
-			std::cout << "cot_gen_pre(block deltain)::setup_send" << std::endl;
 			iknp->setup_send(delta_bool);
-			std::cout << "cot_gen_pre(block deltain)::setup_send done" << std::endl;
 		} else {
 			iknp->setup_recv();
 		}
 	}
 
 	void cot_gen_pre() {
-		if (this->party == Sender) {
+		if (this->party == ALICE) {
 			PRG prg;
 			prg.random_block(&ot_delta, 1);
 			ot_delta = ot_delta & minusone;
@@ -48,14 +46,12 @@ class BaseCot { public:
 			block_to_bool(delta_bool, ot_delta);
 			iknp->setup_send(delta_bool);
 		} else {
-			std::cout << "cot_gen_pre()::setup_recv" << std::endl;
 			iknp->setup_recv();
-			std::cout << "cot_gen_pre()::setup_recv done" << std::endl;
 		}
 	}
 
 	void cot_gen(block *ot_data, int64_t size) {
-		if (this->party == Sender) {
+		if (this->party == ALICE) {
 			iknp->send_cot(ot_data, size);
 			io->flush();
 			for(int64_t i = 0; i < size; ++i)
@@ -77,7 +73,7 @@ class BaseCot { public:
 
 	void cot_gen(OTPre<IO> *pre_ot, int64_t size) {
 		block *ot_data = new block[size];
-		if (this->party == Sender) {
+		if (this->party == ALICE) {
 			iknp->send_cot(ot_data, size);
 			io->flush();
 			for(int64_t i = 0; i < size; ++i)
@@ -102,7 +98,7 @@ class BaseCot { public:
 
 	// debug
 	bool check_cot(block *data, int64_t len) {
-		if(party == Sender) {
+		if(party == ALICE) {
 			io->send_block(&ot_delta, 1);
 			io->send_block(data, len); 
 			io->flush();

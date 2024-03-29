@@ -1,4 +1,4 @@
-#include "emp-tool/emp-tool.h"
+#include <emp-tool/emp-tool.h>
 #include "emp-ot/emp-ot.h"
 #include <iostream>
 using namespace emp;
@@ -80,7 +80,6 @@ double test_cot(T * ot, NetIO *io, int party, int64_t length) {
 			}
 		}
 	}
-
 	std::cout << "Tests passed.\t";
 	io->flush();
 	delete[] b0;
@@ -129,35 +128,28 @@ double test_rot(T* ot, NetIO *io, int party, int64_t length) {
 }
 
 template <typename T>
-double test_rcot(T* ot, NetIO *io, int party, uint64_t length, bool inplace) {
-	block *b;
-	Mat bVec;
+double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
+	block *b = nullptr;
 	PRG prg;
 
 	io->sync();
 	auto start = clock_start();
-	uint64_t mem_size;
+	int64_t mem_size;
 	if(!inplace) {
 		mem_size = length;
-		bVec.resize({length});
+		b = new block[length];
 
 		// The RCOTs will be generated in the internal buffer
 		// then be copied to the user buffer
-		ot->rcot(bVec);
+		ot->rcot(b, length);
 	} else {
 		// Call byte_memory_need_inplace() to get the buffer size needed
-		mem_size = (uint64_t)ot->byte_memory_need_inplace(length);
-		bVec.resize({mem_size});
+		mem_size = ot->byte_memory_need_inplace((uint64_t)length);
+		b = new block[mem_size];
 
 		// The RCOTs will be generated directly to this buffer
-		ot->rcot_inplace(bVec);
+		ot->rcot_inplace(b, mem_size);
 	}
-
-	return 0.0f; //debug
-
-	b = new block[bVec.size()];
-	memcpy_D2H_dev(b, bVec.data(), bVec.size_bytes());
-
 	long long t = time_from(start);
 	io->sync();
 	if (party == ALICE) {
@@ -177,7 +169,6 @@ double test_rcot(T* ot, NetIO *io, int party, uint64_t length, bool inplace) {
 			error("RCOT failed");
 		delete[] b0;
 	}
-
 	std::cout << "Tests passed.\t";
 	delete[] b;
 	return t;
