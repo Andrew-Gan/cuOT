@@ -1,6 +1,6 @@
 #ifndef EMP_OTCO_H__
 #define EMP_OTCO_H__
-#include "emp-tool/emp-tool.h"
+#include <emp-tool/emp-tool.h>
 #include "emp-ot/ot.h"
 namespace emp {
 

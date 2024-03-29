@@ -4,40 +4,35 @@
 #include "emp-tool/emp-tool.h"
 #include "emp-ot/emp-ot.h"
 #include "emp-ot/ferret/twokeyprp.h"
-#include "gpu_span.h"
-#include "pprf.h"
 
-#include "dev_layer.h"
+using namespace emp;
 
 template<typename IO>
 class SPCOT_Recver {
 public:
-	Span *ggm_tree;
-	Mat cSum;
+	block *ggm_tree, *m;
 	bool *b;
-	uint64_t choice_pos, depth, leave_n;
+	int choice_pos, depth, leave_n;
 	IO *io;
 
-	blk secret_sum_f2;
-	uint64_t tree_n;
+	block secret_sum_f2;
 
-	SPCOT_Recver(IO *io, uint64_t tree_n, uint64_t depth_in) {
+	SPCOT_Recver(IO *io, int depth_in) {
 		this->io = io;
-		this->tree_n = tree_n;
 		this->depth = depth_in;
 		this->leave_n = 1<<(depth_in-1);
-		// m = new block[depth];
-		cSum.resize({(uint64_t)depth-1, (uint64_t)tree_n});
-		b = new bool[tree_n*(depth-1)];
+		m = new block[depth-1];
+		b = new bool[depth-1];
 	}
 
 	~SPCOT_Recver(){
+		delete[] m;
 		delete[] b;
 	}
 
-	int get_index(uint64_t t) {
+	int get_index() {
 		choice_pos = 0;
-		for(uint64_t i = t * (depth-1); i < (t+1) * (depth-1); ++i) {
+		for(int i = 0; i < depth-1; ++i) {
 			choice_pos<<=1;
 			if(!b[i])
 				choice_pos +=1;
@@ -47,58 +42,68 @@ public:
 
 	// receive the message and reconstruct the tree
 	// j: position of the secret, begins from 0
-	void compute(Span &tree) {
-		this->ggm_tree = &tree;
-		uint32_t k0_blk[4] = {3242342};
-		uint32_t k1_blk[4] = {8993849};
-		Mat buffer({tree.size()});
-		Span bufferSpan(buffer);
-    	Span *input = &bufferSpan;
-		Span *output = &tree;
-		AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
-		Mat separated({tree.size()});
-		uint64_t *activeParent;
-		bool *choice;
-
-		malloc_dev((void**)&activeParent, tree_n * sizeof(uint64_t));
-		malloc_dev((void**)&choice, depth * tree_n);
-		memset_dev(activeParent, 0, tree_n * sizeof(uint64_t));
-		memcpy_H2D_dev(choice, b, depth * tree_n);
-		for (uint64_t d = 0, inWidth = 1; d < depth-1; d++, inWidth *= 2) {
-			std::swap(input, output);
-			aesExpand.expand(*input, *output, separated, tree_n*inWidth);
-			separated.sum(2 * tree_n, inWidth);
-			SPCOT_recver_compute_dev(tree_n, cSum, inWidth, activeParent,
-				separated, tree, depth, d, choice);
-		}
-		if (output != &tree) {
-			memcpy_D2D_dev(tree.data(), output->data(), tree.size_bytes());
-		}
-		free_dev(choice);
-		free_dev(activeParent);
+	template<typename OT>
+	void recv_f2k(OT * ot, IO * io2, int s) {
+		ot->recv(m, b, depth-1, io2, s);
+		io2->recv_data(&secret_sum_f2, sizeof(block));
 	}
 
 	// receive the message and reconstruct the tree
 	// j: position of the secret, begins from 0
-	template<typename OT>
-	void recv_f2k(OT * ot, IO * io2) {
-		block *cSum_cpu = new block[tree_n*(depth-1)];
-		ot->recv(cSum_cpu, b, tree_n*(depth-1), io2, 0);
-		io2->recv_data(&secret_sum_f2, sizeof(blk));
-		memcpy_H2D_dev(cSum.data(), cSum_cpu, tree_n*(depth-1)*sizeof(blk));
-		delete[] cSum_cpu;
+	void compute(block* ggm_tree_mem) {
+		this->ggm_tree = ggm_tree_mem;
+		ggm_tree_reconstruction(b, m);
+		ggm_tree[choice_pos] = zero_block;
+		block nodes_sum = zero_block;
+		block one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
+		for(int i = 0; i < leave_n; ++i) {
+			ggm_tree[i] = ggm_tree[i] & one;
+			nodes_sum = nodes_sum ^ ggm_tree[i];
+		}
+		ggm_tree[choice_pos] = nodes_sum ^ secret_sum_f2;
+	}
+
+	void ggm_tree_reconstruction(bool *b, block *m) {
+		int to_fill_idx = 0;
+		TwoKeyPRP prp(zero_block, makeBlock(0, 1));
+		for(int i = 1; i < depth; ++i) {
+			to_fill_idx = to_fill_idx * 2;
+			ggm_tree[to_fill_idx] = ggm_tree[to_fill_idx+1] = zero_block;
+			if(b[i-1] == false) {
+				layer_recover(i, 0, to_fill_idx, m[i-1], &prp);
+				to_fill_idx += 1;
+			} else layer_recover(i, 1, to_fill_idx+1, m[i-1], &prp);
+		}
+	}
+
+	void layer_recover(int depth, int lr, int to_fill_idx, block sum, TwoKeyPRP *prp) {
+		int layer_start = 0;
+		int item_n = 1<<depth;
+		block nodes_sum = zero_block;
+		int lr_start = lr==0?layer_start:(layer_start+1);
+		
+		for(int i = lr_start; i < item_n; i+=2)
+			nodes_sum = nodes_sum ^ ggm_tree[i];
+		ggm_tree[to_fill_idx] = nodes_sum ^ sum;
+		if(depth == this->depth-1) return;
+		if(item_n == 2)
+			prp->node_expand_2to4(&ggm_tree[0], &ggm_tree[0]);
+		else {
+			for(int i = item_n-4; i >= 0; i-=4)
+				prp->node_expand_4to8(&ggm_tree[i*2], &ggm_tree[i]);
+		}
 	}
 
 	void consistency_check_msg_gen(block *chi_alpha, block *W) {
 		// X
-		// block *chi = new block[leave_n];
-		// Hash hash;
-		// block digest[2];
-		// hash.hash_once(digest, &secret_sum_f2, sizeof(block));
-		// uni_hash_coeff_gen(chi, digest[0], leave_n);
-		// *chi_alpha = chi[choice_pos];
-		// vector_inn_prdt_sum_red(W, chi, ggm_tree, leave_n);
-		// delete[] chi;
+		block *chi = new block[leave_n];
+		Hash hash;
+		block digest[2];
+		hash.hash_once(digest, &secret_sum_f2, sizeof(block));
+		uni_hash_coeff_gen(chi, digest[0], leave_n);
+		*chi_alpha = chi[choice_pos];
+		vector_inn_prdt_sum_red(W, chi, ggm_tree, leave_n);
+		delete[] chi;
 	}
 };
 #endif
