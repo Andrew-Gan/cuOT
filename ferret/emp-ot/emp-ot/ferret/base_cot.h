@@ -30,7 +30,9 @@ class BaseCot { public:
 			this->ot_delta = deltain;
 			bool delta_bool[128];
 			block_to_bool(delta_bool, ot_delta);
+			std::cout << "cot_gen_pre(block deltain)::setup_send" << std::endl;
 			iknp->setup_send(delta_bool);
+			std::cout << "cot_gen_pre(block deltain)::setup_send done" << std::endl;
 		} else {
 			iknp->setup_recv();
 		}
@@ -46,7 +48,9 @@ class BaseCot { public:
 			block_to_bool(delta_bool, ot_delta);
 			iknp->setup_send(delta_bool);
 		} else {
+			std::cout << "cot_gen_pre()::setup_recv" << std::endl;
 			iknp->setup_recv();
+			std::cout << "cot_gen_pre()::setup_recv done" << std::endl;
 		}
 	}
 

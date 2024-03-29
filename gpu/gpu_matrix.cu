@@ -44,6 +44,8 @@ uint64_t Mat::dim(uint32_t i) const {
 }
 
 uint64_t Mat::listToSize(std::vector<uint64_t> dim) {
+  if (dim.size() == 0)
+    return 0;
   uint64_t size = 1;
   for (const uint64_t &i : dim)
     size *= i;

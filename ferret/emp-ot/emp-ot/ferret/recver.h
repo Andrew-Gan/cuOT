@@ -28,23 +28,18 @@ public:
   uint64_t *puncPos;
   uint64_t *activeParent;
 
-  FerretOTRecver(FerretConfig config, int port) : FerretOT<T>(config) {
-    std::cout << "r0" << std::endl;
+  FerretOTRecver(FerretConfig config, T *io) : FerretOT<T>(config) {
     mRole = Recver;
     mDev = NGPU - mConfig.id - 1;
     set_dev(mDev);
-    std::cout << "127.0.0.1 " << port+mConfig.id << std::endl;
-    this->io = new NetIO("127.0.0.1", port+mConfig.id);
-    std::cout << "r1" << std::endl;
+    this->io = io;
     one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
     base_cot = new BaseCot<T>(mRole, io, mConfig.malicious);
     ot_pre_data.resize({(uint64_t)mConfig.lpnParam->n_pre});
-    std::cout << "r2" << std::endl;
 
     if(mConfig.runSetup) {
       setup(mConfig.preFile);
     }
-    std::cout << "r3" << std::endl;
   }
 
   virtual ~FerretOTRecver() {
