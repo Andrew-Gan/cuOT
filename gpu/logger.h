@@ -14,15 +14,13 @@ private:
   static struct timespec initTime[2];
   static float eventStart[2][NUM_EVENTS];
   static float eventDuration[2][NUM_EVENTS];
-  static uint64_t commBytes[NUM_EVENTS];
-  static uint64_t bandwidth_mbps;
   static uint64_t memStart[2][NUM_EVENTS];
   static uint64_t memCurr[2][NUM_EVENTS];
   static uint64_t memMax[2][NUM_EVENTS];
   static bool mOpened[2], mIgnoreInit[2], initTimeSet[2];
 
 public:
-  static void open(Role role, std::string filename, uint64_t mbps, bool ignoreInit);
+  static void open(Role role, std::string filename, bool ignoreInit);
   static void close(Role role);
   static void start(Role role, Event event);
   static void end(Role role, Event event);

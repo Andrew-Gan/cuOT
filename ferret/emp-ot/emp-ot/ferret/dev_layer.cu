@@ -1,27 +1,185 @@
 #include "aes_op.h"
 #include "pprf.h"
 #include "dev_layer.h"
-#include "gpu_tests.h"
-#include <cstdio>
-#include <stdexcept>
+#include <cmath>
 #include <future>
 
-#define NGPU 2
+__device__
+void blk_xor(blk *a, blk *b) {
+  for (int i = 0; i < 4; i++) {
+    a->data[i] ^= b->data[i];
+  }
+}
 
-__global__
-void make_block(blk *blocks) {
-	int x = blockDim.x;
-    int i = blockIdx.y * blockDim.y + threadIdx.y;
-	int j = blockIdx.x * blockDim.x + threadIdx.x;
-    blocks[i*x+j].data[0] = 4*i;
-    blocks[i*x+j].data[2] = j;
+void cuda_mpcot_sender(Mat *expanded, blk *lSum_h, blk *rSum_h,
+  blk *secret_sum, int tree, int depth, blk *Delta_f2k) {
+	uint32_t k0_blk[4] = {3242342};
+	uint32_t k1_blk[4] = {8993849};
+	uint64_t treePerGPU = (tree + NGPU - 1) / NGPU;
+  std::vector<std::future<void>> workers;
+
+	for (int gpu = 0; gpu < NGPU; gpu++) {
+    blk *lS = &lSum_h[gpu*treePerGPU*depth];
+    blk *rS = &rSum_h[gpu*treePerGPU*depth];
+    workers.push_back(std::async([&, gpu, lS, rS](){
+      cudaSetDevice(gpu);
+      expanded[gpu].resize({treePerGPU * (1UL << depth)});
+
+	    AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
+      Mat buffer(expanded[gpu].dims());
+      Mat sep(expanded[gpu].dims());
+      Mat *input = &buffer, *output = &expanded[gpu];
+
+      for (int d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
+        std::swap(input, output);
+        aesExpand.expand(*input, *output, sep, treePerGPU * inWidth);
+        sep.sum(2 * treePerGPU, inWidth);
+        cudaMemcpy2D(lS+d, depth*sizeof(blk), sep.data(), sizeof(blk), sizeof(blk), treePerGPU, cudaMemcpyDeviceToHost);
+        cudaMemcpy2D(rS+d, depth*sizeof(blk), sep.data({treePerGPU}), sizeof(blk), sizeof(blk), treePerGPU, cudaMemcpyDeviceToHost);
+      }
+      if (&expanded[gpu] != output)
+        expanded[gpu] = *output;
+      else
+        buffer = *output;
+      buffer.sum(treePerGPU, 1UL << depth);
+      buffer.resize({treePerGPU});
+      blk *delta;
+      cudaMalloc(&delta, sizeof(blk));
+      cudaMemcpy(delta, Delta_f2k, sizeof(blk), cudaMemcpyHostToDevice);
+      buffer.xor_scalar(delta);
+      cudaMemcpy(secret_sum+gpu*treePerGPU, buffer.data(), treePerGPU*sizeof(blk), cudaMemcpyDeviceToHost);
+    }));
+	}
+
+	for (int gpu = 0; gpu < NGPU; gpu++) {
+		workers.at(gpu).get();
+	}
 }
 
 __global__
-void lpn_single_row(uint32_t *r, int d, int k, blk *nn, blk *kk) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
+void fill_punc_tree(blk *cSum, uint64_t outWidth, uint64_t *activeParent,
+	bool *choice, blk *puncSum, blk *layer, int numTree, int d, int depth) {
+		
+	uint64_t t = blockIdx.x * blockDim.x + threadIdx.x;
+	if (t >= numTree) return;
+	uint8_t c = choice[t * depth + d] ? 1 : 0;
+
+	uint64_t fillIndex = t * outWidth + 2 * activeParent[t] + c;
+	blk val = layer[fillIndex];
+	blk_xor(&val, &cSum[t]);
+	blk_xor(&val, &puncSum[c * numTree + t]);
+	layer[fillIndex] = val;
+	activeParent[t] = 2 * activeParent[t] + (1-c);
+}
+
+__global__
+void fill_final_punc_tree(uint64_t *activeParent, blk *secret_sum, blk *layer,
+  uint64_t numTree, uint64_t treeWidth) {
+  
+  uint64_t t = blockIdx.x * blockDim.x + threadIdx.x;
+	if (t >= numTree) return;
+  uint64_t fillIndex = t * treeWidth + activeParent[t];
+  layer[fillIndex] = secret_sum[t];
+}
+
+void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree, int depth, bool *choices) {
+  int gpuCount = 0;
+  cudaGetDeviceCount(&gpuCount);
+	uint32_t k0_blk[4] = {3242342};
+	uint32_t k1_blk[4] = {8993849};
+	uint64_t treePerGPU = (tree + NGPU - 1) / NGPU;
+  std::vector<std::future<void>> workers;
+	int block = std::min(treePerGPU, 1024UL);
+	int grid = (treePerGPU + block - 1) / block;
+
+	for (int gpu = 0; gpu < NGPU; gpu++) {
+    bool *b = choices + gpu * treePerGPU * depth;
+    blk *cS = &cSum_h[gpu*treePerGPU*depth];
+    workers.push_back(std::async([&, gpu, b, cS, treePerGPU]() {
+      cudaSetDevice(gpu);
+      blk *secret_sum_d;
+      cudaMalloc(&secret_sum_d, treePerGPU * sizeof(blk));
+      expanded[gpu].resize({treePerGPU * (1UL << depth)});
+      Mat cSum({(uint64_t)depth, (uint64_t)treePerGPU});
+      cudaMemcpy(cSum.data(), cS, cSum.size_bytes(), cudaMemcpyHostToDevice);
+      AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
+      Mat buffer(expanded[gpu].dims());
+      Mat sep(expanded[gpu].dims());
+      Mat *input = &buffer, *output = &expanded[gpu];
+      uint64_t *activeParent;
+      cudaMalloc(&activeParent, treePerGPU * sizeof(uint64_t));
+      cudaMemset(activeParent, 0, treePerGPU * sizeof(uint64_t));
+      bool *choice;
+      cudaMalloc(&choice, treePerGPU * depth * sizeof(bool));
+      cudaMemcpy(choice, b, treePerGPU * depth * sizeof(bool), cudaMemcpyHostToDevice);
+      uint64_t inWidth = 1;
+      for (int d = 0; d < depth; d++) {
+        std::swap(input, output);
+        aesExpand.expand(*input, *output, sep, treePerGPU * inWidth);
+        sep.sum(2 * treePerGPU, inWidth);
+        fill_punc_tree<<<grid, block>>>(cSum.data({(uint64_t)d, 0}), 2*inWidth, activeParent, choice,
+          sep.data(), expanded[gpu].data(), treePerGPU, d, depth);
+        inWidth *= 2;
+      }
+      
+      if (&expanded[gpu] != output)
+        expanded[gpu] = *output;
+      else
+        buffer = *output;
+
+      fill_final_punc_tree<<<grid, block>>>(activeParent, secret_sum_d, buffer.data(), treePerGPU, 1UL << depth);
+      buffer.sum(treePerGPU, 1UL << depth);
+      fill_final_punc_tree<<<grid, block>>>(activeParent, buffer.data(), expanded[gpu].data(), treePerGPU, 1UL << depth);
+
+      cudaFree(choice);
+      cudaFree(activeParent);
+    }));
+	}
+
+	for (int gpu = 0; gpu < NGPU; gpu++) {
+		workers.at(gpu).get();
+	}
+}
+
+__global__
+void make_block(blk *blocks, uint64_t startIndex) {
+	uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t *b64 = (uint64_t*)(&blocks[i]);
+  b64[0] = 4 * (i / 10);
+  b64[1] = i % 10;
+  blocks[i] = *(blk*)b64;
+}
+
+void cuda_gen_matrices(Role role, Mat *pubMats, int64_t n, int d, uint32_t *key) {
+  int gpuCount = 0;
+  cudaGetDeviceCount(&gpuCount);
+  uint64_t rowsPerGPU = (n + NGPU - 1) / NGPU;
+  std::vector<std::future<void>> workers;
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    workers.push_back(std::async([&, gpu]() {
+      cudaSetDevice(gpu);
+      uint32_t *key_d;
+      cudaMalloc(&key_d, 11 * sizeof(blk));
+      cudaMemcpy(key_d, key, 11 * sizeof(blk), cudaMemcpyHostToDevice);
+      pubMats[gpu].resize({(rowsPerGPU * d + 3) / 4});
+      make_block<<<pubMats[gpu].size() / 1024, 1024>>>(pubMats[gpu].data(), gpu * rowsPerGPU);
+      uint64_t grid2 = 4 * pubMats[gpu].size() / AES_BSIZE;
+      aesEncrypt128<<<grid2, AES_BSIZE>>>(key_d, (uint32_t*)pubMats[gpu].data());
+      cudaFree(key_d);
+      cudaDeviceSynchronize();
+    }));
+  }
+
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+		workers.at(gpu).get();
+	}
+}
+
+__global__
+void lpn_single_row(uint32_t *r, int64_t d, int k, blk *nn, blk *kk) {
+    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
     blk tmp_nn = nn[i];
-	blk tmp_kk;
+	  blk tmp_kk;
     for (int j = 0; j < d; j++) {
         tmp_kk = kk[r[i*d+j] % k];
         tmp_nn.data[0] ^= tmp_kk.data[0];
@@ -32,134 +190,23 @@ void lpn_single_row(uint32_t *r, int d, int k, blk *nn, blk *kk) {
     nn[i] = tmp_nn;
 }
 
-void cuda_init(int party) {
-	if (party == 1) cudaSetDevice(0);
-	else if (party == 2) cudaSetDevice(1);
-	cudaFree(0);
-}
-
-void cuda_malloc(void **ptr, size_t n) {
-	cudaMalloc(ptr, n);
-}
-
-void cuda_memcpy(void *dest, void *src, size_t n, cudaMemcpy_t type) {
-	cudaMemcpy(dest, src, n, (cudaMemcpyKind)type);
-}
-
-void cuda_free(void *ptr) {
-	cudaFree(ptr);
-}
-
-__device__
-void blk_xor(blk *a, blk *b) {
-  for (int i = 0; i < 4; i++) {
-    a->data[i] ^= b->data[i];
+void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k, Mat *expanded, blk *nn, blk *kk) {
+  int gpuCount = 0;
+  cudaGetDeviceCount(&gpuCount);
+  uint64_t rowsPerGPU = (n + NGPU - 1) / NGPU;
+  std::vector<std::future<void>> workers;
+  for (int gpu = 0; gpu < NGPU; gpu++) {
+    workers.push_back(std::async([&, gpu, rowsPerGPU]() {
+      cudaSetDevice(gpu);
+      Mat kk_d({(uint64_t)k});
+      cudaMemcpy(kk_d.data(), kk, kk_d.size_bytes(), cudaMemcpyHostToDevice);
+      lpn_single_row<<<rowsPerGPU/1024, 1024>>>((uint32_t*)pubMats[gpu].data(),
+        d, k, expanded[gpu].data(), kk_d.data());
+      cudaMemcpy(nn+gpu*rowsPerGPU, expanded[gpu].data(), expanded[gpu].size_bytes(), cudaMemcpyDeviceToHost);
+    }));
   }
-}
 
-__global__
-void fill_punc_tree(blk *cSum, uint64_t outWidth, uint64_t *activeParent,
-	bool *choice, blk *puncSum, blk *layer, int numTree) {
-		
-	uint64_t t = blockIdx.x * blockDim.x + threadIdx.x;
-	if (t >= numTree) return;
-	uint8_t c = choice[t];
-
-	uint64_t fillIndex = t * outWidth + 2 * activeParent[t] + c;
-	blk val = layer[fillIndex];
-	blk_xor(&val, &cSum[t]);
-	blk_xor(&val, &puncSum[c * numTree + t]);
-	layer[fillIndex] = val;
-	activeParent[t] = 2 * activeParent[t] + (1-c);
-}
-
-void cuda_mpcot_sender_compute(Span &tree, int t, int depth, Mat &lSum, Mat &rSum) {
-	uint32_t k0_blk[4] = {3242342};
-	uint32_t k1_blk[4] = {8993849};
-	int treePerGPU = (t + NGPU - 1) / NGPU;
-  std::vector<std::future<void>> workers;
-
-	for (int gpu = 0; gpu < NGPU; gpu++) {
-    workers.push_back(std::async([&, gpu](){
-      cudaSetDevice(gpu);
-      Span *input, *output;
-	    AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
-      Span sepSpan(separated);
-      Mat buffer({tree.size()});
-      Mat separated({tree.size()});
-      input = new Span(buffer, 0, tree.size());
-      output = &tree;
-      for (uint64_t d = 0, inWidth = 1; d < depth-1; d++, inWidth *= 2) {
-        std::swap(input, output);
-        aesExpand.expand(*(input), *(output), separated, treePerGPU*inWidth);
-        separated->sum(2 * treePerGPU, inWidth);
-        cudaMemcpyAsync(lSum.data({d, 0}), separated->data(0), treePerGPU*sizeof(blk), cudaMemcpyDeviceToDevice);
-        cudaMemcpyAsync(rSum.data({d, 0}), separated->data(treePerGPU), treePerGPU*sizeof(blk), cudaMemcpyDeviceToDevice);
-      }
-      tree = *output;
-      delete buffer;
-		  cudaDeviceSynchronize();
-    }));
-	}
-
-	for (int gpu = 0; gpu < NGPU; gpu++) {
+  for (int gpu = 0; gpu < NGPU; gpu++) {
 		workers.at(gpu).get();
 	}
-}
-
-void cuda_mpcot_recver_compute(Span &tree, int t, int depth, Mat &cSum, bool *b) {
-	uint32_t k0_blk[4] = {3242342};
-	uint32_t k1_blk[4] = {8993849};
-	uint64_t treePerGPU = ((uint64_t)t + NGPU - 1) / NGPU;
-  std::vector<std::future<void>> workers;
-
-	int block = std::min(treePerGPU, 1024);
-	int grid = (treePerGPU + block - 1) / block;
-
-	for (int gpu = 0; gpu < NGPU; gpu++) {
-    workers.push_back(std::async([&]() {
-      cudaSetDevice(gpu);
-      uint64_t *activeParent;
-      bool *choice_d;
-      Mat *input, *output;
-      AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
-      Span sepSpan(separated);
-      Mat buffer({tree.size_bytes()});
-      Mat separated({tree.size_bytes()});
-      cudaMalloc(&activeParent, treePerGPU*sizeof(uint64_t), 0);
-      cudaMemsetAsync(activeParent, 0, treePerGPU*sizeof(uint64_t));
-      cudaMalloc(&choice_d, depth*treePerGPU*sizeof(bool), 0);
-      cudaMemcpyAsync(choice_d, b+gpu*treePerGPU, depth*treePerGPU*sizeof(bool), cudaMemcpyHostToDevice);
-      for (uint64_t d = 0, inWidth = 1; d < depth-1; d++, inWidth *= 2) {
-        aesExpand.expand(tree, separated, inWidth*treePerGPU);
-        separated->sum(2*treePerGPU, inWidth);
-        fill_punc_tree<<<grid, block>>>(cSum.data({d, 0}), 2*inWidth, activeParent, choice_d+(d*treePerGPU),
-          separated->data(), tree.data(), treePerGPU);
-        if (d == depth-2) {
-          fill_punc_tree<<<grid, block>>>(cSum.data({d, treePerGPU}), 2*inWidth, activeParent, choice_d+(d*treePerGPU),
-          separated->data(), tree.data(), treePerGPU);
-        }
-      }
-      cudaFree(choice_d);
-		  cudaFree(activeParent);
-    }));
-	}
-
-	for (int gpu = 0; gpu < NGPU; gpu++) {
-		workers.at(gpu).get();
-	}
-}
-
-void cuda_gen_matrices(Mat &pubMat, uint32_t *key) {
-	dim3 grid(pubMat.dim(1), pubMat.dim(0) / 1024);
-	dim3 block(1, 1024);
-	make_block<<<grid, block>>>(pubMat.data());
-	uint64_t grid2 = 4*pubMat.dim(0)*pubMat.dim(1)/AES_BSIZE;
-	aesEncrypt128<<<grid2, AES_BSIZE>>>(key, (uint32_t*)pubMat.data());
-	cudaDeviceSynchronize();
-}
-
-void cuda_lpn_f2_compute(blk *pubMat, int d, int n, int k, Span &nn, Span &kk) {
-	lpn_single_row<<<n/1024, 1024>>>((uint32_t*)pubMat, d, k, nn.data(), kk.data());
-	cudaDeviceSynchronize();
 }

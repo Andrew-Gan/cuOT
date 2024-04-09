@@ -5,7 +5,7 @@
 
 int check_cuda();
 void check_alloc(void *ptr);
-void check_call(const char* msg);
+void check_free_mem();
 bool check_rot(Mat &m0, Mat &m1, Mat &mc, uint64_t c);
 bool check_cot(Mat &full, Mat &punc, Mat &choice, blk *delta);
 

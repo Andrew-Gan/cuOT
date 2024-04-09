@@ -50,12 +50,10 @@ void check_alloc(void *ptr) {
 	cudaSetDevice(dev);
 }
 
-void check_call(const char* msg) {
-	cudaError_t err = cudaDeviceSynchronize();
-	if (err != cudaSuccess) {
-		fprintf(stderr, "%s", msg);
-		throw std::runtime_error(cudaGetErrorString(err));
-	}
+void check_free_mem() {
+  size_t free, total;
+	cudaMemGetInfo(&free, &total);
+  std::cout << "remaining memory: " << free << "/" << total << std::endl;
 }
 
 bool check_rot(Mat &m0, Mat &m1, Mat &mc, uint64_t c) {

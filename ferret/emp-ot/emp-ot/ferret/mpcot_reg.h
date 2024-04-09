@@ -7,6 +7,9 @@
 #include "emp-ot/ferret/spcot_recver.h"
 #include "emp-ot/ferret/preot.h"
 
+#include "dev_layer.h"
+#include "logger.h"
+
 using namespace emp;
 using std::future;
 
@@ -22,7 +25,7 @@ public:
 
 	PRG prg;
 	IO *netio;
-	IO **ios;
+	IO *io;
 	block Delta_f2k;
 	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
 	ThreadPool *pool;
@@ -30,11 +33,10 @@ public:
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
 
-	MpcotReg(int party, int threads, int n, int t, int log_bin_sz, ThreadPool * pool, IO **ios) {
+	MpcotReg(int party, int threads, int n, int t, int log_bin_sz, ThreadPool * pool, IO *io) {
 		this->party = party;
 		this->threads = threads;
-		netio = ios[0];
-		this->ios = ios;
+		this->io = netio = io;
 		consist_check_cot_num = 128;
 
 		this->pool = pool;
@@ -60,92 +62,94 @@ public:
 	}
 
 	// MPFSS F_2k
-	void mpcot(block * sparse_vector, OTPre<IO> * ot, block *pre_cot_data) {
+	void mpcot(Mat *outputs, OTPre<IO> * ot, block *pre_cot_data) {
 		if(party == BOB) consist_check_chi_alpha = new block[item_n];
-		consist_check_VW = new block[item_n];
+		// consist_check_VW = new block[item_n];
 
-		vector<SPCOT_Sender<IO>*> senders;
-		vector<SPCOT_Recver<IO>*> recvers;
+		// vector<SPCOT_Sender<IO>*> senders;
+		// vector<SPCOT_Recver<IO>*> recvers;
 
 		if(party == ALICE) {
-			mpcot_init_sender(senders, ot);
-			exec_parallel_sender(senders, ot, sparse_vector);
+			mpcot_init_sender(ot);
+			exec_parallel_sender(ot, outputs);
 		} else {
-			mpcot_init_recver(recvers, ot);
-			exec_parallel_recver(recvers, ot, sparse_vector);
+			bool *choice = new bool[tree_n * (tree_height-1)];
+			mpcot_init_recver(choice, ot);
+			exec_parallel_recver(ot, outputs, choice);
 		}
 
 		if(is_malicious)
 			consistency_check_f2k(pre_cot_data, tree_n);
 
-		for (auto p : senders) delete p;
-		for (auto p : recvers) delete p;
+		// for (auto p : senders) delete p;
+		// for (auto p : recvers) delete p;
 
 		if(party == BOB) delete[] consist_check_chi_alpha;
-		delete[] consist_check_VW;
+		// delete[] consist_check_VW;
 	}
 
-	void mpcot_init_sender(vector<SPCOT_Sender<IO>*> &senders, OTPre<IO> *ot) {
+	void mpcot_init_sender(OTPre<IO> *ot) {
 		for(int i = 0; i < tree_n; ++i) {
-			senders.push_back(new SPCOT_Sender<IO>(netio, tree_height));
+			// senders.push_back(new SPCOT_Sender<IO>(netio, tree_height));
 			ot->choices_sender();
 		}
 		netio->flush();
 		ot->reset();
 	}
 
-	void mpcot_init_recver(vector<SPCOT_Recver<IO>*> &recvers, OTPre<IO> *ot) {
-		for(int i = 0; i < tree_n; ++i) {
-			recvers.push_back(new SPCOT_Recver<IO>(netio, tree_height));
-			ot->choices_recver(recvers[i]->b);
-			item_pos_recver[i] = recvers[i]->get_index();
+	void mpcot_init_recver(bool *choice, OTPre<IO> *ot) {
+		for(int t = 0; t < tree_n; ++t) {
+			ot->choices_recver(choice);
+			item_pos_recver[t] = 0;
+			for(int i = 0; i < tree_height-1; ++i) {
+				item_pos_recver[i] <<= 1;
+				if(!choice[t*ot->length+i])
+					item_pos_recver[i] += 1;
+			}
 		}
 		netio->flush();
 		ot->reset();
 	}
 
-	void exec_parallel_sender(vector<SPCOT_Sender<IO>*> &senders,
-			OTPre<IO> *ot, block* sparse_vector) {
-		vector<future<void>> fut;		
-		int width = tree_n / threads;
-		int start = 0, end = width;
-		for(int i = 0; i < threads - 1; ++i) {	
-			fut.push_back(this->pool->enqueue([this, start, end, width, 
-						senders, ot, sparse_vector](){
-				for(int i = start; i < end; ++i)
-					exec_f2k_sender(senders[i], ot, sparse_vector+i*leave_n, 
-							ios[start/width], i);
-			}));
-			start = end;
-			end += width;
+	void exec_parallel_sender(OTPre<IO> *ot, Mat *outputs) {
+		vector<future<void>> fut;
+		
+		block *m0 = new block[tree_n*(tree_height-1)];
+		block *m1 = new block[tree_n*(tree_height-1)];
+		block *secret_sum = new block[tree_n];
+
+		Log::start(Sender, SeedExp);
+		cuda_mpcot_sender(outputs, (blk*)m0, (blk*)m1,
+			(blk*)secret_sum, tree_n, tree_height-1, (blk*)&Delta_f2k);
+		Log::end(Sender, SeedExp);
+		Log::start(Sender, BaseOT);
+
+		for (int t = 0; t < tree_n; t++) {
+			ot->send(m0+t*(tree_height-1), m1+t*(tree_height-1), tree_height-1, io, t);
 		}
-		end = tree_n;
-		for(int i = start; i < end; ++i)
-			exec_f2k_sender(senders[i], ot, sparse_vector+i*leave_n, 
-					ios[threads - 1], i);
-		for (auto & f : fut) f.get();
+		io->send_data(secret_sum, tree_n * sizeof(block));
+		Log::end(Sender, BaseOT);
+		delete[] m0;
+		delete[] m1;
 	}
 
-	void exec_parallel_recver(vector<SPCOT_Recver<IO>*> &recvers,
-			OTPre<IO> *ot, block* sparse_vector) {
-		vector<future<void>> fut;		
-		int width = tree_n / threads;
-		int start = 0, end = width;
-		for(int i = 0; i < threads - 1; ++i) {
-			fut.push_back(this->pool->enqueue([this, start, end, width, 
-						recvers, ot, sparse_vector](){
-				for(int i = start; i < end; ++i)
-					exec_f2k_recver(recvers[i], ot, sparse_vector+i*leave_n, 
-							ios[start/width], i);
-			}));
-			start = end;
-			end += width;
+	void exec_parallel_recver(OTPre<IO> *ot, Mat *outputs, bool *choice) {
+		vector<future<void>> fut;
+
+		block *mc = new block[tree_n*(tree_height-1)];
+		block *secret_sum = new block[tree_n];
+
+		Log::start(Recver, BaseOT);
+		for (int t = 0; t < tree_n; t++) {
+			ot->recv(mc+t*(tree_height-1), choice+t*(tree_height-1), tree_height-1, io, t);
 		}
-		end = tree_n;
-		for(int i = start; i < end; ++i)
-			exec_f2k_recver(recvers[i], ot, sparse_vector+i*leave_n, 
-					ios[threads - 1], i);
-		for (auto & f : fut) f.get();
+		io->recv_data(secret_sum, tree_n * sizeof(block));
+		Log::end(Recver, BaseOT);
+		Log::start(Recver, SeedExp);
+		cuda_mpcot_recver(outputs, (blk*)mc, (blk*)secret_sum,
+			tree_n, tree_height-1, choice);
+		Log::end(Recver, SeedExp);
+		delete[] mc;
 	}
 
 	void exec_f2k_sender(SPCOT_Sender<IO> *sender, OTPre<IO> *ot, 

@@ -14,6 +14,8 @@ class LpnF2 { public:
 	IO *io;
 	int threads, k, mask;
 	block seed;
+	Mat pubMats[NGPU];
+
 	LpnF2 (int party, int64_t n, int k, ThreadPool * pool, IO *io, int threads) {
 		this->party = party;
 		this->k = k;
@@ -63,22 +65,11 @@ class LpnF2 { public:
 			__compute1(nn, kk, j, &prp);
 	}
 
-	void compute(block * nn, const block * kk) {
-		vector<std::future<void>> fut;
-		int64_t width = n/threads;
+	void compute(block *nn, Mat *expSeed, const block *kk) {
 		seed = seed_gen();
-		for(int i = 0; i < threads - 1; ++i) {
-			int64_t start = i * width;
-			int64_t end = min((i+1)* width, n);
-			fut.push_back(pool->enqueue([this, nn, kk, start, end]() {
-				task(nn, kk, start, end);
-			}));
-		}
-		int64_t start = (threads - 1) * width;
-        	int64_t end = n;
-		task(nn, kk, start, end);
-
-		for (auto &f: fut) f.get();
+		PRP prp(seed);
+		cuda_gen_matrices((Role)(party-1), pubMats, n, d, (uint32_t*)prp.aes.rd_key);
+		cuda_primal_lpn((Role)(party-1), pubMats, d, n, k, expSeed, (blk*)nn, (blk*)kk);
 	}
 
 	block seed_gen() {
@@ -103,7 +94,7 @@ class LpnF2 { public:
 			}));
 		}
 		int64_t start = (threads - 1) * width;
-        	int64_t end = n;
+		int64_t end = n;
 		task(nn, kk, start, end);
 
 		for (auto &f: fut) f.get();
