@@ -5,17 +5,15 @@
 #include "gpu_matrix.h"
 #include "gpu_span.h"
 
-typedef enum { H2H, H2D, D2H, D2D } cudaMemcpy_t;
+#define NGPU 2
 
-void cuda_init(int party);
-void cuda_malloc(void **ptr, size_t n);
-void cuda_memcpy(void *dest, void *src, size_t n, cudaMemcpy_t type);
-void cuda_free(void *ptr);
+void cuda_mpcot_sender(Mat *expanded, blk *lSum_h, blk *rSum_h,
+  blk *secret_sum, int tree, int depth, blk *Delta_f2k);
 
-void cuda_spcot_sender_compute(Span *tree, int t, int depth, Mat &lSum, Mat &rSum);
-void cuda_spcot_recver_compute(Span *tree, int t, int depth, Mat &cSum, bool *b);
+void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree,
+  int depth, bool *choices);
 
-void cuda_gen_matrices(Mat &pubMat, uint32_t *key);
-void cuda_lpn_f2_compute(blk *pubMat, int d, int n, int k, Span &nn, Span &kk);
+void cuda_gen_matrices(Role role, Mat *pubMats, int64_t n, int k, uint32_t *key);
+void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k, Mat *expanded, blk *nn, blk *kk);
 
 #endif

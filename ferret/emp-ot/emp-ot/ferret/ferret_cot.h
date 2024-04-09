@@ -22,7 +22,7 @@ public:
 	PrimalLPNParameter param;
 	int64_t ot_used, ot_limit;
 
-	FerretCOT(int party, int threads, T **ios, bool malicious = false, bool run_setup = true, 
+	FerretCOT(int party, int threads, T *io, bool malicious = false, bool run_setup = true, 
 PrimalLPNParameter param = ferret_b13, std::string pre_file="");
 	
 
@@ -50,11 +50,12 @@ PrimalLPNParameter param = ferret_b13, std::string pre_file="");
 private:
 	block ch[2];
 
-	T **ios;
 	int party, threads;
 	int64_t M;
 	bool is_malicious;
 	bool extend_initialized;
+
+	Mat expSeed[NGPU];
 
 	block one;
 

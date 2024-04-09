@@ -6,18 +6,14 @@
 
 std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 
-SilentOTSender::SilentOTSender(RCOTConfig config) : SilentOT(config) {
+SilentOTSender::SilentOTSender(SilentConfig config) : SilentOT(config) {
   blk seed_h, delta_h;
   mRole = Sender;
   mDev = mConfig.id;
   cudaSetDevice(mDev);
   silentOTSenders[mConfig.id] = this;
-  for (int i = 0; i < 4; i++) delta_h.data[i] = rand();
-
-  // std::vector<cudaEvent_t> &events = expandEvents;
-  events.resize(depth);
-  for (uint64_t i = 0; i < depth; i++)
-    cudaEventCreate(&events.at(i));
+  for (int i = 0; i < 4; i++)
+    delta_h.data[i] = rand();
 
   fullVector = new Mat({2 * numOT, 1});
   buffer = new Mat({2 * numOT, 1});
@@ -48,8 +44,6 @@ SilentOTSender::~SilentOTSender() {
   delete buffer;
   delete expander;
   delete lpn;
-  // for (uint64_t d = 0; d < depth; d++)
-    // cudaEventDestroy(expandEvents.at(d));
   cudaFree(delta);
   silentOTSenders[mConfig.id] = nullptr;
 }
@@ -94,7 +88,6 @@ void SilentOTSender::seed_expand() {
       m0.at(d+1).xor_scalar(delta);
       m1.at(d+1).xor_scalar(delta);
     }
-    // cudaEventRecord(expandEvents.at(d));
   }
   fullVector = output;
   buffer = input;

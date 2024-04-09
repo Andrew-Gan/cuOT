@@ -1,15 +1,18 @@
 #!/bin/bash
 
 RUN=./emp-ot/run
-EXE=./emp-ot/bin/test_main
+EXE=./emp-ot/bin/test_ferret
 LOGOT=24
 
-$RUN $EXE $LOGOT
+mkdir data/
 
-# for LOGOT in 22 23 24 25
-# do
-#     $RUN $EXE $LOGOT
-# done
+# $RUN $EXE $LOGOT
+
+for LOGOT in 22 23 24 25
+do
+    $RUN $EXE $LOGOT
+    rm data/*
+done
 
 # ulimit -n 1024
 # valgrind --leak-check=full $RUN $EXE $LOGOT

@@ -24,7 +24,7 @@ if [ ! -d "REPO" ]; then
 fi
 cd REPO
 cmake -DCMAKE_INSTALL_PREFIX=../lib \
-    -DCMAKE_C_FLAGS='-g -O0'
+    -DCMAKE_C_FLAGS='-g' -DCMAKE_CUDA_FLAGS='-g -G'
 
 make -j4
 make install

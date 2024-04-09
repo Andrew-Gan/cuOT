@@ -166,7 +166,7 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
 			b[i] = b[i] ^ ch[getLSB(b[i])];
 		}
 		if (!cmpBlock(b, b0, mem_size))
-			error("RCOT failed");
+			std::cerr << "RCOT failed" << std::endl;
 		delete[] b0;
 	}
 	std::cout << "Tests passed.\t";

@@ -9,20 +9,17 @@ std::ofstream Log::logFile[2];
 struct timespec Log::initTime[2];
 float Log::eventStart[2][NUM_EVENTS];
 float Log::eventDuration[2][NUM_EVENTS];
-uint64_t Log::commBytes[NUM_EVENTS] = {0};
 uint64_t Log::memStart[2][NUM_EVENTS] = {0};
 uint64_t Log::memCurr[2][NUM_EVENTS] = {0};
 uint64_t Log::memMax[2][NUM_EVENTS] = {0};
-uint64_t Log::bandwidth_mbps = 1;
 bool Log::mOpened[2] = {false, false};
 bool Log::mIgnoreInit[2] = {false, false};
 bool Log::initTimeSet[2] = {false, false};
 
-void Log::open(Role role, std::string filename, uint64_t mbps, bool ignoreInit) {
+void Log::open(Role role, std::string filename, bool ignoreInit) {
   mOpened[role] = true;
   mIgnoreInit[role] = ignoreInit;
   logFile[role].open(filename);
-  bandwidth_mbps = mbps;
   for (int i = 0; i < NUM_EVENTS; i++) {
     logFile[role] << i << " " << eventString[i] << std::endl;
   }
@@ -34,7 +31,6 @@ void Log::open(Role role, std::string filename, uint64_t mbps, bool ignoreInit) 
     initTimeSet[role] = true;
   }
 
-  memset(commBytes, 0, sizeof(commBytes));
   memset(memCurr, 0, sizeof(memCurr));
   memset(memMax, 0, sizeof(memMax));
 }
@@ -43,9 +39,6 @@ void Log::close(Role role) {
   mOpened[role] = false;
   for (int event = 0; event < NUM_EVENTS; event++) {
     logFile[role] << "t " << event << " " << eventDuration[role][event] << std::endl;
-  }
-  for (int i = 0; i < NUM_EVENTS; i++) {
-    logFile[role] << "c " << i << " " << commBytes[i] << std::endl;
   }
   for (int j = 0; j < NUM_EVENTS; j++)
     logFile[role] << "m " << j << " " << memMax[role][j] << std::endl;
