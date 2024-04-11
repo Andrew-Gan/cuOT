@@ -33,6 +33,9 @@ void print(float *data, uint64_t n, uint64_t stride = 1);
 __global__
 void print(cuComplex *data, uint64_t n, uint64_t stride = 1);
 
+__global__
+void make_block(blk *blocks, uint64_t startIndex = 0);
+
 cudaError_t cudaMemswapPeerAsync(void *a_i, void *a_o, int aDev, void *b,int bDev, size_t count);
 
 #endif

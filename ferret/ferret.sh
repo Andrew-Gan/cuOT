@@ -4,7 +4,7 @@ RUN=./emp-ot/run
 EXE=./emp-ot/bin/test_ferret
 LOGOT=24
 
-mkdir data/
+mkdir -p data/
 
 # $RUN $EXE $LOGOT
 

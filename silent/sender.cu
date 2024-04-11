@@ -25,8 +25,8 @@ SilentOTSender::SilentOTSender(SilentConfig config) : SilentOT(config) {
   }
   separated.resize({numOT});
   switch (mConfig.pprf) {
-    case AesExpand_t:
-      expander = new AesExpand(mConfig.leftKey, mConfig.rightKey);
+    case Aes_t:
+      expander = new Aes(mConfig.leftKey, mConfig.rightKey);
   }
 
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;

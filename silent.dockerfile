@@ -3,17 +3,13 @@
 FROM nvidia/cuda:12.3.2-devel-ubuntu22.04
 RUN apt-get update && apt-get -y install build-essential libsodium-dev
 
-WORKDIR /home/gpuot
-
-COPY gpu gpu
+COPY gpu /home/gpuot/gpu
 WORKDIR /home/gpuot/gpu
 RUN make -j -s
 
-WORKDIR /home/gpuot
-COPY silent silent
+COPY silent /home/gpuot/silent
 WORKDIR /home/gpuot/silent
 RUN chmod +x silent.sh
 RUN make -j -s
 
-# CMD ["tail", "-f", "/dev/null"]
 CMD ["./silent.sh"]

@@ -101,6 +101,15 @@ void xor_reduce(uint64_t *out, uint64_t *in) {
 }
 
 __global__
+void make_block(blk *blocks, uint64_t startIndex) {
+	uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t *b64 = (uint64_t*)(&blocks[i]);
+  b64[0] = 4 * ((i+startIndex) / 10);
+  b64[1] = i % 10;
+  blocks[i] = *(blk*)b64;
+}
+
+__global__
 void print(uint8_t *data, uint64_t n, uint64_t stride) {
   // for(int i = 0; i < n; i += 16) {
   //   for (int j = i; j < n && j < i + 16; j++)

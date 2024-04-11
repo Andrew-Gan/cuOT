@@ -27,8 +27,8 @@ SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
   cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
   separated.resize({numOT});
   switch (mConfig.pprf) {
-    case AesExpand_t:
-      expander = new AesExpand(mConfig.leftKey, mConfig.rightKey);
+    case Aes_t:
+      expander = new Aes(mConfig.leftKey, mConfig.rightKey);
   }
 
   uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;

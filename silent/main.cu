@@ -15,13 +15,6 @@ uint64_t* gen_choices(int depth) {
   return choices;
 }
 
-void free_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver) {
-  for (int gpu = 0; gpu < NGPU; gpu++) {
-    delete sender[gpu];
-    delete recver[gpu];
-  }
-}
-
 void base_ot_multi_gpu(SilentOTSender **sender, SilentOTRecver **recver) {
   std::future<void> senderWorker;
   std::future<void> recverWorker;
@@ -86,7 +79,7 @@ int main(int argc, char** argv) {
     .logOT = logOT,
     .nTree = (uint64_t)numTrees,
     .baseOT = SimplestOT_t,
-    .pprf = AesExpand_t,
+    .pprf = Aes_t,
     .leftKey = {3242342},
     .rightKey = {8993849},
     .dualLPN = QuasiCyclic_t,
@@ -133,7 +126,10 @@ int main(int argc, char** argv) {
     dual_lpn_multi_gpu((SilentOT**)recver);
     std::cout << "recver lpn" << std::endl;
 
-    free_multi_gpu(sender, recver);
+    for (int gpu = 0; gpu < NGPU; gpu++) {
+      delete sender[gpu];
+      delete recver[gpu];
+    }
     std::cout << "pair free" << std::endl;
 
     if (i == 1) {

@@ -2,6 +2,8 @@
 #include "pprf.h"
 #include "dev_layer.h"
 #include <cmath>
+#include "gpu_ops.h"
+#include <curand_kernel.h>
 #include <future>
 
 __device__
@@ -25,7 +27,7 @@ void cuda_mpcot_sender(Mat *expanded, blk *lSum_h, blk *rSum_h,
       cudaSetDevice(gpu);
       expanded[gpu].resize({treePerGPU * (1UL << depth)});
 
-	    AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
+	    Aes aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
       Mat buffer(expanded[gpu].dims());
       Mat sep(expanded[gpu].dims());
       Mat *input = &buffer, *output = &expanded[gpu];
@@ -48,6 +50,7 @@ void cuda_mpcot_sender(Mat *expanded, blk *lSum_h, blk *rSum_h,
       cudaMemcpy(delta, Delta_f2k, sizeof(blk), cudaMemcpyHostToDevice);
       buffer.xor_scalar(delta);
       cudaMemcpy(secret_sum+gpu*treePerGPU, buffer.data(), treePerGPU*sizeof(blk), cudaMemcpyDeviceToHost);
+      cudaDeviceSynchronize();
     }));
 	}
 
@@ -83,6 +86,7 @@ void fill_final_punc_tree(uint64_t *activeParent, blk *secret_sum, blk *layer,
 }
 
 void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree, int depth, bool *choices) {
+  return; // uncomment when benchmarking sender only
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
 	uint32_t k0_blk[4] = {3242342};
@@ -102,7 +106,7 @@ void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree, in
       expanded[gpu].resize({treePerGPU * (1UL << depth)});
       Mat cSum({(uint64_t)depth, (uint64_t)treePerGPU});
       cudaMemcpy(cSum.data(), cS, cSum.size_bytes(), cudaMemcpyHostToDevice);
-      AesExpand aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
+      Aes aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
       Mat buffer(expanded[gpu].dims());
       Mat sep(expanded[gpu].dims());
       Mat *input = &buffer, *output = &expanded[gpu];
@@ -133,21 +137,13 @@ void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree, in
 
       cudaFree(choice);
       cudaFree(activeParent);
+      cudaDeviceSynchronize();
     }));
 	}
 
 	for (int gpu = 0; gpu < NGPU; gpu++) {
 		workers.at(gpu).get();
 	}
-}
-
-__global__
-void make_block(blk *blocks, uint64_t startIndex) {
-	uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t *b64 = (uint64_t*)(&blocks[i]);
-  b64[0] = 4 * (i / 10);
-  b64[1] = i % 10;
-  blocks[i] = *(blk*)b64;
 }
 
 void cuda_gen_matrices(Role role, Mat *pubMats, int64_t n, int d, uint32_t *key) {
@@ -158,14 +154,13 @@ void cuda_gen_matrices(Role role, Mat *pubMats, int64_t n, int d, uint32_t *key)
   for (int gpu = 0; gpu < NGPU; gpu++) {
     workers.push_back(std::async([&, gpu]() {
       cudaSetDevice(gpu);
-      uint32_t *key_d;
-      cudaMalloc(&key_d, 11 * sizeof(blk));
-      cudaMemcpy(key_d, key, 11 * sizeof(blk), cudaMemcpyHostToDevice);
       pubMats[gpu].resize({(rowsPerGPU * d + 3) / 4});
+
+      // generate random matrix using aes encryption
       make_block<<<pubMats[gpu].size() / 1024, 1024>>>(pubMats[gpu].data(), gpu * rowsPerGPU);
-      uint64_t grid2 = 4 * pubMats[gpu].size() / AES_BSIZE;
-      aesEncrypt128<<<grid2, AES_BSIZE>>>(key_d, (uint32_t*)pubMats[gpu].data());
-      cudaFree(key_d);
+      Aes aes(key);
+      aes.encrypt(pubMats[gpu]);
+
       cudaDeviceSynchronize();
     }));
   }
@@ -191,6 +186,7 @@ void lpn_single_row(uint32_t *r, int64_t d, int k, blk *nn, blk *kk) {
 }
 
 void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k, Mat *expanded, blk *nn, blk *kk) {
+  if (role == Recver) return; // uncomment when benchmarking sender only
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
   uint64_t rowsPerGPU = (n + NGPU - 1) / NGPU;
@@ -203,6 +199,7 @@ void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k, Mat *
       lpn_single_row<<<rowsPerGPU/1024, 1024>>>((uint32_t*)pubMats[gpu].data(),
         d, k, expanded[gpu].data(), kk_d.data());
       cudaMemcpy(nn+gpu*rowsPerGPU, expanded[gpu].data(), expanded[gpu].size_bytes(), cudaMemcpyDeviceToHost);
+      cudaDeviceSynchronize();
     }));
   }
 

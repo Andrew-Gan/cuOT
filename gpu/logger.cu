@@ -65,7 +65,7 @@ void Log::start(Role role, Event event) {
 	cudaMemGetInfo(&free, &total);
   used = total - free;
   memStart[role][event] = used;
-  memCurr[role][event] = 0;
+  memCurr[role][event] = used;
 }
 
 void Log::end(Role role, Event event) {

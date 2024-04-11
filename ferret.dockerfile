@@ -16,6 +16,5 @@ WORKDIR /home/gpuot/ferret
 RUN python3 build.py --ot
 RUN chmod +x ferret.sh
 
-# WORKDIR emp-ot/bin
-# CMD ["tail", "-f", "/dev/null"]
 CMD ["./ferret.sh"]
+# CMD ["tail", "-f", "/dev/null"]

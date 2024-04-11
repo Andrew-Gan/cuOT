@@ -1,10 +1,13 @@
 #!/usr/python
+
+import sys
 import subprocess
+
 install_packages = '''
 if [ "$(uname)" == "Darwin" ]; then
-	brew list openssl || brew install openssl
- 	brew list pkg-config || brew install pkg-config
- 	brew list cmake || brew install cmake
+  brew list openssl || brew install openssl
+   brew list pkg-config || brew install pkg-config
+   brew list cmake || brew install cmake
 else
     if command -v apt-get >/dev/null; then
         sudo apt-get install -y software-properties-common
@@ -44,7 +47,9 @@ parser.add_argument('--zk', nargs='?', const='master')
 args = parser.parse_args()
 
 for k in ['tool', 'ot', 'zk', 'sh2pc', 'ag2pc', 'agmpc']:
-	if vars(args)[k]:
-		template = install_template.replace("REPO", "emp-"+k).replace("Y", vars(args)[k])
-		print(template)
-		subprocess.call(["bash", "-c", template])
+  if vars(args)[k]:
+    template = install_template.replace("REPO", "emp-"+k).replace("Y", vars(args)[k])
+    print(template)
+    exit_code = subprocess.call(["bash", "-c", template])
+    if exit_code != 0:
+      sys.exit(exit_code)

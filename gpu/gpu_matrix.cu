@@ -80,7 +80,7 @@ blk* Mat::data(std::vector<uint64_t> pos) const {
 
 void Mat::set(blk &val, std::vector<uint64_t> pos) {
   uint64_t offset = listToOffset(pos);
-  cudaMemcpyAsync((blk*)mPtr + offset, &val, sizeof(blk), cudaMemcpyHostToDevice);
+  cudaMemcpy((blk*)mPtr + offset, &val, sizeof(blk), cudaMemcpyHostToDevice);
 }
 
 void Mat::resize(std::vector<uint64_t> newDim) {
@@ -98,7 +98,7 @@ void Mat::bit_transpose() {
   if (row < 8 * sizeof(blk)) 
     throw std::invalid_argument("Mat::bit_transpose insufficient rows to transpose\n");
   
-  cudaMemcpyAsync(buffer, mPtr, mNBytes, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(buffer, mPtr, mNBytes, cudaMemcpyDeviceToDevice);
   dim3 block, grid;
   uint64_t threadX = col * sizeof(blk);
   block.x = std::min(threadX, 32UL);
