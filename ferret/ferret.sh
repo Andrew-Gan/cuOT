@@ -6,13 +6,13 @@ LOGOT=24
 
 mkdir -p data/
 
-# $RUN $EXE $LOGOT
+$RUN $EXE $LOGOT
 
-for LOGOT in 22 23 24 25
-do
-    $RUN $EXE $LOGOT
-    rm data/*
-done
+# for LOGOT in {22..26}
+# do
+#     $RUN $EXE $LOGOT
+#     rm data/*
+# done
 
 # ulimit -n 1024
 # valgrind --leak-check=full $RUN $EXE $LOGOT

@@ -71,11 +71,15 @@ void FerretCOT<T>::extend(block* ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
 // extend f2k (customized location)
 template<typename T>
 void FerretCOT<T>::extend_f2k(block *ot_buffer) {
+
 	if(party == ALICE)
 	    pre_ot->send_pre(ot_pre_data, Delta);
 	else pre_ot->recv_pre(ot_pre_data);
+
 	extend(ot_buffer, mpcot, pre_ot, lpn_f2, ot_pre_data);
+
 	memcpy(ot_pre_data, ot_buffer+ot_limit, M*sizeof(block));
+
 	ot_used = 0;
 }
 
@@ -151,6 +155,7 @@ void FerretCOT<T>::rcot(block *data, int64_t num) {
 		ot_used += num;
 		return;
 	}
+
 	block *pt = data;
 	int64_t gened = silent_ot_left();
 	if(gened > 0) {

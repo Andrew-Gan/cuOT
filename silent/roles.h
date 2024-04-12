@@ -10,7 +10,7 @@
 #include "quasi_cyclic.h"
 
 // number of gpu used per party
-#define NGPU 1
+#define NGPU 2
 
 class SilentOTSender;
 class SilentOTRecver;

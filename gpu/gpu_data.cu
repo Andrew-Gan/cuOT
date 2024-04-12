@@ -25,7 +25,10 @@ GPUdata::GPUdata(const GPUdata &blk) : GPUdata(blk.size_bytes()) {
 GPUdata::~GPUdata() {
   if (mPtr != nullptr) {
     cudaSetDevice(mDevice);
-    cudaFree(mPtr);
+    cudaError_t err = cudaFree(mPtr);
+    if (err != cudaSuccess) {
+      throw std::runtime_error(cudaGetErrorString(err));
+    }
   }
 }
 

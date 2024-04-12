@@ -4,7 +4,7 @@
 #include "gpu_tests.h"
 #include "gpu_matrix.h"
 
-#define NGPU 2
+#define NGPU 1
 
 void cuda_mpcot_sender(Mat *expanded, blk *lSum_h, blk *rSum_h,
   blk *secret_sum, int tree, int depth, blk *Delta_f2k);

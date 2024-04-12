@@ -18,7 +18,10 @@ Mat::Mat(const Mat &other) : GPUdata(other) {
 Mat::~Mat() {
   if (bufferSize != 0) {
     cudaSetDevice(mDevice);
-    cudaFree(buffer);
+    cudaError_t err = cudaFree(buffer);
+    if (err != cudaSuccess) {
+      std::cout << cudaGetErrorString(err) << std::endl;
+    }
   }
 }
 

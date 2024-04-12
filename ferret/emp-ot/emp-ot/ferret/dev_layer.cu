@@ -51,6 +51,7 @@ void cuda_mpcot_sender(Mat *expanded, blk *lSum_h, blk *rSum_h,
       buffer.xor_scalar(delta);
       cudaMemcpy(secret_sum+gpu*treePerGPU, buffer.data(), treePerGPU*sizeof(blk), cudaMemcpyDeviceToHost);
       cudaDeviceSynchronize();
+      cudaFree(delta);
     }));
 	}
 
@@ -86,7 +87,7 @@ void fill_final_punc_tree(uint64_t *activeParent, blk *secret_sum, blk *layer,
 }
 
 void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree, int depth, bool *choices) {
-  return; // uncomment when benchmarking sender only
+  // return; // uncomment when benchmarking sender only
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
 	uint32_t k0_blk[4] = {3242342};
@@ -147,6 +148,7 @@ void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree, in
 }
 
 void cuda_gen_matrices(Role role, Mat *pubMats, int64_t n, int d, uint32_t *key) {
+  // if (role == Recver) return; // uncomment when benchmarking sender only
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
   uint64_t rowsPerGPU = (n + NGPU - 1) / NGPU;
@@ -186,7 +188,7 @@ void lpn_single_row(uint32_t *r, int64_t d, int k, blk *nn, blk *kk) {
 }
 
 void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k, Mat *expanded, blk *nn, blk *kk) {
-  if (role == Recver) return; // uncomment when benchmarking sender only
+  // if (role == Recver) return; // uncomment when benchmarking sender only
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
   uint64_t rowsPerGPU = (n + NGPU - 1) / NGPU;
