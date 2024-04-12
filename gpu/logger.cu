@@ -38,7 +38,7 @@ void Log::open(Role role, std::string filename, bool ignoreInit) {
 void Log::close(Role role) {
   mOpened[role] = false;
   for (int event = 0; event < NUM_EVENTS; event++) {
-    logFile[role] << "t " << event << " " << eventDuration[role][event] << std::endl;
+    logFile[role] << "t " << event << " " << eventDuration[role][event] / SAMPLE_SIZE << std::endl;
   }
   for (int j = 0; j < NUM_EVENTS; j++)
     logFile[role] << "m " << j << " " << memMax[role][j] << std::endl;

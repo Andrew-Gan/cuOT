@@ -6,9 +6,9 @@ using namespace std;
 int port, party;
 const static int threads = 1;
 
-void test_ferret(int party, NetIO *io, int64_t num_ot) {
+void test_ferret(int party, NetIO *io, int64_t num_ot, int ngpu) {
 	auto start = clock_start();
-	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, threads, io, false, true, ferret_b13);
+	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, ngpu, io, false, true, ferret_b13);
 	double timeused = time_from(start);
 	std::cout << party << "\tsetup\t" << timeused/1000 << "ms" << std::endl;
 
@@ -32,6 +32,9 @@ int main(int argc, char** argv) {
 	int64_t length = 24;
 	if (argc > 3)
 		length = atoi(argv[3]);
+	int ngpu = 1;
+	if (argc > 4)
+		ngpu = atoi(argv[4]);
 	if(length > 30) {
 		cout <<"Large test size! comment me if you want to run this size\n";
 		exit(1);
@@ -42,11 +45,13 @@ int main(int argc, char** argv) {
 		filename << "send-";
 	else
 		filename << "recv-";
-	filename << length << ".txt";
+	filename << length << "-" << ngpu << ".txt";
 
-	test_ferret(party, io, 10); // warmup
+	test_ferret(party, io, 1, ngpu); // warmup
 	Log::open((Role)(party-1), filename.str(), true);
-	test_ferret(party, io, length);
+	for (int i = 0; i < SAMPLE_SIZE; i++) {
+		test_ferret(party, io, length, ngpu);
+	}
 	Log::close((Role)(party-1));
 
 	delete io;

@@ -6,7 +6,7 @@
 #include "pprf.h"
 #include "logger.h"
 
-#define FFT_BATCHSIZE 4
+#define FFT_BATCHSIZE 8
 
 __global__
 void bit_to_float(uint8_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, uint64_t outFloatWidth) {
@@ -45,7 +45,7 @@ void float_to_bit_and_modp(cufftReal *fftReal, uint8_t *bitPoly, uint64_t mIn) {
       }
     }
   }
-  bitPoly[row * (mOut / 64) + col] = res;
+  bitPoly[row * (mOut / 8) + col] = res;
 }
 
 QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
@@ -118,7 +118,7 @@ QuasiCyclic::~QuasiCyclic() {
 void QuasiCyclic::encode_dense(Span &b64) {
   Log::mem(mRole, LPN);
   for (uint64_t r = 0; r < mRows; r += FFT_BATCHSIZE) {
-    bit_to_float<<<gridFFT[0], blockFFT[0]>>>((uint8_t*)b64.data({r, 0}), b64_poly, mIn, mIn);
+    bit_to_float<<<gridFFT[0], blockFFT[0]>>>((uint8_t*)b64.data({r, 0}), b64_poly, mOut, mIn);
     cufftExecR2C(bPlan, b64_poly, b64_fft);
     complex_dot_product<<<gridFFT[1], blockFFT[1]>>>(a64_fft, b64_fft, mIn / 2 + 1);
     cufftExecC2R(cPlan, b64_fft, c64_poly);

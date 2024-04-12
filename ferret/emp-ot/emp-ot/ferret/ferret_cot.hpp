@@ -1,18 +1,18 @@
 #include "logger.h"
 
 template<typename T>
-FerretCOT<T>::FerretCOT(int party, int threads, T *io, bool malicious,
+FerretCOT<T>::FerretCOT(int party, int ngpu, T *io, bool malicious,
 	bool run_setup, PrimalLPNParameter param, std::string pre_file) {
 
 	this->party = party;
-	this->threads = threads;
+	this->ngpu = ngpu;
 	io = io;
 	this->io = io;
 	this->is_malicious = malicious;
 	one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
 	ch[0] = zero_block;
 	base_cot = new BaseCot<T>(party, io, malicious);
-	pool = new ThreadPool(threads);
+	expSeed = new Mat[ngpu];
 	this->param = param;
 
 	this->extend_initialized = false;
@@ -38,15 +38,15 @@ FerretCOT<T>::~FerretCOT() {
 	if (ot_data != nullptr) delete[] ot_data;
 	if(pre_ot != nullptr) delete pre_ot;
 	delete base_cot;
-	delete pool;
 	if(lpn_f2 != nullptr) delete lpn_f2;
 	if(mpcot != nullptr) delete mpcot;
+	delete[] expSeed;
 }
 
 template<typename T>
 void FerretCOT<T>::extend_initialization() {
-	lpn_f2 = new LpnF2<T, 10>(party, param.n, param.k, pool, io, pool->size());
-	mpcot = new MpcotReg<T>(party, threads, param.n, param.t, param.log_bin_sz, pool, io);
+	lpn_f2 = new LpnF2<T, 10>(party, param.n, param.k, io, ngpu);
+	mpcot = new MpcotReg<T>(party, ngpu, param.n, param.t, param.log_bin_sz, io);
 	if(is_malicious) mpcot->set_malicious();
 
 	pre_ot = new OTPre<T>(io, mpcot->tree_height-1, mpcot->tree_n);
@@ -125,10 +125,10 @@ void FerretCOT<T>::setup(std::string pre_file) {
 		if(party == BOB) base_cot->cot_gen_pre();
 		else base_cot->cot_gen_pre(Delta);
 
-		MpcotReg<T> mpcot_ini(party, threads, param.n_pre, param.t_pre, param.log_bin_sz_pre, pool, io);
+		MpcotReg<T> mpcot_ini(party, ngpu, param.n_pre, param.t_pre, param.log_bin_sz_pre, io);
 		if(is_malicious) mpcot_ini.set_malicious();
 		OTPre<T> pre_ot_ini(io, mpcot_ini.tree_height-1, mpcot_ini.tree_n);	
-		LpnF2<T, 10> lpn(party, param.n_pre, param.k_pre, pool, io, pool->size());
+		LpnF2<T, 10> lpn(party, param.n_pre, param.k_pre, io, ngpu);
 	
 		block *pre_data_ini = new block[param.k_pre+mpcot_ini.consist_check_cot_num];
 		memset(this->ot_pre_data, 0, param.n_pre*16);

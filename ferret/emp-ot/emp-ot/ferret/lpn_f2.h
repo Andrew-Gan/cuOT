@@ -10,24 +10,27 @@ template<typename IO, int d = 10>
 class LpnF2 { public:
 	int party;
 	int64_t n;
-	ThreadPool * pool;
 	IO *io;
-	int threads, k, mask;
+	int ngpu, k, mask;
 	block seed;
-	Mat pubMats[NGPU];
+	Mat *pubMats;
 
-	LpnF2 (int party, int64_t n, int k, ThreadPool * pool, IO *io, int threads) {
+	LpnF2 (int party, int64_t n, int k, IO *io, int ngpu) {
 		this->party = party;
 		this->k = k;
 		this->n = n;
-		this->pool = pool;
 		this->io = io;
-		this->threads = threads;
+		this->ngpu = ngpu;
 		mask = 1;
 		while(mask < k) {
 			mask <<=1;
 			mask = mask | 0x1;
 		}
+		pubMats = new Mat[ngpu];
+	}
+
+	~LpnF2() {
+		delete[] pubMats;
 	}
 
 	void __compute4(block * nn, const block * kk, int64_t i, PRP * prp) {
@@ -68,8 +71,8 @@ class LpnF2 { public:
 	void compute(block *nn, Mat *expSeed, const block *kk) {
 		seed = seed_gen();
 		PRP prp(seed);
-		cuda_gen_matrices((Role)(party-1), pubMats, n, d, (uint32_t*)prp.aes.rd_key);
-		cuda_primal_lpn((Role)(party-1), pubMats, d, n, k, expSeed, (blk*)nn, (blk*)kk);
+		cuda_gen_matrices((Role)(party-1), pubMats, n, d, (uint32_t*)prp.aes.rd_key, ngpu);
+		cuda_primal_lpn((Role)(party-1), pubMats, d, n, k, expSeed, (blk*)nn, (blk*)kk, ngpu);
 	}
 
 	block seed_gen() {
@@ -84,20 +87,20 @@ class LpnF2 { public:
 		return seed;
 	}
 	void bench(block * nn, const block * kk) {
-		vector<std::future<void>> fut;
-		int64_t width = n/threads;
-		for(int i = 0; i < threads - 1; ++i) {
-			int64_t start = i * width;
-			int64_t end = min((i+1)* width, n);
-			fut.push_back(pool->enqueue([this, nn, kk, start, end]() {
-				task(nn, kk, start, end);
-			}));
-		}
-		int64_t start = (threads - 1) * width;
-		int64_t end = n;
-		task(nn, kk, start, end);
+		// vector<std::future<void>> fut;
+		// int64_t width = n/threads;
+		// for(int i = 0; i < threads - 1; ++i) {
+		// 	int64_t start = i * width;
+		// 	int64_t end = min((i+1)* width, n);
+		// 	fut.push_back(pool->enqueue([this, nn, kk, start, end]() {
+		// 		task(nn, kk, start, end);
+		// 	}));
+		// }
+		// int64_t start = (threads - 1) * width;
+		// int64_t end = n;
+		// task(nn, kk, start, end);
 
-		for (auto &f: fut) f.get();
+		// for (auto &f: fut) f.get();
 	}
 
 };

@@ -43,7 +43,4 @@ private:
   void toOtherBuffer(uint8_t *s, uint64_t nBytes);
 };
 
-extern std::array<std::atomic<OT*>, 100> baseOTSenders;
-extern std::array<std::atomic<OT*>, 100> baseOTRecvers;
-
 #endif

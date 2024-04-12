@@ -3,13 +3,13 @@
 
 #include "logger.h"
 #include "gpu_ops.h"
+#include "gpu_tests.h"
 
 std::array<std::atomic<SilentOTRecver*>, 16> silentOTRecvers;
 
 SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
   mRole = Recver;
-  mDev = NGPU - mConfig.id - 1;
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   silentOTRecvers[mConfig.id] = this;
   if(silentOTSenders[mConfig.id] == nullptr) {
     std::runtime_error(
@@ -21,22 +21,21 @@ SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
   m0 = std::vector<Mat>(depth+1, Mat({mConfig.nTree}));
   m1 = std::vector<Mat>(depth+1, Mat({mConfig.nTree}));
   
-  puncVector = new Mat({2 * numOT, 1});
-  buffer = new Mat({2 * numOT, 1});
+  puncVector = new Mat({numOT, 1});
+  buffer = new Mat(puncVector->dims());
   cudaMalloc(&activeParent, mConfig.nTree * sizeof(uint64_t));
-  cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
   separated.resize({numOT});
   switch (mConfig.pprf) {
     case Aes_t:
       expander = new Aes(mConfig.leftKey, mConfig.rightKey);
   }
 
-  uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
+  uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
   b64.resize({rowsPerGPU, 2 * numOT / BLOCK_BITS});
   b64.clear();
   switch (mConfig.dualLPN) {
     case QuasiCyclic_t:
-      lpn = new QuasiCyclic(Recver, 2 * numOT, numOT, BLOCK_BITS / NGPU);
+      lpn = new QuasiCyclic(Recver, 2 * numOT, numOT, BLOCK_BITS / mConfig.gpuPerParty);
   }
 
   cudaMalloc(&puncPos, mConfig.nTree * sizeof(uint64_t));
@@ -45,7 +44,7 @@ SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
 }
 
 SilentOTRecver::~SilentOTRecver() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   cudaFree(puncPos);
   cudaFree(activeParent);
   delete expander;
@@ -57,11 +56,11 @@ SilentOTRecver::~SilentOTRecver() {
 
 
 void SilentOTRecver::base_ot() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   std::vector<std::future<Mat>> workers;
   for (int d = 0; d < depth; d++) {
     workers.push_back(std::async([d, this]() {
-      cudaSetDevice(NGPU-mConfig.id-1);
+      cudaSetDevice(mConfig.id);
       switch (mConfig.baseOT) {
         case SimplestOT_t:
           return SimplestOT(Recver, this->mConfig.id*this->depth+d, mConfig.nTree).recv(mConfig.choices[d]);
@@ -115,7 +114,7 @@ void fill_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeP
 }
 
 void SilentOTRecver::get_punctured_key() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   for (uint64_t d = 0; d < depth+1; d++) {
     m0.at(d) = other->m0.at(d);
     m1.at(d) = other->m1.at(d);
@@ -123,10 +122,11 @@ void SilentOTRecver::get_punctured_key() {
 }
 
 void SilentOTRecver::seed_expand() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   Log::mem(Recver, SeedExp);
   Mat *input;
   Mat *output;
+  cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
 
   input = buffer;
   output = puncVector;
@@ -134,7 +134,6 @@ void SilentOTRecver::seed_expand() {
     std::swap(input, output);
     expander->expand(*input, *output, separated, mConfig.nTree*inWidth);
     separated.sum(2 * mConfig.nTree, inWidth);
-    // cudaStreamWaitEvent(0, other->expandEvents.at(d));
 
     m0.at(d).xor_d(mc.at(d));
     m1.at(d).xor_d(mc.at(d));
@@ -156,17 +155,17 @@ void SilentOTRecver::seed_expand() {
 
   puncVector = output;
   buffer = input;
-  cudaDeviceSynchronize();
 }
 
 void SilentOTRecver::dual_lpn() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   Log::mem(Recver, LPN);
-  uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
+  uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
   puncVector->bit_transpose();
   Span b64(*puncVector, {mConfig.id*rowsPerGPU, 0}, {(mConfig.id+1)*rowsPerGPU, 0});
   lpn->encode_dense(b64);
   puncVector->resize({puncVector->dim(0), numOT / BLOCK_BITS});
+  puncVector->bit_transpose();
   cudaDeviceSynchronize();
-  Log::mem(Sender, LPN);
+  Log::mem(Recver, LPN);
 }

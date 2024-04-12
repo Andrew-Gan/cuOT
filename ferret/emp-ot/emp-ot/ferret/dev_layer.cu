@@ -14,13 +14,13 @@ void blk_xor(blk *a, blk *b) {
 }
 
 void cuda_mpcot_sender(Mat *expanded, blk *lSum_h, blk *rSum_h,
-  blk *secret_sum, int tree, int depth, blk *Delta_f2k) {
+  blk *secret_sum, int tree, int depth, blk *Delta_f2k, int ngpu) {
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
-	uint64_t treePerGPU = (tree + NGPU - 1) / NGPU;
+	uint64_t treePerGPU = (tree + ngpu - 1) / ngpu;
   std::vector<std::future<void>> workers;
 
-	for (int gpu = 0; gpu < NGPU; gpu++) {
+	for (int gpu = 0; gpu < ngpu; gpu++) {
     blk *lS = &lSum_h[gpu*treePerGPU*depth];
     blk *rS = &rSum_h[gpu*treePerGPU*depth];
     workers.push_back(std::async([&, gpu, lS, rS](){
@@ -55,7 +55,7 @@ void cuda_mpcot_sender(Mat *expanded, blk *lSum_h, blk *rSum_h,
     }));
 	}
 
-	for (int gpu = 0; gpu < NGPU; gpu++) {
+	for (int gpu = 0; gpu < ngpu; gpu++) {
 		workers.at(gpu).get();
 	}
 }
@@ -86,18 +86,19 @@ void fill_final_punc_tree(uint64_t *activeParent, blk *secret_sum, blk *layer,
   layer[fillIndex] = secret_sum[t];
 }
 
-void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree, int depth, bool *choices) {
+void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree,
+  int depth, bool *choices, int ngpu) {
   // return; // uncomment when benchmarking sender only
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
-	uint64_t treePerGPU = (tree + NGPU - 1) / NGPU;
+	uint64_t treePerGPU = (tree + ngpu - 1) / ngpu;
   std::vector<std::future<void>> workers;
 	int block = std::min(treePerGPU, 1024UL);
 	int grid = (treePerGPU + block - 1) / block;
 
-	for (int gpu = 0; gpu < NGPU; gpu++) {
+	for (int gpu = 0; gpu < ngpu; gpu++) {
     bool *b = choices + gpu * treePerGPU * depth;
     blk *cS = &cSum_h[gpu*treePerGPU*depth];
     workers.push_back(std::async([&, gpu, b, cS, treePerGPU]() {
@@ -142,18 +143,19 @@ void cuda_mpcot_recver(Mat *expanded, blk *cSum_h, blk *secret_sum, int tree, in
     }));
 	}
 
-	for (int gpu = 0; gpu < NGPU; gpu++) {
+	for (int gpu = 0; gpu < ngpu; gpu++) {
 		workers.at(gpu).get();
 	}
 }
 
-void cuda_gen_matrices(Role role, Mat *pubMats, int64_t n, int d, uint32_t *key) {
+void cuda_gen_matrices(Role role, Mat *pubMats, int64_t n, int d, uint32_t *key,
+  int ngpu) {
   // if (role == Recver) return; // uncomment when benchmarking sender only
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
-  uint64_t rowsPerGPU = (n + NGPU - 1) / NGPU;
+  uint64_t rowsPerGPU = (n + ngpu - 1) / ngpu;
   std::vector<std::future<void>> workers;
-  for (int gpu = 0; gpu < NGPU; gpu++) {
+  for (int gpu = 0; gpu < ngpu; gpu++) {
     workers.push_back(std::async([&, gpu]() {
       cudaSetDevice(gpu);
       pubMats[gpu].resize({(rowsPerGPU * d + 3) / 4});
@@ -167,7 +169,7 @@ void cuda_gen_matrices(Role role, Mat *pubMats, int64_t n, int d, uint32_t *key)
     }));
   }
 
-  for (int gpu = 0; gpu < NGPU; gpu++) {
+  for (int gpu = 0; gpu < ngpu; gpu++) {
 		workers.at(gpu).get();
 	}
 }
@@ -187,13 +189,14 @@ void lpn_single_row(uint32_t *r, int64_t d, int k, blk *nn, blk *kk) {
     nn[i] = tmp_nn;
 }
 
-void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k, Mat *expanded, blk *nn, blk *kk) {
+void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k,
+  Mat *expanded, blk *nn, blk *kk, int ngpu) {
   // if (role == Recver) return; // uncomment when benchmarking sender only
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
-  uint64_t rowsPerGPU = (n + NGPU - 1) / NGPU;
+  uint64_t rowsPerGPU = (n + ngpu - 1) / ngpu;
   std::vector<std::future<void>> workers;
-  for (int gpu = 0; gpu < NGPU; gpu++) {
+  for (int gpu = 0; gpu < ngpu; gpu++) {
     workers.push_back(std::async([&, gpu, rowsPerGPU]() {
       cudaSetDevice(gpu);
       Mat kk_d({(uint64_t)k});
@@ -205,7 +208,7 @@ void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k, Mat *
     }));
   }
 
-  for (int gpu = 0; gpu < NGPU; gpu++) {
+  for (int gpu = 0; gpu < ngpu; gpu++) {
 		workers.at(gpu).get();
 	}
 }

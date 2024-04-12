@@ -16,7 +16,7 @@ using std::future;
 template<typename IO>
 class MpcotReg {
 public:
-	int party, threads;
+	int party, ngpu;
 	int item_n, idx_max, m;
 	int tree_height, leave_n;
 	int tree_n;
@@ -28,18 +28,16 @@ public:
 	IO *io;
 	block Delta_f2k;
 	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
-	ThreadPool *pool;
 	
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
 
-	MpcotReg(int party, int threads, int n, int t, int log_bin_sz, ThreadPool * pool, IO *io) {
+	MpcotReg(int party, int ngpu, int n, int t, int log_bin_sz, IO *io) {
 		this->party = party;
-		this->threads = threads;
+		this->ngpu = ngpu;
 		this->io = netio = io;
 		consist_check_cot_num = 128;
 
-		this->pool = pool;
 		this->is_malicious = false;
 
 		this->item_n = t;
@@ -90,7 +88,6 @@ public:
 
 	void mpcot_init_sender(OTPre<IO> *ot) {
 		for(int i = 0; i < tree_n; ++i) {
-			// senders.push_back(new SPCOT_Sender<IO>(netio, tree_height));
 			ot->choices_sender();
 		}
 		netio->flush();
@@ -120,7 +117,7 @@ public:
 
 		Log::start(Sender, SeedExp);
 		cuda_mpcot_sender(outputs, (blk*)m0, (blk*)m1,
-			(blk*)secret_sum, tree_n, tree_height-1, (blk*)&Delta_f2k);
+			(blk*)secret_sum, tree_n, tree_height-1, (blk*)&Delta_f2k, ngpu);
 		Log::end(Sender, SeedExp);
 		Log::start(Sender, BaseOT);
 
@@ -147,7 +144,7 @@ public:
 		Log::end(Recver, BaseOT);
 		Log::start(Recver, SeedExp);
 		cuda_mpcot_recver(outputs, (blk*)mc, (blk*)secret_sum,
-			tree_n, tree_height-1, choice);
+			tree_n, tree_height-1, choice, ngpu);
 		Log::end(Recver, SeedExp);
 		delete[] mc;
 	}

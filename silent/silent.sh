@@ -1,27 +1,30 @@
 #!/bin/bash
 
 EXE=./ot
-LOGOT=24
+LOGOT=22
 TREE=8
+NGPU=2
 
-$EXE 1 $LOGOT $TREE
+# $EXE $LOGOT $TREE $NGPU
 
-# for LOGOT in {22..26}
-# do
-#     $EXE 1 $LOGOT $TREE
-# done
+mkdir -p ../results/
+
+for NGPU in 1 2 4 8
+do
+
+for LOGOT in {22..25}
+do
+    $EXE $LOGOT $TREE $NGPU
+done
+
+done
 
 # for NUMTREE in 2 4 $TREE 16 32 64
 # do
-#     $EXE 1 $LOGOT $NUMTREE
-# done
-
-# for BW in 1 10 100
-# do
-#     $EXE 1 $LOGOT $TREE $BW
+#     $EXE $LOGOT $TREE $NGPU
 # done
 
 # ulimit -n 1024
-# valgrind $EXE 1 $LOGOT $TREE
-# compute-sanitizer --tool memcheck --leak-check full $EXE 1 $LOGOT $TREE
-# nsys profile --stats=true $EXE 1 $LOGOT $TREE
+# valgrind $EXE $LOGOT $TREE $NGPU
+# compute-sanitizer --tool memcheck --leak-check full $EXE $LOGOT $TREE $NGPU
+# nsys profile --stats=true $EXE $LOGOT $TREE $NGPU

@@ -4,6 +4,9 @@
 #include <fstream>
 #include "gpu_define.h"
 
+// set to one for correct output
+#define SAMPLE_SIZE 8
+
 enum Event {
   CudaInit, BaseOT, SeedExp, LPN, Neural, NUM_EVENTS,
 };

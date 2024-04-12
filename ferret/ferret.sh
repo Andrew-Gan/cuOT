@@ -4,15 +4,19 @@ RUN=./emp-ot/run
 EXE=./emp-ot/bin/test_ferret
 LOGOT=24
 
-mkdir -p data/
+mkdir -p data/ ../results/
 
 $RUN $EXE $LOGOT
 
-# for LOGOT in {22..26}
-# do
-#     $RUN $EXE $LOGOT
-#     rm data/*
-# done
+for NGPU in 1 2 4 8
+do
+
+for LOGOT in {22..25}
+do
+    $RUN $EXE $LOGOT $NGPU
+done
+
+done
 
 # ulimit -n 1024
 # valgrind --leak-check=full $RUN $EXE $LOGOT

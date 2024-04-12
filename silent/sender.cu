@@ -9,14 +9,13 @@ std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
 SilentOTSender::SilentOTSender(SilentConfig config) : SilentOT(config) {
   blk seed_h, delta_h;
   mRole = Sender;
-  mDev = mConfig.id;
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   silentOTSenders[mConfig.id] = this;
   for (int i = 0; i < 4; i++)
     delta_h.data[i] = rand();
 
-  fullVector = new Mat({2 * numOT, 1});
-  buffer = new Mat({2 * numOT, 1});
+  fullVector = new Mat({numOT, 1});
+  buffer = new Mat(fullVector->dims());
   cudaMalloc(&delta, sizeof(*delta));
   cudaMemcpy(delta, &delta_h, sizeof(*delta), cudaMemcpyHostToDevice);
   for (uint64_t t = 0; t < mConfig.nTree; t++) {
@@ -29,17 +28,17 @@ SilentOTSender::SilentOTSender(SilentConfig config) : SilentOT(config) {
       expander = new Aes(mConfig.leftKey, mConfig.rightKey);
   }
 
-  uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
+  uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
   b64.resize({rowsPerGPU, 2 * numOT / BLOCK_BITS});
   b64.clear();
   switch (mConfig.dualLPN) {
     case QuasiCyclic_t:
-      lpn = new QuasiCyclic(Sender, 2 * numOT, numOT, BLOCK_BITS / NGPU);
+      lpn = new QuasiCyclic(Sender, 2 * numOT, numOT, BLOCK_BITS / mConfig.gpuPerParty);
   }
 }
 
 SilentOTSender::~SilentOTSender() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   delete fullVector;
   delete buffer;
   delete expander;
@@ -49,7 +48,7 @@ SilentOTSender::~SilentOTSender() {
 }
 
 void SilentOTSender::base_ot() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   std::vector<std::future<std::array<Mat, 2>>> workers;
   for (int d = 0; d < depth; d++) {
     workers.push_back(std::async([d, this]() {
@@ -71,7 +70,7 @@ void SilentOTSender::base_ot() {
 }
 
 void SilentOTSender::seed_expand() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   Log::mem(Sender, SeedExp);
   Mat *input = buffer;
   Mat *output = fullVector;
@@ -96,13 +95,14 @@ void SilentOTSender::seed_expand() {
 }
 
 void SilentOTSender::dual_lpn() {
-  cudaSetDevice(mDev);
+  cudaSetDevice(mConfig.id);
   Log::mem(Sender, LPN);
-  uint64_t rowsPerGPU = (BLOCK_BITS + NGPU - 1) / NGPU;
+  uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
   fullVector->bit_transpose();
   Span b64(*fullVector, {mConfig.id*rowsPerGPU, 0}, {(mConfig.id+1)*rowsPerGPU, 0});
   lpn->encode_dense(b64);
   fullVector->resize({fullVector->dim(0), numOT / BLOCK_BITS});
+  fullVector->bit_transpose();
   cudaDeviceSynchronize();
   Log::mem(Sender, LPN);
 }

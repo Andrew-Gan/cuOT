@@ -2,8 +2,8 @@
 #include "cryptoTools/Crypto/RandomOracle.h"
 #include <ctime>
 
-std::array<std::atomic<SimplestOT*>, 100> simplestOTSenders;
-std::array<std::atomic<SimplestOT*>, 100> simplestOTRecvers;
+std::array<std::atomic<SimplestOT*>, 256> simplestOTSenders;
+std::array<std::atomic<SimplestOT*>, 256> simplestOTRecvers;
 
 SimplestOT::SimplestOT(Role role, int id, uint64_t count) :
   mRole(role), mID(id), mCount(count) {

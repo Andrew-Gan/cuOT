@@ -10,7 +10,7 @@
 #include "quasi_cyclic.h"
 
 // number of gpu used per party
-#define NGPU 2
+#define NGPU 1
 
 class SilentOTSender;
 class SilentOTRecver;
@@ -24,12 +24,12 @@ struct SilentConfig {
   uint32_t rightKey[4];
   LPNType dualLPN;
   uint64_t *choices;
+  int gpuPerParty;
 };
 
 class SilentOT {
 public:
   Role mRole;
-  int mDev;
   SilentConfig mConfig;
   uint64_t depth, numOT, numLeaves;
   Pprf *expander;
@@ -43,6 +43,7 @@ public:
     numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, depth);
   }
+  virtual ~SilentOT() {}
   virtual void base_ot() = 0;
   virtual void seed_expand() = 0;
   virtual void dual_lpn() = 0;
