@@ -30,9 +30,6 @@ SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
       expander = new Aes(mConfig.leftKey, mConfig.rightKey);
   }
 
-  uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
-  b64.resize({rowsPerGPU, 2 * numOT / BLOCK_BITS});
-  b64.clear();
   switch (mConfig.dualLPN) {
     case QuasiCyclic_t:
       lpn = new QuasiCyclic(Recver, 2 * numOT, numOT, BLOCK_BITS / mConfig.gpuPerParty);
@@ -161,10 +158,8 @@ void SilentOTRecver::dual_lpn() {
   cudaSetDevice(mConfig.id);
   Log::mem(Recver, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
-  puncVector->bit_transpose();
-  Span b64(*puncVector, {mConfig.id*rowsPerGPU, 0}, {(mConfig.id+1)*rowsPerGPU, 0});
-  lpn->encode_dense(b64);
-  puncVector->resize({puncVector->dim(0), numOT / BLOCK_BITS});
+  puncVector->bit_transpose(mConfig.id*rowsPerGPU, (mConfig.id+1)*rowsPerGPU);
+  lpn->encode_dense(*puncVector);
   puncVector->bit_transpose();
   cudaDeviceSynchronize();
   Log::mem(Recver, LPN);

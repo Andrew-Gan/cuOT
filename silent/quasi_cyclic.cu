@@ -115,7 +115,7 @@ QuasiCyclic::~QuasiCyclic() {
   cudaFree(c64_poly);
 }
 
-void QuasiCyclic::encode_dense(Span &b64) {
+void QuasiCyclic::encode_dense(Mat &b64) {
   Log::mem(mRole, LPN);
   for (uint64_t r = 0; r < mRows; r += FFT_BATCHSIZE) {
     bit_to_float<<<gridFFT[0], blockFFT[0]>>>((uint8_t*)b64.data({r, 0}), b64_poly, mOut, mIn);

@@ -9,9 +9,6 @@
 #include "pprf.h"
 #include "quasi_cyclic.h"
 
-// number of gpu used per party
-#define NGPU 1
-
 class SilentOTSender;
 class SilentOTRecver;
 
@@ -52,8 +49,6 @@ protected:
   // pprf expansion
   Mat separated;
   Mat *buffer;
-  // lpn compression
-  Mat b64;
 };
 
 class SilentOTSender : public SilentOT {

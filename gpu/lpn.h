@@ -9,7 +9,7 @@ enum LPNType { QuasiCyclic_t, PrimalLpn_t };
 class DualLpn {
 public:
   virtual ~DualLpn() {}
-  virtual void encode_dense(Span &b64) = 0;
+  virtual void encode_dense(Mat &b64) = 0;
   virtual void encode_sparse(Mat &out, uint64_t *sparsePos, int weight) {}
 };
 

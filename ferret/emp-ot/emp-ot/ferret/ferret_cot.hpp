@@ -17,6 +17,11 @@ FerretCOT<T>::FerretCOT(int party, int ngpu, T *io, bool malicious,
 
 	this->extend_initialized = false;
 
+	for (int gpu = 0; gpu < ngpu; gpu++) {
+		cuda_setdev(gpu);
+		expSeed[gpu].resize({(param.t / ngpu) * (1UL << param.log_bin_sz)});
+	}
+
 	if(run_setup) {
 		if(party == ALICE) {
 			PRG prg;

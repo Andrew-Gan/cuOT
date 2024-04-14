@@ -19,7 +19,7 @@ __global__
 void xor_single(uint8_t *a, uint8_t *b, uint64_t size, uint64_t n);
 
 __global__
-void bit_transposer(uint8_t *out, uint8_t *in);
+void bit_transposer(uint8_t *out, uint8_t *in, uint64_t startCol, uint64_t bytesPerRow);
 
 __global__
 void xor_reduce(uint64_t *out, uint64_t *in);
@@ -35,7 +35,5 @@ void print(cuComplex *data, uint64_t n, uint64_t stride = 1);
 
 __global__
 void make_block(blk *blocks, uint64_t startIndex = 0);
-
-cudaError_t cudaMemswapPeerAsync(void *a_i, void *a_o, int aDev, void *b,int bDev, size_t count);
 
 #endif

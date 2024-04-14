@@ -22,7 +22,7 @@ private:
 public:
   QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows);
   virtual ~QuasiCyclic();
-  void encode_dense(Span &b64);
+  void encode_dense(Mat &b64);
   void encode_sparse(Mat &out, uint64_t *sparsePos, int weight);
 };
 

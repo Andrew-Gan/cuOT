@@ -3,19 +3,21 @@
 #include <sstream>
 using namespace std;
 
+#define SAMPLE_SIZE 8
+
 int port, party;
-const static int threads = 1;
 
 void test_ferret(int party, NetIO *io, int64_t num_ot, int ngpu) {
-	auto start = clock_start();
+	// auto start = clock_start();
 	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, ngpu, io, false, true, ferret_b13);
-	double timeused = time_from(start);
-	std::cout << party << "\tsetup\t" << timeused/1000 << "ms" << std::endl;
+	// double timeused = time_from(start);
+	// std::cout << party << "\tsetup\t" << timeused/1000 << "ms" << std::endl;
 
 	// RCOT
 	// The RCOTs will be generated at internal memory, and copied to user buffer
 	int64_t num = 1 << num_ot;
-	cout <<"Active FERRET RCOT\t"<<double(num)/test_rcot<FerretCOT<NetIO>>(ferretcot, io, party, num, false)*1e6<<" OTps"<<endl;
+	test_rcot<FerretCOT<NetIO>>(ferretcot, io, party, num, false);
+	// cout <<"Active FERRET RCOT\t"<<double(num)/test_rcot<FerretCOT<NetIO>>(ferretcot, io, party, num, false)*1e6<<" OTps"<<endl;
 
 	// RCOT inplace
 	// The RCOTs will be generated at user buffer
@@ -46,9 +48,11 @@ int main(int argc, char** argv) {
 	else
 		filename << "recv-";
 	filename << length << "-" << ngpu << ".txt";
-
-	test_ferret(party, io, 1, ngpu); // warmup
-	Log::open((Role)(party-1), filename.str(), true);
+	if (party==ALICE) cout << "size: " << length << ", ngpu: " << ngpu << endl;
+	if (party==ALICE) cout << "Warming up..." << endl;
+	test_ferret(party, io, 10, ngpu); // warmup
+	if (party==ALICE) cout << "Benchmarking..." << endl;
+	Log::open((Role)(party-1), filename.str(), true, SAMPLE_SIZE);
 	for (int i = 0; i < SAMPLE_SIZE; i++) {
 		test_ferret(party, io, length, ngpu);
 	}

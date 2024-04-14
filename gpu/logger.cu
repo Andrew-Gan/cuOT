@@ -15,8 +15,10 @@ uint64_t Log::memMax[2][NUM_EVENTS] = {0};
 bool Log::mOpened[2] = {false, false};
 bool Log::mIgnoreInit[2] = {false, false};
 bool Log::initTimeSet[2] = {false, false};
+int Log::mSampleSize = 1;
 
-void Log::open(Role role, std::string filename, bool ignoreInit) {
+void Log::open(Role role, std::string filename, bool ignoreInit, int sampleSize) {
+  mSampleSize = sampleSize;
   mOpened[role] = true;
   mIgnoreInit[role] = ignoreInit;
   logFile[role].open(filename);
@@ -38,7 +40,7 @@ void Log::open(Role role, std::string filename, bool ignoreInit) {
 void Log::close(Role role) {
   mOpened[role] = false;
   for (int event = 0; event < NUM_EVENTS; event++) {
-    logFile[role] << "t " << event << " " << eventDuration[role][event] / SAMPLE_SIZE << std::endl;
+    logFile[role] << "t " << event << " " << eventDuration[role][event] / mSampleSize << std::endl;
   }
   for (int j = 0; j < NUM_EVENTS; j++)
     logFile[role] << "m " << j << " " << memMax[role][j] << std::endl;
@@ -52,6 +54,12 @@ void Log::start(Role role, Event event) {
     initTimeSet[role] = true;
   }
 
+  size_t free, total, used;
+	cudaMemGetInfo(&free, &total);
+  used = total - free;
+  memStart[role][event] = used;
+  memCurr[role][event] = used;
+
   if (!mIgnoreInit[role] || event != CudaInit) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -60,12 +68,6 @@ void Log::start(Role role, Event event) {
     logFile[role] << "s " << event << " " << timeSinceStart << std::endl;
     eventStart[role][event] = timeSinceStart;
   }
-
-  size_t free, total, used;
-	cudaMemGetInfo(&free, &total);
-  used = total - free;
-  memStart[role][event] = used;
-  memCurr[role][event] = used;
 }
 
 void Log::end(Role role, Event event) {
@@ -86,7 +88,8 @@ void Log::end(Role role, Event event) {
 void Log::mem(Role role, Event event) {
   if (!mOpened[role]) return;
   size_t free, total, used;
-	cudaMemGetInfo(&free, &total);
+  // takes up too much time to call
+	// cudaMemGetInfo(&free, &total);
   used = total - free;
   memCurr[role][event] = std::max(used, memCurr[role][event]);
 }

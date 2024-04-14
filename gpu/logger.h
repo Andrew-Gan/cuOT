@@ -4,9 +4,6 @@
 #include <fstream>
 #include "gpu_define.h"
 
-// set to one for correct output
-#define SAMPLE_SIZE 8
-
 enum Event {
   CudaInit, BaseOT, SeedExp, LPN, Neural, NUM_EVENTS,
 };
@@ -21,9 +18,10 @@ private:
   static uint64_t memCurr[2][NUM_EVENTS];
   static uint64_t memMax[2][NUM_EVENTS];
   static bool mOpened[2], mIgnoreInit[2], initTimeSet[2];
+  static int mSampleSize;
 
 public:
-  static void open(Role role, std::string filename, bool ignoreInit);
+  static void open(Role role, std::string filename, bool ignoreInit, int sampleSize = 1);
   static void close(Role role);
   static void start(Role role, Event event);
   static void end(Role role, Event event);

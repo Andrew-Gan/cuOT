@@ -6,3 +6,10 @@ silent/slurm*
 silent/ot
 ferret/slurm*
 ferret/emp-ot/bin
+ferret/emp-tool
+ferret/lib/include
+ferret/emp-ot/CMakeFiles
+ferret/emp-ot/cmake_install.cmake
+ferret/emp-ot/CMakeCache.txt
+ferret/emp-ot/CTestTestfile.cmake
+ferret/emp-ot/install_manifest.txt

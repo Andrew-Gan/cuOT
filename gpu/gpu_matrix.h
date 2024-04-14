@@ -29,7 +29,7 @@ public:
   uint64_t listToOffset(std::vector<uint64_t> pos) const;
 
   // 2D Matrix only
-  void bit_transpose();
+  void bit_transpose(uint64_t startColBit = 0, uint64_t endColBit = 0);
   void modp(uint64_t reducedCol);
 
 private:

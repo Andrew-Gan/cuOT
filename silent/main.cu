@@ -7,6 +7,8 @@
 #include "roles.h"
 #include "gpu_tests.h"
 
+#define SAMPLE_SIZE 8
+
 uint64_t* gen_choices(int depth) {
   uint64_t *choices = new uint64_t[depth];
   for (int d = 0; d < depth; d++) {
@@ -51,6 +53,7 @@ void seed_exp_multi_gpu(std::vector<SilentOT*>& rcots) {
 }
 
 void dual_lpn_multi_gpu(std::vector<SilentOT*>& rcots) {
+  cudaSetDevice(0);
   Log::start(rcots.at(0)->mRole, LPN);
   std::vector<std::future<void>> workers;
   for (SilentOT *rcot : rcots) {
@@ -96,8 +99,8 @@ int main(int argc, char** argv) {
   for (int i = 0; i < SAMPLE_SIZE+1; i++) {
     // dont benchmark first iteration
     if (i == 1) {
-      Log::open(Sender, senderFile.str(), true);
-      Log::open(Recver, recverFile.str(), true);
+      Log::open(Sender, senderFile.str(), true, SAMPLE_SIZE);
+      Log::open(Recver, recverFile.str(), true, SAMPLE_SIZE);
     }
     std::vector<SilentOT*> senders;
     std::vector<SilentOT*> recvers;
@@ -109,26 +112,19 @@ int main(int argc, char** argv) {
       recvers.push_back(new SilentOTRecver(config));
     }
 
-    std::cout << "pair init done" << std::endl;
     base_ot_multi_gpu(senders, recvers);
-    std::cout << "pair baseOT done" << std::endl;
     seed_exp_multi_gpu(senders);
-    std::cout << "sender exp done" << std::endl;
     dual_lpn_multi_gpu(senders);
-    std::cout << "sender lpn done" << std::endl;
-    for (int gpu = 0; gpu < gpuPerParty; gpu++) {
-      static_cast<SilentOTRecver*>(recvers.at(gpu))->get_punctured_key();
-    }
-    seed_exp_multi_gpu(recvers);
-    std::cout << "recver exp done" << std::endl;
-    dual_lpn_multi_gpu(recvers);
-    std::cout << "recver lpn done" << std::endl;
+    // for (int gpu = 0; gpu < gpuPerParty; gpu++) {
+    //   static_cast<SilentOTRecver*>(recvers.at(gpu))->get_punctured_key();
+    // }
+    // seed_exp_multi_gpu(recvers);
+    // dual_lpn_multi_gpu(recvers);
 
     for (int gpu = 0; gpu < gpuPerParty; gpu++) {
       delete senders.at(gpu);
       delete recvers.at(gpu);
     }
-    std::cout << "pair free done" << std::endl;
 
     delete[] config.choices;
     // cudaSetDevice(0);

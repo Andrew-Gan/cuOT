@@ -29,21 +29,20 @@ void xor_single(uint8_t *a, uint8_t *b, uint64_t size, uint64_t n) {
 }
 
 __global__
-void bit_transposer(uint8_t *out, uint8_t *in) {
+void bit_transposer(uint8_t *out, uint8_t *in, uint64_t startCol, uint64_t bytesPerRow) {
   uint64_t i = (blockIdx.z * gridDim.y + blockIdx.y) * blockDim.y + threadIdx.y;
   uint64_t j = blockDim.x * blockIdx.x + threadIdx.x;
   uint64_t nRowBlocks = gridDim.y * blockDim.y;
-  uint64_t bytesPerRow = gridDim.x * blockDim.x;
 
   uint64_t x =
-    ( uint64_t( in[   i * 8       * bytesPerRow + j ] ) << 0  ) |
-    ( uint64_t( in[ ( i * 8 + 1 ) * bytesPerRow + j ] ) << 8  ) |
-    ( uint64_t( in[ ( i * 8 + 2 ) * bytesPerRow + j ] ) << 16 ) |
-    ( uint64_t( in[ ( i * 8 + 3 ) * bytesPerRow + j ] ) << 24 ) |
-    ( uint64_t( in[ ( i * 8 + 4 ) * bytesPerRow + j ] ) << 32 ) |
-    ( uint64_t( in[ ( i * 8 + 5 ) * bytesPerRow + j ] ) << 40 ) |
-    ( uint64_t( in[ ( i * 8 + 6 ) * bytesPerRow + j ] ) << 48 ) |
-    ( uint64_t( in[ ( i * 8 + 7 ) * bytesPerRow + j ] ) << 56 );
+    ( uint64_t( in[   i * 8       * bytesPerRow + j + startCol ] ) << 0  ) |
+    ( uint64_t( in[ ( i * 8 + 1 ) * bytesPerRow + j + startCol ] ) << 8  ) |
+    ( uint64_t( in[ ( i * 8 + 2 ) * bytesPerRow + j + startCol ] ) << 16 ) |
+    ( uint64_t( in[ ( i * 8 + 3 ) * bytesPerRow + j + startCol ] ) << 24 ) |
+    ( uint64_t( in[ ( i * 8 + 4 ) * bytesPerRow + j + startCol ] ) << 32 ) |
+    ( uint64_t( in[ ( i * 8 + 5 ) * bytesPerRow + j + startCol ] ) << 40 ) |
+    ( uint64_t( in[ ( i * 8 + 6 ) * bytesPerRow + j + startCol ] ) << 48 ) |
+    ( uint64_t( in[ ( i * 8 + 7 ) * bytesPerRow + j + startCol ] ) << 56 );
   uint64_t y =
     (x & 0x8040201008040201LL) |
     ((x & 0x0080402010080402LL) <<  7) |
@@ -134,10 +133,4 @@ void print(cuComplex *data, uint64_t n, uint64_t stride) {
     //   printf("%.2f + %.2fi ", data[j * stride].x, data[j * stride].y);
     // printf("\n");
   // }
-}
-
-cudaError_t cudaMemswapPeerAsync(void *a_i, void *a_o, int aDev, void *b,int bDev, size_t count) {
-  cudaError_t err0 = cudaMemcpyPeerAsync(a_o, aDev, b, bDev, count);
-  cudaError_t err1 = cudaMemcpyPeerAsync(b, bDev, a_i, aDev, count);
-  return err0 != cudaSuccess ? err0 : err1;
 }

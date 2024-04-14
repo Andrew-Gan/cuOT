@@ -13,7 +13,10 @@ class LpnF2 { public:
 	IO *io;
 	int ngpu, k, mask;
 	block seed;
+
+	// prevent runtime malloc
 	Mat *pubMats;
+	Mat *kk_d;
 
 	LpnF2 (int party, int64_t n, int k, IO *io, int ngpu) {
 		this->party = party;
@@ -27,10 +30,18 @@ class LpnF2 { public:
 			mask = mask | 0x1;
 		}
 		pubMats = new Mat[ngpu];
+		kk_d = new Mat[ngpu];
+		uint64_t rowsPerGPU = (n + ngpu - 1) / ngpu;
+		for (int gpu = 0; gpu < ngpu; gpu++) {
+			cuda_setdev(gpu);
+			pubMats[gpu].resize({(rowsPerGPU * d + 3) / 4});
+			kk_d[gpu].resize({(uint64_t)k});
+		}
 	}
-
-	~LpnF2() {
+	
+	virtual ~LpnF2() {
 		delete[] pubMats;
+		delete[] kk_d;
 	}
 
 	void __compute4(block * nn, const block * kk, int64_t i, PRP * prp) {
@@ -71,8 +82,8 @@ class LpnF2 { public:
 	void compute(block *nn, Mat *expSeed, const block *kk) {
 		seed = seed_gen();
 		PRP prp(seed);
-		cuda_gen_matrices((Role)(party-1), pubMats, n, d, (uint32_t*)prp.aes.rd_key, ngpu);
-		cuda_primal_lpn((Role)(party-1), pubMats, d, n, k, expSeed, (blk*)nn, (blk*)kk, ngpu);
+		cuda_primal_lpn((Role)(party-1), pubMats, d, n, k, (uint32_t*)prp.aes.rd_key,
+			expSeed, (blk*)nn, kk_d, (blk*)kk, ngpu);
 	}
 
 	block seed_gen() {

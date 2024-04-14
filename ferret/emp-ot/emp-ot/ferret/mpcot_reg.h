@@ -28,6 +28,11 @@ public:
 	IO *io;
 	block Delta_f2k;
 	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
+
+	// prevent runtime malloc
+	blk **delta_d;
+	Mat *buffer;
+	Mat *separated;
 	
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
@@ -45,6 +50,25 @@ public:
 		this->tree_height = log_bin_sz+1;
 		this->leave_n = 1<<(this->tree_height-1);
 		this->tree_n = this->item_n;
+
+		buffer = new Mat[ngpu];
+		separated = new Mat[ngpu];
+		for (int gpu = 0; gpu < ngpu; gpu++) {
+			cuda_setdev(gpu);
+			buffer[gpu].resize({(tree_n / ngpu) * (1UL << log_bin_sz)});
+			separated[gpu].resize({(tree_n / ngpu) * (1UL << log_bin_sz)});
+		}
+	}
+
+	virtual ~MpcotReg() {
+		if (party == ALICE) {
+			for (int gpu = 0; gpu < ngpu; gpu++) {
+				cuda_setdev(gpu);
+				cuda_free(delta_d[gpu]);
+			}
+		}
+		delete[] buffer;
+		delete[] separated;
 	}
 
 	void set_malicious() {
@@ -53,6 +77,12 @@ public:
 
 	void sender_init(block delta) {
 		Delta_f2k = delta;
+		delta_d = new blk*[ngpu];
+		for (int gpu = 0; gpu < ngpu; gpu++) {
+			cuda_setdev(gpu);
+			cuda_malloc((void**)&delta_d[gpu], sizeof(blk));
+			cuda_memcpy_H2D(delta_d[gpu], &Delta_f2k, sizeof(blk));
+		}
 	}
 
 	void recver_init() {
@@ -116,8 +146,8 @@ public:
 		block *secret_sum = new block[tree_n];
 
 		Log::start(Sender, SeedExp);
-		cuda_mpcot_sender(outputs, (blk*)m0, (blk*)m1,
-			(blk*)secret_sum, tree_n, tree_height-1, (blk*)&Delta_f2k, ngpu);
+		cuda_mpcot_sender(outputs, buffer, separated, (blk*)m0, (blk*)m1,
+			(blk*)secret_sum, tree_n, tree_height-1, delta_d, ngpu);
 		Log::end(Sender, SeedExp);
 		Log::start(Sender, BaseOT);
 
@@ -143,7 +173,7 @@ public:
 		io->recv_data(secret_sum, tree_n * sizeof(block));
 		Log::end(Recver, BaseOT);
 		Log::start(Recver, SeedExp);
-		cuda_mpcot_recver(outputs, (blk*)mc, (blk*)secret_sum,
+		cuda_mpcot_recver(outputs, buffer, separated, (blk*)mc, (blk*)secret_sum,
 			tree_n, tree_height-1, choice, ngpu);
 		Log::end(Recver, SeedExp);
 		delete[] mc;

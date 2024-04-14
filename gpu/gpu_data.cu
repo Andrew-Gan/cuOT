@@ -27,7 +27,7 @@ GPUdata::~GPUdata() {
     cudaSetDevice(mDevice);
     cudaError_t err = cudaFree(mPtr);
     if (err != cudaSuccess) {
-      throw std::runtime_error(cudaGetErrorString(err));
+      printf("Failed to free gpu mem: %s\n", cudaGetErrorString(err));
     }
   }
 }

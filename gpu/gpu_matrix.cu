@@ -92,18 +92,18 @@ void Mat::resize(std::vector<uint64_t> newDim) {
   mDim = newDim;
 }
 
-void Mat::bit_transpose() {
+void Mat::bit_transpose(uint64_t startColBit, uint64_t endColBit) {
+  uint64_t row = dim(0);
+  uint64_t col = dim(1);
+
+  if (startColBit == 0 && endColBit == 0) {
+    endColBit = col * BLOCK_BITS;
+  }
   if (mDim.size() != 2)
     throw std::invalid_argument("Mat::bit_transpose only 2D matrix supported\n");
 
-  uint64_t row = dim(0);
-  uint64_t col = dim(1);
-  if (row < 8 * sizeof(blk)) 
-    throw std::invalid_argument("Mat::bit_transpose insufficient rows to transpose\n");
-  
-  cudaMemcpy(buffer, mPtr, mNBytes, cudaMemcpyDeviceToDevice);
   dim3 block, grid;
-  uint64_t threadX = col * sizeof(blk);
+  uint64_t threadX = (endColBit - startColBit) / 8;
   block.x = std::min(threadX, 32UL);
   grid.x = (threadX + block.x - 1) / block.x;
   uint64_t threadY = row / 8;
@@ -111,10 +111,13 @@ void Mat::bit_transpose() {
   uint64_t yBlock = (threadY + block.y - 1) / block.y;
   grid.y = std::min(yBlock, 32768UL);
   grid.z = (yBlock + grid.y - 1) / grid.y;
-  bit_transposer<<<grid, block>>>(mPtr, buffer);
-  uint64_t tpRows = col * 8 * sizeof(blk);
-  mDim.at(1) = row / (8 * sizeof(blk));
+  bit_transposer<<<grid, block>>>(buffer, mPtr, startColBit / 8, col * sizeof(blk));
+  cudaDeviceSynchronize();
+  std::swap(buffer, mPtr);
+  uint64_t tpRows = endColBit - startColBit;
+  mDim.at(1) = std::max(1UL, row / BLOCK_BITS);
   mDim.at(0) = tpRows;
+  mNBytes = listToSize(mDim) * sizeof(blk);
 }
 
 __global__
