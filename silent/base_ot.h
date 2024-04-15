@@ -15,21 +15,23 @@ enum BaseOTType { SimplestOT_t };
 
 class OT {
 public:
-  virtual std::array<Mat, 2> send() = 0;
-  virtual Mat recv(uint64_t choice) = 0;
+  Role mRole;
+  int mID;
+  uint64_t mCount;
+  virtual void send(blk *m0, blk *m1) = 0;
+  virtual void recv(blk *mb, uint64_t choice) = 0;
+
+  OT(Role role, int id, uint64_t count) : mRole(role), mID(id), mCount(count) {}
 };
 
 class SimplestOT : public OT {
 public:
   SimplestOT(Role role, int id, uint64_t count);
   virtual ~SimplestOT();
-  virtual std::array<Mat, 2> send();
-  virtual Mat recv(uint64_t choice);
+  virtual void send(blk *m0, blk *m1);
+  virtual void recv(blk *mb, uint64_t choice);
 
 private:
-  Role mRole;
-  int mID;
-  uint64_t mCount = 0;
   Number a;
   std::vector<Number> b;
   Point A;

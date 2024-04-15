@@ -1,6 +1,10 @@
 #include "emp-ot/emp-ot.h"
 #include "test/test.h"
 #include <sstream>
+
+#include "logger.h"
+#include "gpu_tests.h"
+
 using namespace std;
 
 #define SAMPLE_SIZE 8
@@ -37,6 +41,9 @@ int main(int argc, char** argv) {
 	int ngpu = 1;
 	if (argc > 4)
 		ngpu = atoi(argv[4]);
+	if (ngpu > check_cuda()) {
+		cerr << "Requested too many GPUs" << endl;
+	}
 	if(length > 30) {
 		cout <<"Large test size! comment me if you want to run this size\n";
 		exit(1);

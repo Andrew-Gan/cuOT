@@ -18,24 +18,19 @@ uint64_t* gen_choices(int depth) {
 }
 
 void base_ot_multi_gpu(std::vector<SilentOT*>& senders, std::vector<SilentOT*>& recvers) {
-  std::vector<std::future<void>> senderWorkers;
-  std::vector<std::future<void>> recverWorkers;
-  for (int gpu = 0; gpu < senders.size(); gpu++) {
-    senderWorkers.push_back(std::async([senders, gpu](){
-      if (gpu == 0) Log::start(Sender, BaseOT);
-      senders.at(gpu)->base_ot();
-      if (gpu == 0) Log::end(Sender, BaseOT);
-    }));
-    recverWorkers.push_back(std::async([recvers, gpu](){
-      if (gpu == 0) Log::start(Recver, BaseOT);
-      recvers.at(gpu)->base_ot();
-      if (gpu == 0) Log::end(Recver, BaseOT);
-    }));
-  }
-  for (int gpu = 0; gpu < senders.size(); gpu++) {
-    senderWorkers.at(gpu).get();
-    recverWorkers.at(gpu).get();
-  }
+  std::vector<std::future<void>> workers;
+  workers.push_back(std::async([senders](){
+    Log::start(Sender, BaseOT);
+    senders.at(0)->base_ot();
+    Log::end(Sender, BaseOT);
+  }));
+  workers.push_back(std::async([recvers](){
+    Log::start(Recver, BaseOT);
+    recvers.at(0)->base_ot();
+    Log::end(Recver, BaseOT);
+  }));
+  workers.at(0).get();
+  workers.at(1).get();
 }
 
 void seed_exp_multi_gpu(std::vector<SilentOT*>& rcots) {

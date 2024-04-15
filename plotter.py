@@ -20,30 +20,31 @@ def extract_duration(filename):
 
   return eventDuration
 
-def plot_duration(configData):
+def plot_duration(event_durations):
   plt.figure(figsize=(12, 6))
   plt.cla()
   colors=list(mcolors.TABLEAU_COLORS.keys()) # maximum 10 events
-  yVals = range(len(configData))
+  yVals = range(len(event_durations))
 
-  sortedConfig = sorted(config)
-  xStart = [0] * 5
+  xStart = [0] * len(event_durations)
 
-  for eventID in range(5):
-    xLen = [] * 5
-    for y, config in enumerate(sortedConfig):
-      xLen[y] = configData[config][eventID]
+  for eventID in range(1, 4):
+    xLen = [0] * len(event_durations)
+    for y, config in enumerate(event_durations):
+      xLen[y] = event_durations[config][eventID]
     plt.barh(y=yVals, left=xStart, width=xLen, height=0.5, color=colors[eventID])
-    for y in len(sortedConfig):
+    for y in range(len(event_durations)):
       xStart[y] += xLen[y]
 
   plt.xlabel('Time (ms)')
-  plt.yticks(range(len(configData.keys())), configData.keys())
-  plt.legend(eventList.values(), loc='upper right', bbox_to_anchor=(1, 1))
+  plt.yticks(range(len(event_durations.keys())), event_durations.keys())
+  plt.legend(['BaseOT', 'SeedExp', 'LPN'], loc='upper right', bbox_to_anchor=(1, 1))
   plt.savefig(OUTPUT_FOLDER + 'runtime.png', bbox_inches='tight')
 
 if __name__ == '__main__':
   event_durations = {}
   for filename in os.listdir(INPUT_FOLDER):
-    if filename.endswith('.txt') and 'send' in filename:
-      event_durations[filename] = extract_duration(INPUT_FOLDER + filename)
+    if filename.endswith('.txt') and 'gpu-ferret-send-25' in filename:
+      ylabel = filename.split('-')[3] + '-' + filename.split('-')[4].split('.')[0]
+      event_durations[ylabel] = extract_duration(INPUT_FOLDER + filename)
+  plot_duration(event_durations)

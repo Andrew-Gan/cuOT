@@ -8,7 +8,6 @@
 #include "emp-ot/ferret/preot.h"
 
 #include "dev_layer.h"
-#include "logger.h"
 
 using namespace emp;
 using std::future;
@@ -19,7 +18,7 @@ public:
 	int party, ngpu;
 	int item_n, idx_max, m;
 	int tree_height, leave_n;
-	int tree_n;
+	int *tree_n;
 	int consist_check_cot_num;
 	bool is_malicious;
 
@@ -37,7 +36,7 @@ public:
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
 
-	MpcotReg(int party, int ngpu, int n, int t, int log_bin_sz, IO *io) {
+	MpcotReg(int party, int ngpu, int n, int *t, int log_bin_sz, IO *io) {
 		this->party = party;
 		this->ngpu = ngpu;
 		this->io = netio = io;
@@ -45,18 +44,21 @@ public:
 
 		this->is_malicious = false;
 
-		this->item_n = t;
+		this->item_n = 0;
+		for (int i = 0; i < ngpu; i++) {
+			this->item_n += t[i];
+		}
 		this->idx_max = n;
 		this->tree_height = log_bin_sz+1;
 		this->leave_n = 1<<(this->tree_height-1);
-		this->tree_n = this->item_n;
+		this->tree_n = t;
 
 		buffer = new Mat[ngpu];
 		separated = new Mat[ngpu];
 		for (int gpu = 0; gpu < ngpu; gpu++) {
 			cuda_setdev(gpu);
-			buffer[gpu].resize({(tree_n / ngpu) * (1UL << log_bin_sz)});
-			separated[gpu].resize({(tree_n / ngpu) * (1UL << log_bin_sz)});
+			buffer[gpu].resize({t[gpu] * (1UL << log_bin_sz)});
+			separated[gpu].resize({t[gpu] * (1UL << log_bin_sz)});
 		}
 	}
 
@@ -101,13 +103,13 @@ public:
 			mpcot_init_sender(ot);
 			exec_parallel_sender(ot, outputs);
 		} else {
-			bool *choice = new bool[tree_n * (tree_height-1)];
+			bool *choice = new bool[item_n * (tree_height-1)];
 			mpcot_init_recver(choice, ot);
 			exec_parallel_recver(ot, outputs, choice);
 		}
 
 		if(is_malicious)
-			consistency_check_f2k(pre_cot_data, tree_n);
+			consistency_check_f2k(pre_cot_data, item_n);
 
 		// for (auto p : senders) delete p;
 		// for (auto p : recvers) delete p;
@@ -117,7 +119,7 @@ public:
 	}
 
 	void mpcot_init_sender(OTPre<IO> *ot) {
-		for(int i = 0; i < tree_n; ++i) {
+		for(int i = 0; i < item_n; ++i) {
 			ot->choices_sender();
 		}
 		netio->flush();
@@ -125,7 +127,7 @@ public:
 	}
 
 	void mpcot_init_recver(bool *choice, OTPre<IO> *ot) {
-		for(int t = 0; t < tree_n; ++t) {
+		for(int t = 0; t < item_n; ++t) {
 			ot->choices_recver(choice);
 			item_pos_recver[t] = 0;
 			for(int i = 0; i < tree_height-1; ++i) {
@@ -139,43 +141,31 @@ public:
 	}
 
 	void exec_parallel_sender(OTPre<IO> *ot, Mat *outputs) {
-		vector<future<void>> fut;
-		
-		block *m0 = new block[tree_n*(tree_height-1)];
-		block *m1 = new block[tree_n*(tree_height-1)];
-		block *secret_sum = new block[tree_n];
+		block *m0 = new block[item_n*(tree_height-1)];
+		block *m1 = new block[item_n*(tree_height-1)];
+		block *secret_sum = new block[item_n];
 
-		Log::start(Sender, SeedExp);
 		cuda_mpcot_sender(outputs, buffer, separated, (blk*)m0, (blk*)m1,
 			(blk*)secret_sum, tree_n, tree_height-1, delta_d, ngpu);
-		Log::end(Sender, SeedExp);
-		Log::start(Sender, BaseOT);
 
-		for (int t = 0; t < tree_n; t++) {
+		for (int t = 0; t < item_n; t++) {
 			ot->send(m0+t*(tree_height-1), m1+t*(tree_height-1), tree_height-1, io, t);
 		}
-		io->send_data(secret_sum, tree_n * sizeof(block));
-		Log::end(Sender, BaseOT);
+		io->send_data(secret_sum, item_n * sizeof(block));
 		delete[] m0;
 		delete[] m1;
 	}
 
 	void exec_parallel_recver(OTPre<IO> *ot, Mat *outputs, bool *choice) {
-		vector<future<void>> fut;
+		block *mc = new block[item_n*(tree_height-1)];
+		block *secret_sum = new block[item_n];
 
-		block *mc = new block[tree_n*(tree_height-1)];
-		block *secret_sum = new block[tree_n];
-
-		Log::start(Recver, BaseOT);
-		for (int t = 0; t < tree_n; t++) {
+		for (int t = 0; t < item_n; t++) {
 			ot->recv(mc+t*(tree_height-1), choice+t*(tree_height-1), tree_height-1, io, t);
 		}
-		io->recv_data(secret_sum, tree_n * sizeof(block));
-		Log::end(Recver, BaseOT);
-		Log::start(Recver, SeedExp);
+		io->recv_data(secret_sum, item_n * sizeof(block));
 		cuda_mpcot_recver(outputs, buffer, separated, (blk*)mc, (blk*)secret_sum,
 			tree_n, tree_height-1, choice, ngpu);
-		Log::end(Recver, SeedExp);
 		delete[] mc;
 	}
 

@@ -6,7 +6,7 @@ std::array<std::atomic<SimplestOT*>, 256> simplestOTSenders;
 std::array<std::atomic<SimplestOT*>, 256> simplestOTRecvers;
 
 SimplestOT::SimplestOT(Role role, int id, uint64_t count) :
-  mRole(role), mID(id), mCount(count) {
+  OT(role, id, count) {
 
   hasContent = false;
   prng.SetSeed(osuCrypto::block(clock(), 0));
@@ -45,40 +45,30 @@ void SimplestOT::toOtherBuffer(uint8_t *s, uint64_t nBytes) {
   other->hasContent = true;
 }
 
-std::array<Mat, 2> SimplestOT::send() {
+void SimplestOT::send(blk *m0, blk *m1) {
   a.randomize(prng);
   A = Point::mulGenerator(a);
   toOtherBuffer((uint8_t*) &A, sizeof(A));
 
-  std::array<Mat, 2> m = {
-    Mat({mCount}), Mat({mCount})
-  };
   A *= a;
   fromOwnBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
-
-  blk buff0[mCount];
-  blk buff1[mCount];
 
   for (uint64_t i = 0; i < mCount; i++) {
     B.at(i) *= a;
     osuCrypto::RandomOracle ro(sizeof(blk));
     ro.Update(B.at(i));
     ro.Update(i);
-    ro.Final((uint8_t*)(buff0 + i));
+    ro.Final((uint8_t*)(m0 + i));
     B.at(i) -= A;
     ro.Reset();
     ro.Update(B.at(i));
     ro.Update(i);
-    ro.Final((uint8_t*)(buff1 + i));
+    ro.Final((uint8_t*)(m1 + i));
   }
-  cudaMemcpy(m[0].data(), buff0, mCount * sizeof(blk), cudaMemcpyHostToDevice);
-  cudaMemcpy(m[1].data(), buff1, mCount * sizeof(blk), cudaMemcpyHostToDevice);
-  return m;
 }
 
-Mat SimplestOT::recv(uint64_t choice) {
+void SimplestOT::recv(blk *mb, uint64_t choice) {
   fromOwnBuffer((uint8_t*) &A, sizeof(A));
-  Mat mb({mCount});
 
   for (uint64_t i = 0; i < mCount; i++) {
     b.emplace_back(prng);
@@ -89,14 +79,11 @@ Mat SimplestOT::recv(uint64_t choice) {
   }
   toOtherBuffer((uint8_t*) &B.at(0), sizeof(B.at(0)) * B.size());
 
-  blk buff[mCount];
   for (uint64_t i = 0; i < mCount; i++) {
     Point point = A * b.at(i);
     osuCrypto::RandomOracle ro(sizeof(blk));
     ro.Update(point);
     ro.Update(i);
-    ro.Final((uint8_t*)(buff + i));
+    ro.Final((uint8_t*)(mb + i));
   }
-  cudaMemcpy(mb.data(), buff, mCount * sizeof(blk), cudaMemcpyHostToDevice);
-  return mb;
 }

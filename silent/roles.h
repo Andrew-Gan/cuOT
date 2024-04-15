@@ -28,17 +28,16 @@ class SilentOT {
 public:
   Role mRole;
   SilentConfig mConfig;
-  uint64_t depth, numOT, numLeaves;
+  uint64_t mDepth, numOT, numLeaves;
   Pprf *expander;
   QuasiCyclic *lpn;
   // base OT
-  std::vector<Mat> m0;
-  std::vector<Mat> m1;
+  Mat m0, m1;
 
   SilentOT(SilentConfig config) : mConfig(config) {
-    depth = mConfig.logOT - std::log2(mConfig.nTree) + 0;
+    mDepth = mConfig.logOT - std::log2(mConfig.nTree) + 0;
     numOT = pow(2, mConfig.logOT);
-    numLeaves = pow(2, depth);
+    numLeaves = pow(2, mDepth);
   }
   virtual ~SilentOT() {}
   virtual void base_ot() = 0;
@@ -55,6 +54,7 @@ class SilentOTSender : public SilentOT {
 public:
   Mat *fullVector;
   blk *delta;
+  static blk *m0_h, *m1_h;
 
   SilentOTSender(SilentConfig config);
   virtual ~SilentOTSender();
@@ -69,7 +69,8 @@ public:
   Mat choiceVector;
   uint64_t *puncPos;
   SilentOTSender *other = nullptr;
-  std::vector<Mat> mc;
+  static blk *mc_h;
+  Mat mc;
   uint64_t *activeParent;
 
   SilentOTRecver(SilentConfig config);

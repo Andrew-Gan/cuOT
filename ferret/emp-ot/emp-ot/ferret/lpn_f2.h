@@ -9,7 +9,7 @@ using namespace emp;
 template<typename IO, int d = 10>
 class LpnF2 { public:
 	int party;
-	int64_t n;
+	int64_t *n;
 	IO *io;
 	int ngpu, k, mask;
 	block seed;
@@ -18,7 +18,7 @@ class LpnF2 { public:
 	Mat *pubMats;
 	Mat *kk_d;
 
-	LpnF2 (int party, int64_t n, int k, IO *io, int ngpu) {
+	LpnF2 (int party, int64_t *n, int k, IO *io, int ngpu) {
 		this->party = party;
 		this->k = k;
 		this->n = n;
@@ -31,10 +31,9 @@ class LpnF2 { public:
 		}
 		pubMats = new Mat[ngpu];
 		kk_d = new Mat[ngpu];
-		uint64_t rowsPerGPU = (n + ngpu - 1) / ngpu;
 		for (int gpu = 0; gpu < ngpu; gpu++) {
 			cuda_setdev(gpu);
-			pubMats[gpu].resize({(rowsPerGPU * d + 3) / 4});
+			pubMats[gpu].resize({((uint64_t)n[gpu] * d + 3) / 4});
 			kk_d[gpu].resize({(uint64_t)k});
 		}
 	}

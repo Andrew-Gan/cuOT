@@ -5,6 +5,7 @@
 #include "gpu_ops.h"
 #include "gpu_tests.h"
 
+blk* SilentOTRecver::mc_h = nullptr;
 std::array<std::atomic<SilentOTRecver*>, 16> silentOTRecvers;
 
 SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
@@ -18,8 +19,9 @@ SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
   }
   other = silentOTSenders[mConfig.id];
 
-  m0 = std::vector<Mat>(depth+1, Mat({mConfig.nTree}));
-  m1 = std::vector<Mat>(depth+1, Mat({mConfig.nTree}));
+  m0.resize({mDepth+1,mConfig.nTree});
+  m1.resize({mDepth+1,mConfig.nTree});
+  mc.resize({mDepth,mConfig.nTree});
   
   puncVector = new Mat({numOT, 1});
   buffer = new Mat(puncVector->dims());
@@ -38,6 +40,10 @@ SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
   cudaMalloc(&puncPos, mConfig.nTree * sizeof(uint64_t));
   get_choice_vector();
   lpn->encode_sparse(choiceVector, puncPos, mConfig.nTree);
+
+  if (mConfig.id == 0) {
+    SilentOTRecver::mc_h = new blk[mDepth * mConfig.nTree];
+  }
 }
 
 SilentOTRecver::~SilentOTRecver() {
@@ -48,45 +54,43 @@ SilentOTRecver::~SilentOTRecver() {
   delete puncVector;
   delete buffer;
   delete lpn;
+  if (mConfig.id == 0) {
+    delete[] SilentOTRecver::mc_h;
+  }
   silentOTRecvers[mConfig.id] = nullptr;
 }
 
 
 void SilentOTRecver::base_ot() {
   cudaSetDevice(mConfig.id);
-  std::vector<std::future<Mat>> workers;
-  for (int d = 0; d < depth; d++) {
-    workers.push_back(std::async([d, this]() {
-      cudaSetDevice(mConfig.id);
-      switch (mConfig.baseOT) {
-        case SimplestOT_t:
-          return SimplestOT(Recver, this->mConfig.id*this->depth+d, mConfig.nTree).recv(mConfig.choices[d]);
-      }
-      return Mat();
+  std::vector<std::future<void>> workers;
+  for (uint64_t d = 0; d < mDepth; d++) {
+    workers.push_back(std::async([d, this](){
+      SimplestOT bOT(Recver, d, mConfig.nTree);
+      bOT.recv(SilentOTRecver::mc_h+d*mConfig.nTree, mConfig.choices[d]);
     }));
   }
-  for (auto &worker : workers) {
-    auto res = worker.get();
-    mc.push_back(res);
+  for (auto &t : workers) {
+    t.get();
   }
 }
 
 __global__
-void choice_bits_to_pos(uint64_t *choiceVector, uint64_t *choiceBits, uint64_t depth) {
+void choice_bits_to_pos(uint64_t *choiceVector, uint64_t *choiceBits, uint64_t mDepth) {
   uint64_t t = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t id = 0;
-  for (uint64_t d = 0; d < depth; d++) {
+  for (uint64_t d = 0; d < mDepth; d++) {
     id *= 2;
     id += 1-(choiceBits[d] >> t & 1);
   }
-  choiceVector[t] = id + t * (1 << depth);
+  choiceVector[t] = id + t * (1 << mDepth);
 }
 
 void SilentOTRecver::get_choice_vector() {
   uint64_t *choices_d;
-  cudaMalloc(&choices_d, depth * sizeof(*choices_d));
-  cudaMemcpy(choices_d, mConfig.choices, depth * sizeof(*choices_d), cudaMemcpyHostToDevice);
-  choice_bits_to_pos<<<1, mConfig.nTree>>>(puncPos, choices_d, depth);
+  cudaMalloc(&choices_d, mDepth * sizeof(*choices_d));
+  cudaMemcpy(choices_d, mConfig.choices, mDepth * sizeof(*choices_d), cudaMemcpyHostToDevice);
+  choice_bits_to_pos<<<1, mConfig.nTree>>>(puncPos, choices_d, mDepth);
   cudaDeviceSynchronize();
   cudaFree(choices_d);
 }
@@ -112,38 +116,42 @@ void fill_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeP
 
 void SilentOTRecver::get_punctured_key() {
   cudaSetDevice(mConfig.id);
-  for (uint64_t d = 0; d < depth+1; d++) {
-    m0.at(d) = other->m0.at(d);
-    m1.at(d) = other->m1.at(d);
-  }
+  // senders m0, m1 were XORed with base OT values
+  m0 = other->m0;
+  m1 = other->m1;
 }
 
 void SilentOTRecver::seed_expand() {
   cudaSetDevice(mConfig.id);
   Log::mem(Recver, SeedExp);
+
+  cudaMemcpy(mc.data(), SilentOTRecver::mc_h, mc.size_bytes(), cudaMemcpyHostToDevice);
+  
   Mat *input;
   Mat *output;
   cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
 
   input = buffer;
   output = puncVector;
-  for (uint64_t d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
+  uint64_t numBytes = mConfig.nTree * sizeof(blk);
+
+  for (uint64_t d = 0, inWidth = 1; d < mDepth; d++, inWidth *= 2) {
     std::swap(input, output);
     expander->expand(*input, *output, separated, mConfig.nTree*inWidth);
     separated.sum(2 * mConfig.nTree, inWidth);
 
-    m0.at(d).xor_d(mc.at(d));
-    m1.at(d).xor_d(mc.at(d));
+    gpu_xor<<<1, numBytes>>>((uint8_t*)m0.data({d, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
+    gpu_xor<<<1, numBytes>>>((uint8_t*)m1.data({d, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
 
-    fill_tree<<<1, mConfig.nTree>>>(m0.at(d).data(), m1.at(d).data(),
+    fill_tree<<<1, mConfig.nTree>>>(m0.data({d, 0}), m1.data({d, 0}),
       2 * inWidth, activeParent, mConfig.choices[d],
       separated.data(), output->data(), false);
     
-    if (d == depth-1) {
-      m0.at(d+1).xor_d(mc.at(d));
-      m1.at(d+1).xor_d(mc.at(d));
+    if (d == mDepth-1) {
+      gpu_xor<<<1, numBytes>>>((uint8_t*)m0.data({d+1, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
+      gpu_xor<<<1, numBytes>>>((uint8_t*)m1.data({d+1, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
 
-      fill_tree<<<1, mConfig.nTree>>>(m0.at(d+1).data(), m1.at(d+1).data(),
+      fill_tree<<<1, mConfig.nTree>>>(m0.data({d+1, 0}), m1.data({d+1, 0}),
         2 * inWidth, activeParent, mConfig.choices[d],
         separated.data(), output->data(), true);
     }

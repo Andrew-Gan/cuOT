@@ -5,6 +5,8 @@
 #include "emp-ot/ferret/lpn_f2.h"
 #include "emp-ot/ferret/constants.h"
 
+#include "logger.h"
+
 namespace emp {
 
 /*
@@ -21,12 +23,16 @@ public:
 
 	PrimalLPNParameter param;
 	int64_t ot_used, ot_limit;
+	int *treePerGPU;
+	int64_t *rowPerGPU;
 
 	FerretCOT(int party, int ngpu, T *io, bool malicious = false, bool run_setup = true, 
 PrimalLPNParameter param = ferret_b13, std::string pre_file="");
 	
 
 	~FerretCOT();
+
+	void gpu_task_division(int *treePerGPU, int64_t *rowPerGPU, int t, int n);
 
 	void setup(block Deltain, std::string pre_file = "");
 

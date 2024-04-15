@@ -2,8 +2,8 @@
 
 RUN=./emp-ot/run
 EXE=./emp-ot/bin/test_ferret
-LOGOT=24
-NGPU=1
+LOGOT=22
+NGPU=4
 
 mkdir -p data/ ../results/
 

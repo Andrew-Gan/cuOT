@@ -30,21 +30,20 @@ void blk_xor(blk *a, blk *b) {
 }
 
 void cuda_mpcot_sender(Mat *expanded, Mat *buffer, Mat *sep, blk *lSum_h,
-  blk *rSum_h, blk *secret_sum, int tree, int depth, blk **delta, int ngpu) {
+  blk *rSum_h, blk *secret_sum, int *t, int depth, blk **delta, int ngpu) {
 
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
-	uint64_t treePerGPU = (tree + ngpu - 1) / ngpu;
   std::vector<std::future<void>> workers;
 
 	for (int gpu = 0; gpu < ngpu; gpu++) {
+    uint64_t treePerGPU = (uint64_t)t[gpu];
     blk *lS = &lSum_h[gpu*treePerGPU*depth];
     blk *rS = &rSum_h[gpu*treePerGPU*depth];
-    workers.push_back(std::async([&, gpu, lS, rS](){
+    workers.push_back(std::async([&, gpu, lS, rS, treePerGPU](){
       cudaSetDevice(gpu);
 	    Aes aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
       Mat *input = &(buffer[gpu]), *output = &(expanded[gpu]);
-
       for (int d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
         std::swap(input, output);
         aesExpand.expand(*input, *output, sep[gpu], treePerGPU * inWidth);
@@ -97,18 +96,14 @@ void fill_final_punc_tree(uint64_t *activeParent, blk *secret_sum, blk *layer,
 }
 
 void cuda_mpcot_recver(Mat *expanded, Mat *buffer, Mat *sep, blk *cSum_h,
-  blk *secret_sum, int tree, int depth, bool *choices, int ngpu) {
+  blk *secret_sum, int *t, int depth, bool *choices, int ngpu) {
   return; // uncomment when benchmarking sender only
-  int gpuCount = 0;
-  cudaGetDeviceCount(&gpuCount);
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
-	uint64_t treePerGPU = (tree + ngpu - 1) / ngpu;
   std::vector<std::future<void>> workers;
-	int block = std::min(treePerGPU, 1024UL);
-	int grid = (treePerGPU + block - 1) / block;
 
 	for (int gpu = 0; gpu < ngpu; gpu++) {
+    uint64_t treePerGPU = (uint64_t)t[gpu];
     bool *b = choices + gpu * treePerGPU * depth;
     blk *cS = &cSum_h[gpu*treePerGPU*depth];
     workers.push_back(std::async([&, gpu, b, cS, treePerGPU]() {
@@ -126,6 +121,9 @@ void cuda_mpcot_recver(Mat *expanded, Mat *buffer, Mat *sep, blk *cSum_h,
       cudaMalloc(&choice, treePerGPU * depth * sizeof(bool));
       cudaMemcpy(choice, b, treePerGPU * depth * sizeof(bool), cudaMemcpyHostToDevice);
       uint64_t inWidth = 1;
+      int block = std::min(treePerGPU, 1024UL);
+      int grid = (treePerGPU + block - 1) / block;
+
       for (int d = 0; d < depth; d++) {
         std::swap(input, output);
         aesExpand.expand(*input, *output, sep[gpu], treePerGPU * inWidth);
@@ -170,15 +168,15 @@ void lpn_single_row(uint32_t *r, int64_t d, int k, blk *nn, blk *kk) {
     nn[i] = tmp_nn;
 }
 
-void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t n, int k,  uint32_t *key,
+void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t *n, int k,  uint32_t *key,
   Mat *expanded, blk *nn, Mat *kk_d, blk *kk, int ngpu) {
   if (role == Recver) return; // uncomment when benchmarking sender only
 
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
-  uint64_t rowsPerGPU = (n + ngpu - 1) / ngpu;
   std::vector<std::future<void>> workers;
   for (int gpu = 0; gpu < ngpu; gpu++) {
+    uint64_t rowsPerGPU = n[gpu];
     workers.push_back(std::async([&, gpu, rowsPerGPU]() {
       cudaSetDevice(gpu);
       // generate random matrix using aes encryption

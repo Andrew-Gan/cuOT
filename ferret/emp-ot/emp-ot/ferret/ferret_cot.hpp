@@ -1,5 +1,3 @@
-#include "logger.h"
-
 template<typename T>
 FerretCOT<T>::FerretCOT(int party, int ngpu, T *io, bool malicious,
 	bool run_setup, PrimalLPNParameter param, std::string pre_file) {
@@ -14,13 +12,16 @@ FerretCOT<T>::FerretCOT(int party, int ngpu, T *io, bool malicious,
 	base_cot = new BaseCot<T>(party, io, malicious);
 	expSeed = new Mat[ngpu];
 	this->param = param;
-
-	this->extend_initialized = false;
-
+    
+	treePerGPU = new int[ngpu];
+	rowPerGPU = new int64_t[ngpu];
+	gpu_task_division(treePerGPU, rowPerGPU, param.t, param.log_bin_sz);
 	for (int gpu = 0; gpu < ngpu; gpu++) {
 		cuda_setdev(gpu);
-		expSeed[gpu].resize({(param.t / ngpu) * (1UL << param.log_bin_sz)});
+		expSeed[gpu].resize({treePerGPU[gpu] * (1UL << param.log_bin_sz)});
 	}
+
+	this->extend_initialized = false;
 
 	if(run_setup) {
 		if(party == ALICE) {
@@ -46,15 +47,28 @@ FerretCOT<T>::~FerretCOT() {
 	if(lpn_f2 != nullptr) delete lpn_f2;
 	if(mpcot != nullptr) delete mpcot;
 	delete[] expSeed;
+	delete[] treePerGPU;
+	delete[] rowPerGPU;
+}
+
+template<typename T>
+void FerretCOT<T>::gpu_task_division(int *treePerGPU, int64_t *rowPerGPU, int t, int log_bin_sz) {
+	for (int gpu = 0; gpu < ngpu; gpu++) {
+		cuda_setdev(gpu);
+		treePerGPU[gpu] = t / ngpu;
+		if (gpu < t % ngpu)
+			treePerGPU[gpu]++;
+		rowPerGPU[gpu] = treePerGPU[gpu] * (1UL << log_bin_sz);
+	}
 }
 
 template<typename T>
 void FerretCOT<T>::extend_initialization() {
-	lpn_f2 = new LpnF2<T, 10>(party, param.n, param.k, io, ngpu);
-	mpcot = new MpcotReg<T>(party, ngpu, param.n, param.t, param.log_bin_sz, io);
+	lpn_f2 = new LpnF2<T, 10>(party, rowPerGPU, param.k, io, ngpu);
+	mpcot = new MpcotReg<T>(party, ngpu, param.n, treePerGPU, param.log_bin_sz, io);
 	if(is_malicious) mpcot->set_malicious();
 
-	pre_ot = new OTPre<T>(io, mpcot->tree_height-1, mpcot->tree_n);
+	pre_ot = new OTPre<T>(io, mpcot->tree_height-1, mpcot->item_n);
 	M = param.k + pre_ot->n + mpcot->consist_check_cot_num;
 	ot_limit = param.n - M;
 	ot_used = ot_limit;
@@ -65,9 +79,12 @@ void FerretCOT<T>::extend_initialization() {
 template<typename T>
 void FerretCOT<T>::extend(block* ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot, 
 		LpnF2<T, 10> *lpn, block *ot_input) {
+	
+	Log::start((Role)(party-1), SeedExp);
 	if(party == ALICE) mpcot->sender_init(Delta);
 	else mpcot->recver_init();
 	mpcot->mpcot(expSeed, preot, ot_input);
+	Log::end((Role)(party-1), SeedExp);
 	Log::start((Role)(party-1), LPN);
 	lpn->compute(ot_output, expSeed, ot_input+mpcot->consist_check_cot_num);
 	Log::end((Role)(party-1), LPN);
@@ -76,10 +93,10 @@ void FerretCOT<T>::extend(block* ot_output, MpcotReg<T> *mpcot, OTPre<T> *preot,
 // extend f2k (customized location)
 template<typename T>
 void FerretCOT<T>::extend_f2k(block *ot_buffer) {
-
 	if(party == ALICE)
 	    pre_ot->send_pre(ot_pre_data, Delta);
-	else pre_ot->recv_pre(ot_pre_data);
+	else
+		pre_ot->recv_pre(ot_pre_data);
 
 	extend(ot_buffer, mpcot, pre_ot, lpn_f2, ot_pre_data);
 
@@ -124,25 +141,33 @@ void FerretCOT<T>::setup(std::string pre_file) {
 		io->send_data(&hasfile, sizeof(bool));
 		io->flush();
 	}
-	if(hasfile & hasfile2) {
-		Delta = (block)read_pre_data128_from_file((void*)ot_pre_data, pre_ot_filename);
-	} else {
-		if(party == BOB) base_cot->cot_gen_pre();
-		else base_cot->cot_gen_pre(Delta);
+	// benchmarking setup as well
+	// if(hasfile & hasfile2) {
+	// 	Delta = (block)read_pre_data128_from_file((void*)ot_pre_data, pre_ot_filename);
+	// } else {
+	Log::start((Role)(party-1), BaseOT);
+	if(party == BOB) base_cot->cot_gen_pre();
+	else base_cot->cot_gen_pre(Delta);
 
-		MpcotReg<T> mpcot_ini(party, ngpu, param.n_pre, param.t_pre, param.log_bin_sz_pre, io);
-		if(is_malicious) mpcot_ini.set_malicious();
-		OTPre<T> pre_ot_ini(io, mpcot_ini.tree_height-1, mpcot_ini.tree_n);	
-		LpnF2<T, 10> lpn(party, param.n_pre, param.k_pre, io, ngpu);
-	
-		block *pre_data_ini = new block[param.k_pre+mpcot_ini.consist_check_cot_num];
-		memset(this->ot_pre_data, 0, param.n_pre*16);
+	int *tPerGPU = new int[ngpu];
+	int64_t *rPerGPU = new int64_t[ngpu];
+	gpu_task_division(tPerGPU, rPerGPU, param.t_pre, param.log_bin_sz_pre);
+	MpcotReg<T> mpcot_ini(party, ngpu, param.n_pre, tPerGPU, param.log_bin_sz_pre, io);
+	if(is_malicious) mpcot_ini.set_malicious();
+	OTPre<T> pre_ot_ini(io, mpcot_ini.tree_height-1, mpcot_ini.item_n);
+	LpnF2<T, 10> lpn(party, rPerGPU, param.k_pre, io, ngpu);
 
-		base_cot->cot_gen(&pre_ot_ini, pre_ot_ini.n);
-		base_cot->cot_gen(pre_data_ini, param.k_pre+mpcot_ini.consist_check_cot_num);
-		extend(ot_pre_data, &mpcot_ini, &pre_ot_ini, &lpn, pre_data_ini);
-		delete[] pre_data_ini;
-	}
+	block *pre_data_ini = new block[param.k_pre+mpcot_ini.consist_check_cot_num];
+	memset(this->ot_pre_data, 0, param.n_pre*16);
+
+	base_cot->cot_gen(&pre_ot_ini, pre_ot_ini.n);
+	base_cot->cot_gen(pre_data_ini, param.k_pre+mpcot_ini.consist_check_cot_num);
+	extend(ot_pre_data, &mpcot_ini, &pre_ot_ini, &lpn, pre_data_ini);
+	delete[] pre_data_ini;
+	delete[] tPerGPU;
+	delete[] rPerGPU;
+	Log::end((Role)(party-1), BaseOT);
+	// }
 
 	fut.get();
 }
