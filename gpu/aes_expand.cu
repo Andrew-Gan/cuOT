@@ -30,7 +30,7 @@ Aes::Aes(void *leftUnexpSeed, void *rightUnexpSeed) {
 }
 
 void Aes::encrypt(Mat &data) {
-  uint64_t grid = (4 * data.size() + AES_BSIZE - 1) / AES_BSIZE;
+  uint64_t grid = (data.size() + AES_BSIZE - 1) / AES_BSIZE;
   aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*)keyL, (uint32_t*)data.data());
   cudaDeviceSynchronize();
 }
@@ -39,7 +39,7 @@ void Aes::expand(Mat &interleaved_in, Mat &interleaved_out, Mat &separated, uint
   if (!hasBothKeys) {
     throw std::runtime_error("Aes initialised with only one key");
   }
-  dim3 grid((4*inWidth+(AES_BSIZE-1)) / AES_BSIZE, 2);
+  dim3 grid((inWidth+AES_BSIZE-1) / AES_BSIZE, 2);
   aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved_in.data(),
     interleaved_out.data(), separated.data(), inWidth);\
   cudaDeviceSynchronize();
