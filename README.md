@@ -1,15 +1,27 @@
 # GPU Accelerated OT Protocols
 
-Running pseudocorrelated generators on GPUs.
+This repository contains the code for cuOT, which implements OT variants based on recent SilentOT extension constructions on GPUs.
 
 ## Hardware Requirements:
-* CUDA compatible GPUs
+* GPU CUDA Compute Capability >= 7.0 (V100 or newer)
 
 ## Software Dependencies:
-* gcc >=12.3.0
-* nvcc >=12.1
-* Docker
-* [nvidia/cuda Docker image](https://hub.docker.com/r/nvidia/cuda/)
+### For execution with docker
+* Docker >= 26.1.0
+* [Nvidia container toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)  
+### For execution without docker
+* gcc >= 12.3.0
+* nvcc >= 12.1  
+* cmake
+
+## Setting number of OTs or GPUs to use:
+1. Go into silent.sh or ferret.sh
+2. Find the line that says `LOGOT=XX` or `NGPU=X`
+3. Changing the argument to desired values
+
+Note:  
+i. LOGOT should take on values no greater than 28 to ensure memory sufficiency. 
+ii. NGPU should take on a multiple of 2 and not exceed number of GPUs available.  
 
 ## Run instructions on Docker (recommended):
 To build everything

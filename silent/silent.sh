@@ -1,23 +1,23 @@
 #!/bin/bash
 
 EXE=./ot
-LOGOT=22
+LOGOT=24
 TREE=8
 NGPU=1
 
 mkdir -p ../results/
 
-# $EXE $LOGOT $TREE $NGPU
+$EXE $LOGOT $TREE $NGPU
 
-for LOGOT in {23..25}
-do
+# for LOGOT in {23..25}
+# do
 
-for NGPU in 1 2 4 8
-do
-    $EXE $LOGOT $TREE $NGPU
-done
+# for NGPU in 1 2 4 8
+# do
+#     $EXE $LOGOT $TREE $NGPU
+# done
 
-done
+# done
 
 # for NUMTREE in 2 4 $TREE 16 32 64
 # do
