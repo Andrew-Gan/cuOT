@@ -54,7 +54,7 @@ void Log::start(Role role, Event event) {
     initTimeSet[role] = true;
   }
 
-  size_t free, total, used;
+  size_t free = 0, total = 0, used = 0;
 	cudaMemGetInfo(&free, &total);
   used = total - free;
   memStart[role][event] = used;

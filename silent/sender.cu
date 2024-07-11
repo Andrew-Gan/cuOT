@@ -3,16 +3,17 @@
 
 #include "logger.h"
 #include "gpu_ops.h"
+#include <cryptoTools/Crypto/RandomOracle.h>
 
-blk* SilentOTSender::m0_h = nullptr;
-blk* SilentOTSender::m1_h = nullptr;
-std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
+blk* SOTSender::m0_h = nullptr;
+blk* SOTSender::m1_h = nullptr;
+std::array<std::atomic<SOTSender*>, 16> SOTSenders;
 
-SilentOTSender::SilentOTSender(SilentConfig config) : SilentOT(config) {
+SOTSender::SOTSender(SilentConfig config) : SOT(config) {
   blk seed_h, delta_h;
   mRole = Sender;
   cudaSetDevice(mConfig.id);
-  silentOTSenders[mConfig.id] = this;
+  SOTSenders[mConfig.id] = this;
   for (int i = 0; i < 4; i++)
     delta_h.data[i] = rand();
   
@@ -39,32 +40,32 @@ SilentOTSender::SilentOTSender(SilentConfig config) : SilentOT(config) {
   }
 
   if (mConfig.id == 0) {
-    SilentOTSender::m0_h = new blk[(mDepth+1) * mConfig.nTree];
-    SilentOTSender::m1_h = new blk[(mDepth+1) * mConfig.nTree];
+    SOTSender::m0_h = new blk[(mDepth+1) * mConfig.nTree];
+    SOTSender::m1_h = new blk[(mDepth+1) * mConfig.nTree];
   }
 }
 
-SilentOTSender::~SilentOTSender() {
+SOTSender::~SOTSender() {
   cudaSetDevice(mConfig.id);
   delete fullVector;
   delete buffer;
   delete expander;
   delete lpn;
   if (mConfig.id == 0) {
-    delete[] SilentOTSender::m0_h;
-    delete[] SilentOTSender::m1_h;
+    delete[] SOTSender::m0_h;
+    delete[] SOTSender::m1_h;
   }
   cudaFree(delta);
-  silentOTSenders[mConfig.id] = nullptr;
+  SOTSenders[mConfig.id] = nullptr;
 }
 
-void SilentOTSender::base_ot() {
+void SOTSender::base_ot() {
   cudaSetDevice(mConfig.id);
   std::vector<std::future<void>> workers;
   for (uint64_t d = 0; d < mDepth; d++) {
     workers.push_back(std::async([d, this](){
       SimplestOT bOT(Sender, d, mConfig.nTree);
-      bOT.send(SilentOTSender::m0_h+d*mConfig.nTree, SilentOTSender::m1_h+d*mConfig.nTree);
+      bOT.send(SOTSender::m0_h+d*mConfig.nTree, SOTSender::m1_h+d*mConfig.nTree);
     }));
   }
   for (auto &t : workers) {
@@ -72,12 +73,12 @@ void SilentOTSender::base_ot() {
   }
 }
 
-void SilentOTSender::seed_expand() {
+void SOTSender::seed_expand() {
   cudaSetDevice(mConfig.id);
   Log::mem(Sender, SeedExp);
 
-  cudaMemcpy(m0.data(), SilentOTSender::m0_h, m0.size_bytes(), cudaMemcpyHostToDevice);
-  cudaMemcpy(m1.data(), SilentOTSender::m1_h, m1.size_bytes(), cudaMemcpyHostToDevice);
+  cudaMemcpy(m0.data(), SOTSender::m0_h, m0.size_bytes(), cudaMemcpyHostToDevice);
+  cudaMemcpy(m1.data(), SOTSender::m1_h, m1.size_bytes(), cudaMemcpyHostToDevice);
   cudaMemcpy(m0.data({mDepth, 0}), m0.data({mDepth-1, 0}), m0.dim(1)*sizeof(blk), cudaMemcpyDeviceToDevice);
   cudaMemcpy(m1.data({mDepth, 0}), m1.data({mDepth-1, 0}), m1.dim(1)*sizeof(blk), cudaMemcpyDeviceToDevice);
 
@@ -106,7 +107,11 @@ void SilentOTSender::seed_expand() {
   Log::mem(Sender, SeedExp);
 }
 
-void SilentOTSender::dual_lpn() {
+void SOTSender::mal_check() {
+  
+}
+
+void SOTSender::dual_lpn() {
   cudaSetDevice(mConfig.id);
   Log::mem(Sender, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 FROM nvidia/cuda:12.3.2-devel-ubuntu22.04
-RUN apt-get update && apt-get -y install build-essential libsodium-dev
+RUN apt-get update && apt-get -y install build-essential libsodium-dev valgrind
 
 COPY gpu /home/gpuot/gpu
 WORKDIR /home/gpuot/gpu

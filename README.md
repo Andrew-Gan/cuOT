@@ -1,6 +1,6 @@
 # cuOT: Accelerating Oblivious Transfer on GPUs
 
-This repository contains the code for cuOT, which implements OT variants based on recent SilentOT extension constructions on GPUs.
+This repository contains the code for cuOT, which implements OT variants based on recent SOT extension constructions on GPUs.
 
 ## Hardware Requirements:
 * GPU CUDA Compute Capability >= 7.0 (V100 or newer)

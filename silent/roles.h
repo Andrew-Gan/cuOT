@@ -9,8 +9,8 @@
 #include "pprf.h"
 #include "quasi_cyclic.h"
 
-class SilentOTSender;
-class SilentOTRecver;
+class SOTSender;
+class SOTRecver;
 
 struct SilentConfig {
   int id, logOT;
@@ -24,7 +24,7 @@ struct SilentConfig {
   int gpuPerParty;
 };
 
-class SilentOT {
+class SOT {
 public:
   Role mRole;
   SilentConfig mConfig;
@@ -34,15 +34,16 @@ public:
   // base OT
   Mat m0, m1;
 
-  SilentOT(SilentConfig config) : mConfig(config) {
+  SOT(SilentConfig config) : mConfig(config) {
     mDepth = mConfig.logOT - std::log2(mConfig.nTree) + 0;
     numOT = pow(2, mConfig.logOT);
     numLeaves = pow(2, mDepth);
   }
-  virtual ~SilentOT() {}
+  virtual ~SOT() {}
   virtual void base_ot() = 0;
   virtual void seed_expand() = 0;
   virtual void dual_lpn() = 0;
+  virtual void mal_check() = 0;
 
 protected:
   // pprf expansion
@@ -50,41 +51,43 @@ protected:
   Mat *buffer;
 };
 
-class SilentOTSender : public SilentOT {
+class SOTSender : public SOT {
 public:
   Mat *fullVector;
   blk *delta;
   static blk *m0_h, *m1_h;
 
-  SilentOTSender(SilentConfig config);
-  virtual ~SilentOTSender();
+  SOTSender(SilentConfig config);
+  virtual ~SOTSender();
   virtual void base_ot();
   virtual void seed_expand();
   virtual void dual_lpn();
+  virtual void mal_check();
 };
 
-class SilentOTRecver : public SilentOT {
+class SOTRecver : public SOT {
 public:
   Mat *puncVector;
   Mat choiceVector;
   uint64_t *puncPos;
-  SilentOTSender *other = nullptr;
+  SOTSender *other = nullptr;
   static blk *mc_h;
   Mat mc;
   uint64_t *activeParent;
 
-  SilentOTRecver(SilentConfig config);
-  virtual ~SilentOTRecver();
+  SOTRecver(SilentConfig config);
+  virtual ~SOTRecver();
   virtual void base_ot();
-  virtual void get_punctured_key();
+  virtual void get_punc_key();
   virtual void seed_expand();
   virtual void dual_lpn();
+  virtual void mal_check();
 
 private:
   virtual void get_choice_vector();
 };
 
-extern std::array<std::atomic<SilentOTSender*>, 16> silentOTSenders;
-extern std::array<std::atomic<SilentOTRecver*>, 16> silentOTRecvers;
+extern std::array<std::atomic<SOTSender*>, 16> SOTSenders;
+extern std::array<std::atomic<SOTRecver*>, 16> SOTRecvers;
 
 #endif

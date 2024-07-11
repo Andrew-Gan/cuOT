@@ -3,21 +3,21 @@
 
 #include "logger.h"
 #include "gpu_ops.h"
-#include "gpu_tests.h"
+#include <cryptoTools/Crypto/RandomOracle.h>
 
-blk* SilentOTRecver::mc_h = nullptr;
-std::array<std::atomic<SilentOTRecver*>, 16> silentOTRecvers;
+blk* SOTRecver::mc_h = nullptr;
+std::array<std::atomic<SOTRecver*>, 16> SOTRecvers;
 
-SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
+SOTRecver::SOTRecver(SilentConfig config) : SOT(config) {
   mRole = Recver;
   cudaSetDevice(mConfig.id);
-  silentOTRecvers[mConfig.id] = this;
-  if(silentOTSenders[mConfig.id] == nullptr) {
+  SOTRecvers[mConfig.id] = this;
+  if(SOTSenders[mConfig.id] == nullptr) {
     std::runtime_error(
-      "SilentOTRecver::SilentOTRecver sender with same id not initialised\n"
+      "SOTRecver::SOTRecver sender with same id not initialised\n"
     );
   }
-  other = silentOTSenders[mConfig.id];
+  other = SOTSenders[mConfig.id];
 
   m0.resize({mDepth+1,mConfig.nTree});
   m1.resize({mDepth+1,mConfig.nTree});
@@ -42,11 +42,11 @@ SilentOTRecver::SilentOTRecver(SilentConfig config) : SilentOT(config) {
   lpn->encode_sparse(choiceVector, puncPos, mConfig.nTree);
 
   if (mConfig.id == 0) {
-    SilentOTRecver::mc_h = new blk[mDepth * mConfig.nTree];
+    SOTRecver::mc_h = new blk[mDepth * mConfig.nTree];
   }
 }
 
-SilentOTRecver::~SilentOTRecver() {
+SOTRecver::~SOTRecver() {
   cudaSetDevice(mConfig.id);
   cudaFree(puncPos);
   cudaFree(activeParent);
@@ -55,19 +55,19 @@ SilentOTRecver::~SilentOTRecver() {
   delete buffer;
   delete lpn;
   if (mConfig.id == 0) {
-    delete[] SilentOTRecver::mc_h;
+    delete[] SOTRecver::mc_h;
   }
-  silentOTRecvers[mConfig.id] = nullptr;
+  SOTRecvers[mConfig.id] = nullptr;
 }
 
 
-void SilentOTRecver::base_ot() {
+void SOTRecver::base_ot() {
   cudaSetDevice(mConfig.id);
   std::vector<std::future<void>> workers;
   for (uint64_t d = 0; d < mDepth; d++) {
     workers.push_back(std::async([d, this](){
       SimplestOT bOT(Recver, d, mConfig.nTree);
-      bOT.recv(SilentOTRecver::mc_h+d*mConfig.nTree, mConfig.choices[d]);
+      bOT.recv(SOTRecver::mc_h+d*mConfig.nTree, mConfig.choices[d]);
     }));
   }
   for (auto &t : workers) {
@@ -86,7 +86,7 @@ void choice_bits_to_pos(uint64_t *choiceVector, uint64_t *choiceBits, uint64_t m
   choiceVector[t] = id + t * (1 << mDepth);
 }
 
-void SilentOTRecver::get_choice_vector() {
+void SOTRecver::get_choice_vector() {
   uint64_t *choices_d;
   cudaMalloc(&choices_d, mDepth * sizeof(*choices_d));
   cudaMemcpy(choices_d, mConfig.choices, mDepth * sizeof(*choices_d), cudaMemcpyHostToDevice);
@@ -114,18 +114,18 @@ void fill_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeP
     activeParent[t] = 2 * activeParent[t] + (1-c);
 }
 
-void SilentOTRecver::get_punctured_key() {
+void SOTRecver::get_punc_key() {
   cudaSetDevice(mConfig.id);
   // senders m0, m1 were XORed with base OT values
   m0 = other->m0;
   m1 = other->m1;
 }
 
-void SilentOTRecver::seed_expand() {
+void SOTRecver::seed_expand() {
   cudaSetDevice(mConfig.id);
   Log::mem(Recver, SeedExp);
 
-  cudaMemcpy(mc.data(), SilentOTRecver::mc_h, mc.size_bytes(), cudaMemcpyHostToDevice);
+  cudaMemcpy(mc.data(), SOTRecver::mc_h, mc.size_bytes(), cudaMemcpyHostToDevice);
   
   Mat *input;
   Mat *output;
@@ -162,7 +162,110 @@ void SilentOTRecver::seed_expand() {
   buffer = input;
 }
 
-void SilentOTRecver::dual_lpn() {
+blk gf128Mul(blk x, blk y) {
+  uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t mod = 0b10000111;
+  uint64_t *shifted = (uint64_t*)&(x[i]);
+  uint64_t * ya = (uint64_t*)&y;
+  std::array<uint64_t, 2> result0, result1;
+
+  result0[0] = 0;
+  result0[1] = 0;
+  result1[0] = 0;
+  result1[1] = 0;
+
+  for (int64_t i = 0; i < 2; ++i) {
+    for (int64_t j = 0; j < 64; ++j) {
+      if (ya[i] & (1ull << j)) {
+        result0[0] ^= shifted[0];
+        result0[1] ^= shifted[1];
+      }
+
+      if (shifted[1] & (1ull << 63)) {
+        shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+        shifted[0] = (shifted[0] << 1) ^ mod;
+      }
+      else {
+        shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+        shifted[0] = shifted[0] << 1;
+      }
+    }
+  }
+
+  return result0;
+}
+
+__global__
+void gf128Mul(blk *x, blk y, blk *xy1, blk *xy2) {
+  uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t mod = 0b10000111;
+  uint64_t *shifted = (uint64_t*)&(x[i]);
+  uint64_t * ya = (uint64_t*)&y;
+  std::array<uint64_t, 2> result0, result1;
+
+  result0[0] = 0;
+  result0[1] = 0;
+  result1[0] = 0;
+  result1[1] = 0;
+
+  for (int64_t i = 0; i < 2; ++i) {
+    for (int64_t j = 0; j < 64; ++j) {
+      if (ya[i] & (1ull << j)) {
+        result0[0] ^= shifted[0];
+        result0[1] ^= shifted[1];
+      }
+
+      if (shifted[1] & (1ull << 63)) {
+        shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+        shifted[0] = (shifted[0] << 1) ^ mod;
+      }
+      else {
+        shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+        shifted[0] = shifted[0] << 1;
+      }
+    }
+  }
+
+  xy1 ^= result0;
+  xy2 ^= result1;
+}
+
+void SOTRecver::mal_check() {
+  Mat xx({puncVector.size(), 1});
+  Mat sum0({1, 1});
+  Mat sum1({1, 1});
+  Mat mySum({1, 1});
+  Mat b({1, 1});
+  NoisyVoleSender sender;
+  GPUdata theirHash(32);
+  GPUdata myHash(32);
+  RandomOracle ro(32);
+
+  chl.send(std::move(mMalCheckSeed));
+  xx = mMalCheckSeed;
+  sum0.clear();
+  sum1.clear();
+
+  for (size_t i = 0; i < puncVector.size(); i++) {
+    blk low, high;
+    xx.gf128Mul(puncVector.at({0, i}), low, high);
+    sum0 = sum0 ^ low;
+    sum1 = sum1 ^ high;
+    xx = xx.gf128Mul(mMalCheckSeed);
+  }
+  mySum = sum0.gf128Reduce(sum1);
+
+  co_await(sender.send(mMalCheckX, b, prng, mMalCheckOts, chl, {}));
+  ro.Update(mySum ^ b[0]);
+  ro.Final(myHash);
+
+  co_await(chl.recv(theirHash));
+
+  if (theirHash != myHash)
+    throw RTE_LOC;
+}
+
+void SOTRecver::dual_lpn() {
   cudaSetDevice(mConfig.id);
   Log::mem(Recver, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
