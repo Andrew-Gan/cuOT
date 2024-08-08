@@ -1,11 +1,11 @@
 template<typename T>
-FerretCOT<T>::FerretCOT(int party, int ngpu, T *io, bool malicious,
+FerretCOT<T>::FerretCOT(int party, int ngpu, T **ios, bool malicious,
 	bool run_setup, PrimalLPNParameter param, std::string pre_file) {
 
 	this->party = party;
 	this->ngpu = ngpu;
-	io = io;
-	this->io = io;
+	io = ios[0];
+	this->ios = ios;
 	this->is_malicious = malicious;
 	one = makeBlock(0xFFFFFFFFFFFFFFFFLL,0xFFFFFFFFFFFFFFFELL);
 	ch[0] = zero_block;

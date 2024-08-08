@@ -43,7 +43,6 @@ public:
   virtual void base_ot() = 0;
   virtual void seed_expand() = 0;
   virtual void dual_lpn() = 0;
-  virtual void mal_check() = 0;
 
 protected:
   // pprf expansion
@@ -62,7 +61,6 @@ public:
   virtual void base_ot();
   virtual void seed_expand();
   virtual void dual_lpn();
-  virtual void mal_check();
 };
 
 class SOTRecver : public SOT {
@@ -81,7 +79,6 @@ public:
   virtual void get_punc_key();
   virtual void seed_expand();
   virtual void dual_lpn();
-  virtual void mal_check();
 
 private:
   virtual void get_choice_vector();

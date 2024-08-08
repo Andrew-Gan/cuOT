@@ -7,12 +7,9 @@
 #define NGPU 1
 
 void cuda_setdev(int gpu);
-void cuda_malloc(void **ptr, size_t size);
-void cuda_free(void *ptr);
-void cuda_memcpy_H2D(void *des, void *src, size_t size);
 
 void cuda_mpcot_sender(Mat *expanded, Mat *buffer, Mat *sep, blk *lSum_h,
-  blk *rSum_h, blk *secret_sum, int *t, int depth, blk **delta, int ngpu);
+  blk *rSum_h, blk *secret_sum, int *t, int depth, blk *delta, int ngpu);
 
 void cuda_mpcot_recver(Mat *expanded, Mat *buffer, Mat *sep, blk *cSum_h,
   blk *secret_sum, int *t, int depth, bool *choices, int ngpu);

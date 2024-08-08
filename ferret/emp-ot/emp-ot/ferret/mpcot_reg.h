@@ -29,7 +29,6 @@ public:
 	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
 
 	// prevent runtime malloc
-	blk **delta_d;
 	Mat *buffer;
 	Mat *separated;
 	
@@ -63,12 +62,6 @@ public:
 	}
 
 	virtual ~MpcotReg() {
-		if (party == ALICE) {
-			for (int gpu = 0; gpu < ngpu; gpu++) {
-				cuda_setdev(gpu);
-				cuda_free(delta_d[gpu]);
-			}
-		}
 		delete[] buffer;
 		delete[] separated;
 	}
@@ -79,12 +72,6 @@ public:
 
 	void sender_init(block delta) {
 		Delta_f2k = delta;
-		delta_d = new blk*[ngpu];
-		for (int gpu = 0; gpu < ngpu; gpu++) {
-			cuda_setdev(gpu);
-			cuda_malloc((void**)&delta_d[gpu], sizeof(blk));
-			cuda_memcpy_H2D(delta_d[gpu], &Delta_f2k, sizeof(blk));
-		}
 	}
 
 	void recver_init() {
@@ -146,7 +133,7 @@ public:
 		block *secret_sum = new block[item_n];
 
 		cuda_mpcot_sender(outputs, buffer, separated, (blk*)m0, (blk*)m1,
-			(blk*)secret_sum, tree_n, tree_height-1, delta_d, ngpu);
+			(blk*)secret_sum, tree_n, tree_height-1, (blk*)&Delta_f2k, ngpu);
 
 		for (int t = 0; t < item_n; t++) {
 			ot->send(m0+t*(tree_height-1), m1+t*(tree_height-1), tree_height-1, io, t);

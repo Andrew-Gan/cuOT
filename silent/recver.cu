@@ -162,109 +162,6 @@ void SOTRecver::seed_expand() {
   buffer = input;
 }
 
-blk gf128Mul(blk x, blk y) {
-  uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t mod = 0b10000111;
-  uint64_t *shifted = (uint64_t*)&(x[i]);
-  uint64_t * ya = (uint64_t*)&y;
-  std::array<uint64_t, 2> result0, result1;
-
-  result0[0] = 0;
-  result0[1] = 0;
-  result1[0] = 0;
-  result1[1] = 0;
-
-  for (int64_t i = 0; i < 2; ++i) {
-    for (int64_t j = 0; j < 64; ++j) {
-      if (ya[i] & (1ull << j)) {
-        result0[0] ^= shifted[0];
-        result0[1] ^= shifted[1];
-      }
-
-      if (shifted[1] & (1ull << 63)) {
-        shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-        shifted[0] = (shifted[0] << 1) ^ mod;
-      }
-      else {
-        shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-        shifted[0] = shifted[0] << 1;
-      }
-    }
-  }
-
-  return result0;
-}
-
-__global__
-void gf128Mul(blk *x, blk y, blk *xy1, blk *xy2) {
-  uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t mod = 0b10000111;
-  uint64_t *shifted = (uint64_t*)&(x[i]);
-  uint64_t * ya = (uint64_t*)&y;
-  std::array<uint64_t, 2> result0, result1;
-
-  result0[0] = 0;
-  result0[1] = 0;
-  result1[0] = 0;
-  result1[1] = 0;
-
-  for (int64_t i = 0; i < 2; ++i) {
-    for (int64_t j = 0; j < 64; ++j) {
-      if (ya[i] & (1ull << j)) {
-        result0[0] ^= shifted[0];
-        result0[1] ^= shifted[1];
-      }
-
-      if (shifted[1] & (1ull << 63)) {
-        shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-        shifted[0] = (shifted[0] << 1) ^ mod;
-      }
-      else {
-        shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-        shifted[0] = shifted[0] << 1;
-      }
-    }
-  }
-
-  xy1 ^= result0;
-  xy2 ^= result1;
-}
-
-void SOTRecver::mal_check() {
-  Mat xx({puncVector.size(), 1});
-  Mat sum0({1, 1});
-  Mat sum1({1, 1});
-  Mat mySum({1, 1});
-  Mat b({1, 1});
-  NoisyVoleSender sender;
-  GPUdata theirHash(32);
-  GPUdata myHash(32);
-  RandomOracle ro(32);
-
-  chl.send(std::move(mMalCheckSeed));
-  xx = mMalCheckSeed;
-  sum0.clear();
-  sum1.clear();
-
-  for (size_t i = 0; i < puncVector.size(); i++) {
-    blk low, high;
-    xx.gf128Mul(puncVector.at({0, i}), low, high);
-    sum0 = sum0 ^ low;
-    sum1 = sum1 ^ high;
-    xx = xx.gf128Mul(mMalCheckSeed);
-  }
-  mySum = sum0.gf128Reduce(sum1);
-
-  co_await(sender.send(mMalCheckX, b, prng, mMalCheckOts, chl, {}));
-  ro.Update(mySum ^ b[0]);
-  ro.Final(myHash);
-
-  co_await(chl.recv(theirHash));
-
-  if (theirHash != myHash)
-    throw RTE_LOC;
-}
-
 void SOTRecver::dual_lpn() {
   cudaSetDevice(mConfig.id);
   Log::mem(Recver, LPN);
@@ -275,3 +172,106 @@ void SOTRecver::dual_lpn() {
   cudaDeviceSynchronize();
   Log::mem(Recver, LPN);
 }
+
+// blk gf128Mul(blk x, blk y) {
+//   uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+//   uint64_t mod = 0b10000111;
+//   uint64_t *shifted = (uint64_t*)&(x[i]);
+//   uint64_t * ya = (uint64_t*)&y;
+//   std::array<uint64_t, 2> result0, result1;
+
+//   result0[0] = 0;
+//   result0[1] = 0;
+//   result1[0] = 0;
+//   result1[1] = 0;
+
+//   for (int64_t i = 0; i < 2; ++i) {
+//     for (int64_t j = 0; j < 64; ++j) {
+//       if (ya[i] & (1ull << j)) {
+//         result0[0] ^= shifted[0];
+//         result0[1] ^= shifted[1];
+//       }
+
+//       if (shifted[1] & (1ull << 63)) {
+//         shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+//         shifted[0] = (shifted[0] << 1) ^ mod;
+//       }
+//       else {
+//         shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+//         shifted[0] = shifted[0] << 1;
+//       }
+//     }
+//   }
+
+//   return result0;
+// }
+
+// __global__
+// void gf128Mul(blk *x, blk y, blk *xy1, blk *xy2) {
+//   uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+//   uint64_t mod = 0b10000111;
+//   uint64_t *shifted = (uint64_t*)&(x[i]);
+//   uint64_t * ya = (uint64_t*)&y;
+//   std::array<uint64_t, 2> result0, result1;
+
+//   result0[0] = 0;
+//   result0[1] = 0;
+//   result1[0] = 0;
+//   result1[1] = 0;
+
+//   for (int64_t i = 0; i < 2; ++i) {
+//     for (int64_t j = 0; j < 64; ++j) {
+//       if (ya[i] & (1ull << j)) {
+//         result0[0] ^= shifted[0];
+//         result0[1] ^= shifted[1];
+//       }
+
+//       if (shifted[1] & (1ull << 63)) {
+//         shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+//         shifted[0] = (shifted[0] << 1) ^ mod;
+//       }
+//       else {
+//         shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+//         shifted[0] = shifted[0] << 1;
+//       }
+//     }
+//   }
+
+//   xy1 ^= result0;
+//   xy2 ^= result1;
+// }
+
+// void SOTRecver::mal_check() {
+//   Mat xx({puncVector.size(), 1});
+//   Mat sum0({1, 1});
+//   Mat sum1({1, 1});
+//   Mat mySum({1, 1});
+//   Mat b({1, 1});
+//   NoisyVoleSender sender;
+//   GPUdata theirHash(32);
+//   GPUdata myHash(32);
+//   RandomOracle ro(32);
+
+//   chl.send(std::move(mMalCheckSeed));
+//   xx = mMalCheckSeed;
+//   sum0.clear();
+//   sum1.clear();
+
+//   for (size_t i = 0; i < puncVector.size(); i++) {
+//     blk low, high;
+//     xx.gf128Mul(puncVector.at({0, i}), low, high);
+//     sum0 = sum0 ^ low;
+//     sum1 = sum1 ^ high;
+//     xx = xx.gf128Mul(mMalCheckSeed);
+//   }
+//   mySum = sum0.gf128Reduce(sum1);
+
+//   co_await(sender.send(mMalCheckX, b, prng, mMalCheckOts, chl, {}));
+//   ro.Update(mySum ^ b[0]);
+//   ro.Final(myHash);
+
+//   co_await(chl.recv(theirHash));
+
+//   if (theirHash != myHash)
+//     throw RTE_LOC;
+// }

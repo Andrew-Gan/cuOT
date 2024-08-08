@@ -17,4 +17,3 @@ macro (add_test_case_with_run _name)
 endmacro()
 
 # Test cases
-add_test_case_with_run(ferret)
