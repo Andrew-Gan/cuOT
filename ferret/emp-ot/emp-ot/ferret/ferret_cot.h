@@ -26,7 +26,7 @@ public:
 	int *treePerGPU;
 	int64_t *rowPerGPU;
 
-	FerretCOT(int party, int ngpu, T *io, bool malicious = false, bool run_setup = true, 
+	FerretCOT(int party, int ngpu, T **ios, bool malicious = false, bool run_setup = true, 
 PrimalLPNParameter param = ferret_b13, std::string pre_file="");
 	
 
@@ -56,6 +56,7 @@ PrimalLPNParameter param = ferret_b13, std::string pre_file="");
 private:
 	block ch[2];
 
+	T **ios;
 	int party, ngpu;
 	int64_t M;
 	bool is_malicious;

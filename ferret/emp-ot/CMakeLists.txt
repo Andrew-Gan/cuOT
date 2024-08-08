@@ -12,5 +12,9 @@ include_directories(${EMP-TOOL_INCLUDE_DIRS})
 install(FILES cmake/emp-ot-config.cmake DESTINATION cmake/)
 install(DIRECTORY emp-ot DESTINATION include/)
 
+add_library(dev_layer emp-ot/ferret/dev_layer.cu ../../gpu/gpu.o)
+target_include_directories(dev_layer PUBLIC ../../gpu)
+target_link_libraries(dev_layer "cuda" "cudart" "curand")
+
 ENABLE_TESTING()
 ADD_SUBDIRECTORY(test)

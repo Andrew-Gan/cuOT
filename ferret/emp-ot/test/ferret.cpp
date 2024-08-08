@@ -13,7 +13,7 @@ int port, party;
 
 void test_ferret(int party, NetIO *io, int64_t num_ot, int ngpu) {
 	// auto start = clock_start();
-	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, ngpu, io, false, true, ferret_b13);
+	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, ngpu, &io, false, true, ferret_b13);
 	// double timeused = time_from(start);
 	// std::cout << party << "\tsetup\t" << timeused/1000 << "ms" << std::endl;
 

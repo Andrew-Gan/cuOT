@@ -148,27 +148,26 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length, bool inplace) {
 		// The RCOTs will be generated directly to this buffer
 		ot->rcot_inplace(b, mem_size);
 	}
-	return 1.0f;
 	long long t = time_from(start);
-	io->sync();
-	if (party == ALICE) {
-		io->send_block(&ot->Delta, 1);
-		io->send_block(b, mem_size);
-	}
-	else if (party == BOB) {
-		block ch[2];
-		ch[0] = zero_block;
-		block *b0 = new block[mem_size];
-		io->recv_block(ch+1, 1);
-		io->recv_block(b0, mem_size);
-		for (int64_t i = 0; i < mem_size; ++i) {
-			b[i] = b[i] ^ ch[getLSB(b[i])];
-		}
-		if (!cmpBlock(b, b0, mem_size))
-			std::cerr << "RCOT failed" << std::endl;
-		delete[] b0;
-	}
-	std::cout << "Tests passed.\t";
+	// io->sync();
+	// if (party == ALICE) {
+	// 	io->send_block(&ot->Delta, 1);
+	// 	io->send_block(b, mem_size);
+	// }
+	// else if (party == BOB) {
+	// 	block ch[2];
+	// 	ch[0] = zero_block;
+	// 	block *b0 = new block[mem_size];
+	// 	io->recv_block(ch+1, 1);
+	// 	io->recv_block(b0, mem_size);
+	// 	for (int64_t i = 0; i < mem_size; ++i) {
+	// 		b[i] = b[i] ^ ch[getLSB(b[i])];
+	// 	}
+	// 	if (!cmpBlock(b, b0, mem_size))
+	// 		std::cerr << "RCOT failed" << std::endl;
+	// 	delete[] b0;
+	// }
+	// std::cout << "Tests passed.\t";
 	delete[] b;
 	return t;
 }

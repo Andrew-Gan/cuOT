@@ -3,13 +3,13 @@ services:
     build:
       dockerfile: silent.dockerfile
     image: silent:latest
-    container_name: silent-test
+    container_name: silent
     volumes:
       - ./results:/home/gpuot/results
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 2G
         reservations:
           devices:
             - driver: nvidia
@@ -20,13 +20,13 @@ services:
     build:
       dockerfile: ferret.dockerfile
     image: ferret:latest
-    container_name: ferret-test
+    container_name: ferret
     volumes:
       - ./results:/home/gpuot/results
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 2G
         reservations:
           devices:
             - driver: nvidia

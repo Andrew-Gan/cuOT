@@ -81,6 +81,7 @@ class LpnF2 { public:
 	void compute(block *nn, Mat *expSeed, const block *kk) {
 		seed = seed_gen();
 		PRP prp(seed);
+
 		cuda_primal_lpn((Role)(party-1), pubMats, d, n, k, (uint32_t*)prp.aes.rd_key,
 			expSeed, (blk*)nn, kk_d, (blk*)kk, ngpu);
 	}

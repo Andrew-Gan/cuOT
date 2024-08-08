@@ -107,10 +107,6 @@ void SOTSender::seed_expand() {
   Log::mem(Sender, SeedExp);
 }
 
-void SOTSender::mal_check() {
-  
-}
-
 void SOTSender::dual_lpn() {
   cudaSetDevice(mConfig.id);
   Log::mem(Sender, LPN);

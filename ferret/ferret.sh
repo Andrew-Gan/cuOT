@@ -6,8 +6,7 @@ LOGOT=24
 NGPU=1
 
 mkdir -p data/ ../results/
-
-$RUN $EXE $LOGOT $NGPU
+(sleep 0.05; $EXE 1 12345 $LOGOT $NGPU) & $EXE 2 12345 $LOGOT $NGPU
 
 # for LOGOT in 25
 # do

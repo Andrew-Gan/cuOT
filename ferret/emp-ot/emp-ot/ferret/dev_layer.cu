@@ -10,18 +10,6 @@ void cuda_setdev(int gpu) {
   cudaSetDevice(gpu);
 }
 
-void cuda_malloc(void **ptr, size_t size) {
-  cudaMalloc(ptr, size);
-}
-
-void cuda_free(void *ptr) {
-  cudaFree(ptr);
-}
-
-void cuda_memcpy_H2D(void *des, void *src, size_t size) {
-  cudaMemcpy(des, src, size, cudaMemcpyHostToDevice);
-}
-
 __device__
 void blk_xor(blk *a, blk *b) {
   for (int i = 0; i < 4; i++) {
@@ -30,18 +18,19 @@ void blk_xor(blk *a, blk *b) {
 }
 
 void cuda_mpcot_sender(Mat *expanded, Mat *buffer, Mat *sep, blk *lSum_h,
-  blk *rSum_h, blk *secret_sum, int *t, int depth, blk **delta, int ngpu) {
-
+  blk *rSum_h, blk *secret_sum, int *t, int depth, blk *delta, int ngpu) {
 	uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
   std::vector<std::future<void>> workers;
-
 	for (int gpu = 0; gpu < ngpu; gpu++) {
     uint64_t treePerGPU = (uint64_t)t[gpu];
     blk *lS = &lSum_h[gpu*treePerGPU*depth];
     blk *rS = &rSum_h[gpu*treePerGPU*depth];
     workers.push_back(std::async([&, gpu, lS, rS, treePerGPU](){
       cudaSetDevice(gpu);
+      blk *delta_d;
+      cudaMalloc(&delta_d, sizeof(blk));
+      cudaMemcpy(delta_d, delta, sizeof(blk), cudaMemcpyHostToDevice);
 	    Aes aesExpand((uint8_t*) k0_blk, (uint8_t*) k1_blk);
       Mat *input = &(buffer[gpu]), *output = &(expanded[gpu]);
       for (int d = 0, inWidth = 1; d < depth; d++, inWidth *= 2) {
@@ -57,15 +46,15 @@ void cuda_mpcot_sender(Mat *expanded, Mat *buffer, Mat *sep, blk *lSum_h,
         buffer[gpu] = *output;
       buffer[gpu].sum(treePerGPU, 1UL << depth);
       buffer[gpu].resize({treePerGPU});
-      buffer[gpu].xor_scalar(delta[gpu]);
+      buffer[gpu].xor_scalar(delta_d);
       cudaMemcpy(secret_sum+gpu*treePerGPU, buffer[gpu].data(), treePerGPU*sizeof(blk), cudaMemcpyDeviceToHost);
-
       cudaDeviceSynchronize();
+      cudaFree(delta_d);
     }));
 	}
 
-	for (int gpu = 0; gpu < ngpu; gpu++) {
-		workers.at(gpu).get();
+	for (auto &worker : workers) {
+		worker.get();
 	}
 }
 
@@ -97,8 +86,8 @@ void fill_final_punc_tree(uint64_t *activeParent, blk *secret_sum, blk *layer,
 
 void cuda_mpcot_recver(Mat *expanded, Mat *buffer, Mat *sep, blk *cSum_h,
   blk *secret_sum, int *t, int depth, bool *choices, int ngpu) {
-  return; // uncomment when benchmarking sender only
-	uint32_t k0_blk[4] = {3242342};
+  
+  uint32_t k0_blk[4] = {3242342};
 	uint32_t k1_blk[4] = {8993849};
   std::vector<std::future<void>> workers;
 
@@ -144,12 +133,13 @@ void cuda_mpcot_recver(Mat *expanded, Mat *buffer, Mat *sep, blk *cSum_h,
 
       cudaFree(choice);
       cudaFree(activeParent);
+      cudaFree(secret_sum_d);
       cudaDeviceSynchronize();
     }));
 	}
 
-	for (int gpu = 0; gpu < ngpu; gpu++) {
-		workers.at(gpu).get();
+	for (auto &worker : workers) {
+		worker.get();
 	}
 }
 
@@ -170,8 +160,6 @@ void lpn_single_row(uint32_t *r, int64_t d, int k, blk *nn, blk *kk) {
 
 void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t *n, int k,  uint32_t *key,
   Mat *expanded, blk *nn, Mat *kk_d, blk *kk, int ngpu) {
-  if (role == Recver) return; // uncomment when benchmarking sender only
-
   int gpuCount = 0;
   cudaGetDeviceCount(&gpuCount);
   std::vector<std::future<void>> workers;
@@ -179,7 +167,7 @@ void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t *n, int k,  uin
     uint64_t rowsPerGPU = n[gpu];
     workers.push_back(std::async([&, gpu, rowsPerGPU]() {
       cudaSetDevice(gpu);
-      // generate random matrix using aes encryption
+      // // generate random matrix using aes encryption
       make_block<<<pubMats[gpu].size() / 1024, 1024>>>(pubMats[gpu].data(), gpu * rowsPerGPU);
       Aes aes(key);
       aes.encrypt(pubMats[gpu]);
@@ -192,7 +180,7 @@ void cuda_primal_lpn(Role role, Mat *pubMats, int64_t d, int64_t *n, int k,  uin
     }));
   }
 
-  for (int gpu = 0; gpu < ngpu; gpu++) {
-		workers.at(gpu).get();
+  for (auto &worker : workers) {
+		worker.get();
 	}
 }
