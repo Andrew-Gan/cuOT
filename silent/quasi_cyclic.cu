@@ -6,6 +6,10 @@
 #include "pprf.h"
 #include "logger.h"
 
+#ifndef COMPLEX_PRODUCT
+#include "cuda_fp16.h"
+#endif
+
 #define FFT_BATCHSIZE 8
 
 __global__
@@ -25,10 +29,18 @@ void complex_dot_product(cufftComplex *in, cufftComplex *io, uint64_t len) {
   uint64_t c = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t r = blockIdx.y;
   if (c >= len) return;
-
   cufftComplex a = in[c], b = io[r*len+c];
+
+#ifdef COMPLEX_PRODUCT
   io[r*len+c].x = a.x * b.x - a.y * b.y;
   io[r*len+c].y = a.x * b.y + a.y * b.x;
+#else
+  __half2 ha(a.x, a.y);
+  __half2 hb(b.x, b.y);
+  __half2 zero(0, 0);
+  __half2 hc = __hcmadd(ha, hb, zero);
+  io[r*len+c] = {.x = hc.x, .y = hc.y};
+#endif
 }
 
 __global__
@@ -116,7 +128,6 @@ QuasiCyclic::~QuasiCyclic() {
 }
 
 void QuasiCyclic::encode_dense(Mat &b64) {
-  Log::mem(mRole, LPN);
   for (uint64_t r = 0; r < mRows; r += FFT_BATCHSIZE) {
     bit_to_float<<<gridFFT[0], blockFFT[0]>>>((uint8_t*)b64.data({r, 0}), b64_poly, mOut, mIn);
     cufftExecR2C(bPlan, b64_poly, b64_fft);
@@ -124,7 +135,6 @@ void QuasiCyclic::encode_dense(Mat &b64) {
     cufftExecC2R(cPlan, b64_fft, c64_poly);
     float_to_bit_and_modp<<<gridFFT[2], blockFFT[2]>>>(c64_poly, (uint8_t*)b64.data({r, 0}), mIn);
   }
-  Log::mem(mRole, LPN);
 }
 
 __global__
@@ -146,7 +156,6 @@ void cyclic_mat_vec_prod(uint64_t *mat, uint64_t *vec, uint64_t weight, uint64_t
 }
 
 void QuasiCyclic::encode_sparse(Mat &out, uint64_t *sparsePos, int weight) {
-  Log::mem(mRole, LPN);
   out.resize({mIn / BLOCK_BITS});
   out.clear();
   uint64_t nThread = mOut / 64 + 1;
@@ -157,5 +166,4 @@ void QuasiCyclic::encode_sparse(Mat &out, uint64_t *sparsePos, int weight) {
   );
   out.modp(mOut / BLOCK_BITS);
   out.resize({mOut / BLOCK_BITS});
-  Log::mem(mRole, LPN);
 }

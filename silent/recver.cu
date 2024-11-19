@@ -123,8 +123,6 @@ void SOTRecver::get_punc_key() {
 
 void SOTRecver::seed_expand() {
   cudaSetDevice(mConfig.id);
-  Log::mem(Recver, SeedExp);
-
   cudaMemcpy(mc.data(), SOTRecver::mc_h, mc.size_bytes(), cudaMemcpyHostToDevice);
   
   Mat *input;
@@ -156,7 +154,6 @@ void SOTRecver::seed_expand() {
         separated.data(), output->data(), true);
     }
   }
-  Log::mem(Recver, SeedExp);
 
   puncVector = output;
   buffer = input;
@@ -164,13 +161,11 @@ void SOTRecver::seed_expand() {
 
 void SOTRecver::dual_lpn() {
   cudaSetDevice(mConfig.id);
-  Log::mem(Recver, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
   puncVector->bit_transpose(mConfig.id*rowsPerGPU, (mConfig.id+1)*rowsPerGPU);
   lpn->encode_dense(*puncVector);
   puncVector->bit_transpose();
   cudaDeviceSynchronize();
-  Log::mem(Recver, LPN);
 }
 
 // blk gf128Mul(blk x, blk y) {

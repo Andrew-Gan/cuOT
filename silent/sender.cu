@@ -75,7 +75,6 @@ void SOTSender::base_ot() {
 
 void SOTSender::seed_expand() {
   cudaSetDevice(mConfig.id);
-  Log::mem(Sender, SeedExp);
 
   cudaMemcpy(m0.data(), SOTSender::m0_h, m0.size_bytes(), cudaMemcpyHostToDevice);
   cudaMemcpy(m1.data(), SOTSender::m1_h, m1.size_bytes(), cudaMemcpyHostToDevice);
@@ -104,16 +103,13 @@ void SOTSender::seed_expand() {
   fullVector = output;
   buffer = input;
   cudaDeviceSynchronize();
-  Log::mem(Sender, SeedExp);
 }
 
 void SOTSender::dual_lpn() {
   cudaSetDevice(mConfig.id);
-  Log::mem(Sender, LPN);
   uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
   fullVector->bit_transpose(mConfig.id*rowsPerGPU, (mConfig.id+1)*rowsPerGPU);
   lpn->encode_dense(*fullVector);
   fullVector->bit_transpose();
   cudaDeviceSynchronize();
-  Log::mem(Sender, LPN);
 }

@@ -9,9 +9,6 @@ std::ofstream Log::logFile[2];
 struct timespec Log::initTime[2];
 float Log::eventStart[2][NUM_EVENTS];
 float Log::eventDuration[2][NUM_EVENTS];
-uint64_t Log::memStart[2][NUM_EVENTS] = {0};
-uint64_t Log::memCurr[2][NUM_EVENTS] = {0};
-uint64_t Log::memMax[2][NUM_EVENTS] = {0};
 bool Log::mOpened[2] = {false, false};
 bool Log::mIgnoreInit[2] = {false, false};
 bool Log::initTimeSet[2] = {false, false};
@@ -85,11 +82,3 @@ void Log::end(Role role, Event event) {
   memMax[role][event] = std::max(currMax, memMax[role][event]);
 }
 
-void Log::mem(Role role, Event event) {
-  if (!mOpened[role]) return;
-  size_t free, total, used;
-  // takes up too much time to call
-	// cudaMemGetInfo(&free, &total);
-  used = total - free;
-  memCurr[role][event] = std::max(used, memCurr[role][event]);
-}

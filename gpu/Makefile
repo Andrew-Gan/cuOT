@@ -1,5 +1,5 @@
 CC := nvcc
-FLG := -g -G -std=c++20
+FLG := -O2 -std=c++20
 LIB := -lcurand -lcufft -lcuda
 INC := -I./silent/lib
 FINAL := gpu.o

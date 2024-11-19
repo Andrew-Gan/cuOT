@@ -1,6 +1,6 @@
 CC := nvcc
-CUFLG := -g -G -std=c++20
-CCFLG := -g -std=c++20 -gdwarf-4 -w
+CUFLG := -O2 -std=c++20
+CCFLG := -O2 -std=c++20 -gdwarf-4 -w
 LIB := -lcurand -lcufft -lcuda
 INC := -I../gpu -I./lib
 GPU := ../gpu/gpu.o
@@ -15,13 +15,6 @@ LIB_SRC := $(shell find lib -name '*.c*')
 LIB_OBJ := $(patsubst %.c, %.o, $(LIB_SRC))
 LIB_OBJ := $(patsubst %.cpp, %.o, $(LIB_OBJ))
 FILTER = $(foreach v,$(2),$(if $(findstring $(1),$(v)),$(v)))
-
-############################################################
-
-QUEUE=debug #zghodsi-b
-CPU_PER_NODE=32
-GPU_PER_NODE=2
-CONSTRAINT=A100
 
 ############################################################
 

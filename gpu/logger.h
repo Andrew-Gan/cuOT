@@ -25,7 +25,6 @@ public:
   static void close(Role role);
   static void start(Role role, Event event);
   static void end(Role role, Event event);
-  static void mem(Role role, Event event);
 };
 
 #endif
