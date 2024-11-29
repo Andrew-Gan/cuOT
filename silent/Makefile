@@ -1,7 +1,7 @@
 CC := nvcc
-CUFLG := -O2 -std=c++20
+CUFLG := -O2 -std=c++20 -arch=sm_70
 CCFLG := -O2 -std=c++20 -gdwarf-4 -w
-LIB := -lcurand -lcufft -lcuda
+LIB := -lcufft -lcuda -lcublas
 INC := -I../gpu -I./lib
 GPU := ../gpu/gpu.o
 EXE := ot

@@ -1,7 +1,8 @@
-#include "roles.h"
+#include "silent_ot.h"
 #include <future>
 
 #include "logger.h"
+#include "gpu_define.h"
 #include "gpu_ops.h"
 #include <cryptoTools/Crypto/RandomOracle.h>
 
@@ -10,50 +11,66 @@ std::array<std::atomic<SOTRecver*>, 16> SOTRecvers;
 
 SOTRecver::SOTRecver(SilentConfig config) : SOT(config) {
   mRole = Recver;
-  cudaSetDevice(mConfig.id);
+  mGPU = mConfig.gpuPerParty + mConfig.id + 4;
+  cudaSetDevice(mGPU);
   SOTRecvers[mConfig.id] = this;
-  if(SOTSenders[mConfig.id] == nullptr) {
-    std::runtime_error(
-      "SOTRecver::SOTRecver sender with same id not initialised\n"
-    );
-  }
+  if(SOTSenders[mConfig.id] == nullptr)
+    throw std::runtime_error("SOTRecver::SOTRecver sender not initialised\n");
   other = SOTSenders[mConfig.id];
 
-  m0.resize({mDepth+1,mConfig.nTree});
-  m1.resize({mDepth+1,mConfig.nTree});
-  mc.resize({mDepth,mConfig.nTree});
-  
+  m0.resize({mDepth+1, mConfig.nTree});
+  m1.resize({mDepth+1, mConfig.nTree});
+  mc.resize({mDepth, mConfig.nTree});
+  cudaMalloc(&activeParent, mConfig.nTree * sizeof(uint64_t));
+
+#ifdef USE_COALESCED_TREE_EXPANSION
   puncVector = new Mat({numOT, 1});
   buffer = new Mat(puncVector->dims());
-  cudaMalloc(&activeParent, mConfig.nTree * sizeof(uint64_t));
-  separated.resize({numOT});
+  sep = new Mat({numOT});
+#else
+  puncVector = new Mat[mConfig.nTree];
+  buffer = new Mat[mConfig.nTree];
+  sep = new Mat[mConfig.nTree];
+  for (int t = 0; t < mConfig.nTree; t++) {
+    puncVector[t].resize({numOT / mConfig.nTree, 1});
+    buffer[t].resize({numOT / mConfig.nTree, 1});
+    sep[t].resize({numOT / mConfig.nTree});
+  }
+#endif
+
   switch (mConfig.pprf) {
     case Aes_t:
       expander = new Aes(mConfig.leftKey, mConfig.rightKey);
   }
-
   switch (mConfig.dualLPN) {
     case QuasiCyclic_t:
       lpn = new QuasiCyclic(Recver, 2 * numOT, numOT, BLOCK_BITS / mConfig.gpuPerParty);
   }
 
-  cudaMalloc(&puncPos, mConfig.nTree * sizeof(uint64_t));
   get_choice_vector();
-  lpn->encode_sparse(choiceVector, puncPos, mConfig.nTree);
 
-  if (mConfig.id == 0) {
+  if (mConfig.id == 0)
     SOTRecver::mc_h = new blk[mDepth * mConfig.nTree];
-  }
+
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) printf("SOTRecver::SOTRecver %s\n", cudaGetErrorString(err));
 }
 
 SOTRecver::~SOTRecver() {
-  cudaSetDevice(mConfig.id);
-  cudaFree(puncPos);
-  cudaFree(activeParent);
-  delete expander;
+  cudaSetDevice(mGPU);
+
+#ifdef USE_COALESCED_TREE_EXPANSION
   delete puncVector;
   delete buffer;
+#else
+  delete[] puncVector;
+  delete[] buffer;
+#endif
+
+  delete expander;
   delete lpn;
+  if (puncPos) cudaFree(puncPos);
+  cudaFree(activeParent);
   if (mConfig.id == 0) {
     delete[] SOTRecver::mc_h;
   }
@@ -62,7 +79,7 @@ SOTRecver::~SOTRecver() {
 
 
 void SOTRecver::base_ot() {
-  cudaSetDevice(mConfig.id);
+  cudaSetDevice(mGPU);
   std::vector<std::future<void>> workers;
   for (uint64_t d = 0; d < mDepth; d++) {
     workers.push_back(std::async([d, this](){
@@ -87,11 +104,14 @@ void choice_bits_to_pos(uint64_t *choiceVector, uint64_t *choiceBits, uint64_t m
 }
 
 void SOTRecver::get_choice_vector() {
+  if (puncPos == nullptr)
+    cudaMalloc(&puncPos, mConfig.nTree * sizeof(*puncPos));
   uint64_t *choices_d;
   cudaMalloc(&choices_d, mDepth * sizeof(*choices_d));
   cudaMemcpy(choices_d, mConfig.choices, mDepth * sizeof(*choices_d), cudaMemcpyHostToDevice);
   choice_bits_to_pos<<<1, mConfig.nTree>>>(puncPos, choices_d, mDepth);
-  cudaDeviceSynchronize();
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) printf("SOTRecver::get_choice_vector %s\n", cudaGetErrorString(err));
   cudaFree(choices_d);
 }
 
@@ -115,158 +135,77 @@ void fill_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeP
 }
 
 void SOTRecver::get_punc_key() {
-  cudaSetDevice(mConfig.id);
-  // senders m0, m1 were XORed with base OT values
+  cudaSetDevice(mGPU);
   m0 = other->m0;
   m1 = other->m1;
 }
 
-void SOTRecver::seed_expand() {
-  cudaSetDevice(mConfig.id);
-  cudaMemcpy(mc.data(), SOTRecver::mc_h, mc.size_bytes(), cudaMemcpyHostToDevice);
-  
-  Mat *input;
-  Mat *output;
+void SOTRecver::seed_exp() {
+  cudaSetDevice(mGPU);
+
+  cudaMemcpy(mc.data(), SOTRecver::mc_h, mc.size_bytes(), cudaMemcpyHostToDevice);  
   cudaMemset(activeParent, 0, mConfig.nTree * sizeof(uint64_t));
 
-  input = buffer;
-  output = puncVector;
+  Mat *input = buffer;
+  Mat *output = puncVector;
   uint64_t numBytes = mConfig.nTree * sizeof(blk);
 
   for (uint64_t d = 0, inWidth = 1; d < mDepth; d++, inWidth *= 2) {
     std::swap(input, output);
-    expander->expand(*input, *output, separated, mConfig.nTree*inWidth);
-    separated.sum(2 * mConfig.nTree, inWidth);
+#ifdef USE_COALESCED_TREE_EXPANSION
+    expander->expand(*input, *output, *sep, mConfig.nTree*inWidth);
+    sep->sum(2 * mConfig.nTree, inWidth);
 
     gpu_xor<<<1, numBytes>>>((uint8_t*)m0.data({d, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
     gpu_xor<<<1, numBytes>>>((uint8_t*)m1.data({d, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
-
-    fill_tree<<<1, mConfig.nTree>>>(m0.data({d, 0}), m1.data({d, 0}),
-      2 * inWidth, activeParent, mConfig.choices[d],
-      separated.data(), output->data(), false);
-    
+    fill_tree<<<1, mConfig.nTree>>>(m0.data({d, 0}), m1.data({d, 0}), 2 * inWidth,
+      activeParent, mConfig.choices[d], sep->data(), output->data(), false);
     if (d == mDepth-1) {
       gpu_xor<<<1, numBytes>>>((uint8_t*)m0.data({d+1, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
       gpu_xor<<<1, numBytes>>>((uint8_t*)m1.data({d+1, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
-
       fill_tree<<<1, mConfig.nTree>>>(m0.data({d+1, 0}), m1.data({d+1, 0}),
         2 * inWidth, activeParent, mConfig.choices[d],
-        separated.data(), output->data(), true);
+        sep->data(), output->data(), true);
     }
+#else
+    for (uint64_t t = 0; t < mConfig.nTree; t++) {
+      expander->expand(input[t], output[t], sep[t], inWidth);
+      uint64_t block = std::min(1024UL, 2 * inWidth);
+      uint64_t grid = (2 * inWidth + block - 1) / block;
+      separator<<<grid, block>>>(sep[t].data(), output[t].data());
+      sep[t].sum(2, inWidth);
+    }
+
+    gpu_xor<<<1, numBytes>>>((uint8_t*)m0.data({d, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
+    gpu_xor<<<1, numBytes>>>((uint8_t*)m1.data({d, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
+    if (d == mDepth-1) {
+      gpu_xor<<<1, numBytes>>>((uint8_t*)m0.data({d+1, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
+      gpu_xor<<<1, numBytes>>>((uint8_t*)m1.data({d+1, 0}), (uint8_t*)mc.data({d, 0}), numBytes);
+    }
+    for (uint64_t t = 0; t < mConfig.nTree; t++) {
+      fill_tree<<<1, 1>>>(m0.data({d, t}), m1.data({d, t}), 2*inWidth, activeParent+t,
+        mConfig.choices[d] >> t, sep[t].data(), output[t].data(), false);
+      if (d == mDepth-1) {
+        fill_tree<<<1, 1>>>(m0.data({d+1, t}), m1.data({d+1, t}), 2*inWidth,
+          activeParent+t, mConfig.choices[d] >> t, sep[t].data(), output[t].data(), true);
+      }
+    }
+#endif // USE_COALESCED_TREE_EXPANSION
   }
 
   puncVector = output;
   buffer = input;
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) printf("SOTRecver::seed_exp %s\n", cudaGetErrorString(err));
 }
 
 void SOTRecver::dual_lpn() {
-  cudaSetDevice(mConfig.id);
+  cudaSetDevice(mGPU);
   uint64_t rowsPerGPU = (BLOCK_BITS + mConfig.gpuPerParty - 1) / mConfig.gpuPerParty;
   puncVector->bit_transpose(mConfig.id*rowsPerGPU, (mConfig.id+1)*rowsPerGPU);
   lpn->encode_dense(*puncVector);
   puncVector->bit_transpose();
-  cudaDeviceSynchronize();
+  lpn->encode_sparse(choiceVector, puncPos, mConfig.nTree);
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) printf("SOTRecver::dual_lpn %s\n", cudaGetErrorString(err));
 }
-
-// blk gf128Mul(blk x, blk y) {
-//   uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-//   uint64_t mod = 0b10000111;
-//   uint64_t *shifted = (uint64_t*)&(x[i]);
-//   uint64_t * ya = (uint64_t*)&y;
-//   std::array<uint64_t, 2> result0, result1;
-
-//   result0[0] = 0;
-//   result0[1] = 0;
-//   result1[0] = 0;
-//   result1[1] = 0;
-
-//   for (int64_t i = 0; i < 2; ++i) {
-//     for (int64_t j = 0; j < 64; ++j) {
-//       if (ya[i] & (1ull << j)) {
-//         result0[0] ^= shifted[0];
-//         result0[1] ^= shifted[1];
-//       }
-
-//       if (shifted[1] & (1ull << 63)) {
-//         shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-//         shifted[0] = (shifted[0] << 1) ^ mod;
-//       }
-//       else {
-//         shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-//         shifted[0] = shifted[0] << 1;
-//       }
-//     }
-//   }
-
-//   return result0;
-// }
-
-// __global__
-// void gf128Mul(blk *x, blk y, blk *xy1, blk *xy2) {
-//   uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-//   uint64_t mod = 0b10000111;
-//   uint64_t *shifted = (uint64_t*)&(x[i]);
-//   uint64_t * ya = (uint64_t*)&y;
-//   std::array<uint64_t, 2> result0, result1;
-
-//   result0[0] = 0;
-//   result0[1] = 0;
-//   result1[0] = 0;
-//   result1[1] = 0;
-
-//   for (int64_t i = 0; i < 2; ++i) {
-//     for (int64_t j = 0; j < 64; ++j) {
-//       if (ya[i] & (1ull << j)) {
-//         result0[0] ^= shifted[0];
-//         result0[1] ^= shifted[1];
-//       }
-
-//       if (shifted[1] & (1ull << 63)) {
-//         shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-//         shifted[0] = (shifted[0] << 1) ^ mod;
-//       }
-//       else {
-//         shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-//         shifted[0] = shifted[0] << 1;
-//       }
-//     }
-//   }
-
-//   xy1 ^= result0;
-//   xy2 ^= result1;
-// }
-
-// void SOTRecver::mal_check() {
-//   Mat xx({puncVector.size(), 1});
-//   Mat sum0({1, 1});
-//   Mat sum1({1, 1});
-//   Mat mySum({1, 1});
-//   Mat b({1, 1});
-//   NoisyVoleSender sender;
-//   GPUdata theirHash(32);
-//   GPUdata myHash(32);
-//   RandomOracle ro(32);
-
-//   chl.send(std::move(mMalCheckSeed));
-//   xx = mMalCheckSeed;
-//   sum0.clear();
-//   sum1.clear();
-
-//   for (size_t i = 0; i < puncVector.size(); i++) {
-//     blk low, high;
-//     xx.gf128Mul(puncVector.at({0, i}), low, high);
-//     sum0 = sum0 ^ low;
-//     sum1 = sum1 ^ high;
-//     xx = xx.gf128Mul(mMalCheckSeed);
-//   }
-//   mySum = sum0.gf128Reduce(sum1);
-
-//   co_await(sender.send(mMalCheckX, b, prng, mMalCheckOts, chl, {}));
-//   ro.Update(mySum ^ b[0]);
-//   ro.Final(myHash);
-
-//   co_await(chl.recv(theirHash));
-
-//   if (theirHash != myHash)
-//     throw RTE_LOC;
-// }

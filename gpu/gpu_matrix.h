@@ -19,14 +19,15 @@ public:
   void set(blk &val, std::vector<uint64_t> pos);
   void resize(std::vector<uint64_t> newDim);
   void xor_scalar(blk *rhs);
-  Mat& operator&=(blk *rhs);
-  Mat& operator=(Mat &other);
-  Mat& operator%=(uint64_t mod);
   uint64_t size() const { return listToSize(mDim); }
   void sum(uint64_t nPartition, uint64_t blkPerPart);
   void xor_d(Mat &rhs, uint64_t offs = 0);
   static uint64_t listToSize(std::vector<uint64_t> dim);
   uint64_t listToOffset(std::vector<uint64_t> pos) const;
+
+  Mat& operator&=(blk *rhs);
+  Mat& operator=(Mat &other);
+  Mat& operator%=(uint64_t mod);
 
   // 2D Matrix only
   void bit_transpose(uint64_t startColBit = 0, uint64_t endColBit = 0);

@@ -10,14 +10,12 @@ private:
   Role mRole;
   uint64_t mIn, mOut;
   void *workArea;
-  int fftsizeLog = -1;
-  Mat a64;
+  Mat a;
   cufftHandle bPlan, cPlan;
-  cufftReal *b64_poly, *c64_poly;
-  cufftComplex *a64_fft, *b64_fft;
-  uint64_t mRows = 8 * sizeof(OTblock);
-  uint64_t blockFFT[3];
-  dim3 gridFFT[3];
+  float *b_poly, *c_poly;
+  float2 *a_fft, *b_fft;
+  uint64_t mRows = 8 * sizeof(blk);
+  float *a_poly;
 
 public:
   QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows);

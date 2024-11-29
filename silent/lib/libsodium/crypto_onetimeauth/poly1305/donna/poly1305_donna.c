@@ -5,7 +5,7 @@
 #include "utils.h"
 
 #ifdef HAVE_TI_MODE
-#include "poly1305_donna64.h"
+#include "poly1305_donna.h"
 #else
 #include "poly1305_donna32.h"
 #endif

@@ -4,6 +4,8 @@
 #include "gpu_define.h"
 #include "gpu_matrix.h"
 
+#define AES_KEYLEN 16
+
 struct AES_ctx {
   uint8_t roundKey[11*AES_KEYLEN];
 };
@@ -12,7 +14,7 @@ enum PprfType { Aes_t };
 
 class Pprf {
 public:
-  virtual void expand(Mat &interleaved_in, Mat &interleaved_out, Mat &separated, uint64_t inWidth) = 0;
+  virtual void expand(Mat &mixed_in, Mat &mixed_out, Mat &sep, uint64_t inWidth) = 0;
 };
 
 class Aes : public Pprf {
@@ -30,7 +32,7 @@ private:
 public:
   Aes(void *leftUnexpSeed, void *rightUnexpSeed = nullptr);
   virtual void encrypt(Mat &data);
-  virtual void expand(Mat &interleaved_in, Mat &interleaved_out, Mat &separated, uint64_t inWidth);
+  virtual void expand(Mat &mixed_in, Mat &mixed_out, Mat &sep, uint64_t inWidth);
 };
 
 #endif

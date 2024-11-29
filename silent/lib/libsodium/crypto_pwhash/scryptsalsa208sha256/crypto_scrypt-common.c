@@ -28,7 +28,7 @@
 #include "runtime.h"
 #include "utils.h"
 
-static const char *const itoa64 =
+static const char *const itoa =
     "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 static uint8_t *
@@ -40,7 +40,7 @@ encode64_uint32(uint8_t *dst, size_t dstlen, uint32_t src, uint32_t srcbits)
         if (dstlen < 1) {
             return NULL; /* LCOV_EXCL_LINE */
         }
-        *dst++ = itoa64[src & 0x3f];
+        *dst++ = itoa[src & 0x3f];
         dstlen--;
         src >>= 6;
     }
@@ -74,10 +74,10 @@ encode64(uint8_t *dst, size_t dstlen, const uint8_t *src, size_t srclen)
 static int
 decode64_one(uint32_t *dst, uint8_t src)
 {
-    const char *ptr = strchr(itoa64, src);
+    const char *ptr = strchr(itoa, src);
 
     if (ptr) {
-        *dst = (uint32_t)(ptr - itoa64);
+        *dst = (uint32_t)(ptr - itoa);
         return 0;
     }
     *dst = 0;
@@ -221,7 +221,7 @@ escrypt_gensalt_r(uint32_t N_log2, uint32_t r, uint32_t p, const uint8_t *src,
     *dst++ = '7';
     *dst++ = '$';
 
-    *dst++ = itoa64[N_log2];
+    *dst++ = itoa[N_log2];
 
     dst = encode64_uint32(dst, buflen - (dst - buf), r, 30);
     if (!dst) {

@@ -5,87 +5,81 @@
 #include "gpu_ops.h"
 #include "pprf.h"
 #include "logger.h"
+#include "silent_ot.h"
 
-#ifndef COMPLEX_PRODUCT
-#include "cuda_fp16.h"
+#ifndef USE_CUFFT_FOR_POLYMUL
+#include "exampleFFT.h"
+#endif
+
+#ifndef USE_IMPROVED_COMPLEX_PROD
+#include <cublas_v2.h>
 #endif
 
 #define FFT_BATCHSIZE 8
 
-__global__
-void bit_to_float(uint8_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, uint64_t outFloatWidth) {
+__global__ void bit_to_float(uint8_t *bitPoly, cufftReal *fftReal, uint64_t inBitWidth, uint64_t outFloatWidth) {
   uint64_t row = blockIdx.y;
   uint64_t col = blockIdx.x * blockDim.x + threadIdx.x;
   uint8_t tmp = bitPoly[row * inBitWidth / 8 + col];
   uint64_t offset = row * outFloatWidth + 8 * col;
   for (int j = 0; j < 8; j++) {
-    fftReal[offset+j] = (cufftReal)(tmp & 1);
+    fftReal[offset + j] = (cufftReal)(tmp & 1);
     tmp >>= 1;
   }
 }
 
-__global__
-void complex_dot_product(cufftComplex *in, cufftComplex *io, uint64_t len) {
-  uint64_t c = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t r = blockIdx.y;
-  if (c >= len) return;
-  cufftComplex a = in[c], b = io[r*len+c];
-
-#ifdef COMPLEX_PRODUCT
-  io[r*len+c].x = a.x * b.x - a.y * b.y;
-  io[r*len+c].y = a.x * b.y + a.y * b.x;
-#else
-  __half2 ha(a.x, a.y);
-  __half2 hb(b.x, b.y);
-  __half2 zero(0, 0);
-  __half2 hc = __hcmadd(ha, hb, zero);
-  io[r*len+c] = {.x = hc.x, .y = hc.y};
-#endif
-}
-
-__global__
-void float_to_bit_and_modp(cufftReal *fftReal, uint8_t *bitPoly, uint64_t mIn) {
+#ifdef USE_TYPE_CONVERT_AND_MOD
+__global__ void float_to_bit_and_modp(cufftReal *fftReal, uint8_t *bitPoly, uint64_t n) {
   uint64_t row = blockIdx.y;
   uint64_t mOut = 8 * gridDim.x * blockDim.x;
   uint64_t col = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t offset = row * n + 8 * col;
   uint8_t res = 0;
-  uint64_t offset = row * mIn + 8 * col;
-  for (int i = 0; i < mIn / mOut; i++) {
-    for (int j = 0; j < 8; j++) {
-      if ((uint64_t)fftReal[offset+(i*mOut)+j] & mIn) {
+  for (int i = 0; i < n / mOut; i++) {
+    for (int j = 0; j < 8; j++)
+    {
+      // divide float by FFT size to obtain true result
+      if ((uint64_t)fftReal[offset + (i * mOut) + j] & n)
         res ^= 1UL << j;
-      }
     }
   }
   bitPoly[row * (mOut / 8) + col] = res;
 }
-
-QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
-  mRole(role), mIn(in), mOut(out), mRows(rows) {
-
-  cufftReal *a64_poly;
-  cudaMalloc(&a64_poly, mIn * sizeof(cufftReal));
-  cudaMemset(a64_poly, 0, mIn * sizeof(cufftReal));
-  cudaMalloc(&a64_fft, (mIn / 2 + 1) * sizeof(cufftComplex));
-  a64.resize({mOut / BLOCK_BITS});
-  
-  blk key;
-  for (int i = 0; i < 4; i++) {
-    key.data[i] = rand();
+#else
+__global__ void float_to_bit(cufftReal *fftReal, uint8_t *bitPoly, uint64_t n) {
+  uint64_t byte_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t offset = 8 * byte_idx;
+  uint8_t res = 0;
+  for (int i = 0; i < 8; i++) {
+    // divide float by FFT size to obtain true result
+    if (fftReal[offset + i] / n)
+      res |= 1UL << i;
   }
-  make_block<<<a64.size() / 1024, 1024>>>(a64.data());
-  Aes aes(&key);
-  aes.encrypt(a64);
+  bitPoly[byte_idx] = res;
+}
+#endif // USE_TYPE_CONVERT_AND_MOD
 
-  uint64_t thread = mOut / 8;
-  uint64_t block = std::min(thread, 1024UL);
-  uint64_t grid = (thread + block - 1) / block;
-  bit_to_float<<<grid, block>>>((uint8_t*)a64.data(), a64_poly, mOut, mIn);
+QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) : mRole(role), mIn(in), mOut(out), mRows(rows) {
+
+  a.resize({mOut / BLOCK_BITS});
+  make_block<<<a.size() / 1024, 1024>>>(a.data());
+  blk key;
+  for (int i = 0; i < 4; i++)
+    key.data[i] = rand();
+  Aes aes(&key);
+  aes.encrypt(a);
+
+#ifdef USE_CUFFT_FOR_POLYMUL
+  cudaMalloc(&a_poly, mIn * sizeof(cufftReal));
+  cudaMemset(a_poly+mOut, 0, mOut * sizeof(cufftReal));
+  bit_to_float<<<mOut / 8 / 1024, 1024>>>((uint8_t *)a.data(), a_poly, mOut, mIn);
+
   cufftHandle aPlan;
   cufftCreate(&aPlan);
   cufftPlan1d(&aPlan, mIn, CUFFT_R2C, 1);
-  cufftExecR2C(aPlan, a64_poly, a64_fft);
-  cudaFree(a64_poly);
+  cudaMalloc(&a_fft, (mIn / 2 + 1) * sizeof(cufftComplex));
+  cufftExecR2C(aPlan, a_poly, a_fft);
+  cudaFree(a_poly);
   cufftDestroy(aPlan);
 
   cufftCreate(&bPlan);
@@ -98,72 +92,106 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) :
   cudaMalloc(&workArea, std::max(bSize, cSize));
   cufftSetWorkArea(bPlan, workArea);
   cufftSetWorkArea(cPlan, workArea);
-  cudaMalloc(&b64_poly, FFT_BATCHSIZE * mIn * sizeof(cufftReal));
-  cudaMemset(b64_poly, 0, FFT_BATCHSIZE * mIn * sizeof(cufftReal));
-  cudaMalloc(&b64_fft, FFT_BATCHSIZE * (mIn / 2 + 1) * sizeof(cufftComplex));
-  cudaMalloc(&c64_poly, FFT_BATCHSIZE * mIn * sizeof(cufftReal));
 
-  // bitpoly to fft
-  thread = mOut / 8;
-  blockFFT[0] = std::min(thread, 1024UL);
-  gridFFT[0] = dim3((thread + blockFFT[0] - 1) / blockFFT[0], FFT_BATCHSIZE);
-  // complex dot product and divider
-  thread = mIn / 2 + 1;
-  blockFFT[1] = std::min(thread, 1024UL);
-  gridFFT[1] = dim3((thread + blockFFT[1] - 1) / blockFFT[1], FFT_BATCHSIZE);
-  // fft to bitpoly
-  thread = mOut / 8;
-  blockFFT[2] = std::min(thread, 1024UL);
-  gridFFT[2] = dim3((thread + blockFFT[2] - 1) / blockFFT[2], FFT_BATCHSIZE);
+  cudaMalloc(&b_poly, FFT_BATCHSIZE * mIn * sizeof(cufftReal));
+  cudaMemset2D(b_poly+mOut, mIn * sizeof(cufftReal), 0, mOut * sizeof(cufftReal), FFT_BATCHSIZE);
+  cudaMalloc(&b_fft, FFT_BATCHSIZE * (mIn / 2 + 1) * sizeof(cufftComplex));
+  cudaMalloc(&c_poly, FFT_BATCHSIZE * mIn * sizeof(cufftReal));
+#else
+  cudaMalloc(&workArea, mIn * sizeof(float2));
+  cudaMalloc(&a_fft, mIn * sizeof(*a_fft));
+  cudaMalloc(&b_fft, mIn * sizeof(*b_fft));
+  cudaMemset(a_fft+mOut, 0, mOut * sizeof(*a_fft));
+  cudaMemset(b_fft+mOut, 0, mOut * sizeof(*b_fft));
+  preprocess<<<mOut / 64 / 1024, 1024>>>((uint64_t *)a.data(), a_fft);
+  fft(a_fft, (float2*)workArea, mIn / 64, false, mOut / 64, 1024); // FFT(a)
+#endif // USE_CUFFT_FOR_POLYMUL
 }
 
 QuasiCyclic::~QuasiCyclic() {
+  cudaFree(workArea);
+  cudaFree(a_fft);
+  cudaFree(b_fft);
+#ifdef USE_CUFFT_FOR_POLYMUL
   cufftDestroy(bPlan);
   cufftDestroy(cPlan);
-  cudaFree(workArea);
-  cudaFree(a64_fft);
-  cudaFree(b64_poly);
-  cudaFree(b64_fft);
-  cudaFree(c64_poly);
-}
-
-void QuasiCyclic::encode_dense(Mat &b64) {
-  for (uint64_t r = 0; r < mRows; r += FFT_BATCHSIZE) {
-    bit_to_float<<<gridFFT[0], blockFFT[0]>>>((uint8_t*)b64.data({r, 0}), b64_poly, mOut, mIn);
-    cufftExecR2C(bPlan, b64_poly, b64_fft);
-    complex_dot_product<<<gridFFT[1], blockFFT[1]>>>(a64_fft, b64_fft, mIn / 2 + 1);
-    cufftExecC2R(cPlan, b64_fft, c64_poly);
-    float_to_bit_and_modp<<<gridFFT[2], blockFFT[2]>>>(c64_poly, (uint8_t*)b64.data({r, 0}), mIn);
-  }
+  cudaFree(b_poly);
+  cudaFree(c_poly);
+#endif
 }
 
 __global__
-void cyclic_mat_vec_prod(uint64_t *mat, uint64_t *vec, uint64_t weight, uint64_t *out, uint64_t mOut, uint64_t n) {
-  uint64_t r64 = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t alignment;
-  uint64_t op;
+void complex_product(float2 *in, float2 *io, uint64_t len) {
+  uint64_t c = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t r = blockIdx.y;
+  if (c >= len)
+    return;
+  float2 a = in[c], b = io[r * len + c];
+  b.x = a.x * b.x - a.y * b.y;
+  b.y = a.x * b.y + a.y * b.x;
+  io[r * len + c] = b;
+}
 
-  if (r64 >= n) return;
+void QuasiCyclic::encode_dense(Mat &b64) {
+#ifdef USE_CUFFT_FOR_POLYMUL
+  uint64_t thread = mIn / 2 + 1;
+  uint64_t blockCplxProd = std::min(thread, 1024UL);
+  dim3 gridCplxProd((thread + blockCplxProd - 1) / blockCplxProd, FFT_BATCHSIZE);
 
-  for (int i = 0; i < weight; i++) {
-    if (vec[i] > mOut) continue;
-    alignment = vec[i] % 64;
-    op = 0;
-    if (r64 < n - 1) op |= mat[r64] << alignment;
-    if (r64 > 0) op |= mat[r64-1] >> (64-alignment);
-    out[vec[i] / 64 + r64] ^= op;
+  thread = mOut / 8;
+  uint64_t blockConvert = std::min(thread, 1024UL);
+  dim3 gridConvert((thread + blockConvert - 1) / blockConvert, FFT_BATCHSIZE);
+
+  for (uint64_t r = 0; r < mRows; r += FFT_BATCHSIZE) {
+    bit_to_float<<<gridConvert, blockConvert>>>((uint8_t *)b64.data({r, 0}), b_poly, mOut, mIn);
+    cufftExecR2C(bPlan, b_poly, b_fft);
+#ifdef USE_IMPROVED_COMPLEX_PROD
+    complex_product<<<gridCplxProd, blockCplxProd>>>(a_fft, b_fft, mIn / 2 + 1);
+#else
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    cublasCdgmm(handle, CUBLAS_SIDE_RIGHT, 1, mIn / 2 + 1, a_fft, 1, b_fft, 1, b_fft, 1);
+    cublasDestroy(handle);
+#endif
+    cufftExecC2R(cPlan, b_fft, c_poly);
+
+#ifdef USE_TYPE_CONVERT_AND_MOD
+    float_to_bit_and_modp<<<gridConvert, blockConvert>>>(c_poly, (uint8_t *)b64.data({r, 0}), mIn);
+#else
+    Mat cModP1({FFT_BATCHSIZE, mIn / (8 * sizeof(blk))});
+    float_to_bit<<<mIn * FFT_BATCHSIZE / 8 / 1024, 1024>>>(c_poly, (uint8_t *)cModP1.data(), mIn);
+    cModP1.modp(mOut / BLOCK_BITS);
+#endif // USE_TYPE_CONVERT_AND_MOD
+  }
+#else
+  fft(b_fft, (float2*)workArea, mIn, false, mOut, 1024); // FFT(b)
+  complex_product<<<mIn / 1024, 1024>>>(a_fft, b_fft, mIn);
+  fft(b_fft, (float2*)workArea, mIn / 64, true, mOut, 1024); // IFFT(A * B)
+#endif // USE_CUFFT_FOR_POLYMUL
+}
+
+__global__ void choice_vec_prod(uint64_t *mat, uint64_t *vec, uint64_t weight, uint64_t *out) {
+  uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t mOut = 64 * gridDim.x * blockDim.x;
+  uint64_t src = mat[i];
+  // each thread divides up src vector
+  for (int w = 0; w < weight && vec[w] < mOut; w++) {
+    uint64_t new_pow = 64 * i + vec[w];
+    out[new_pow / 64] ^= src << (vec[w] % 64);
+    out[new_pow / 64 + 1] ^= src >> (64 - vec[w] % 64);
   }
 }
 
 void QuasiCyclic::encode_sparse(Mat &out, uint64_t *sparsePos, int weight) {
   out.resize({mIn / BLOCK_BITS});
   out.clear();
-  uint64_t nThread = mOut / 64 + 1;
+
+  uint64_t nThread = mOut / 64;
   uint64_t block = std::min(1024UL, nThread);
   uint64_t grid = (nThread + block - 1) / block;
-  cyclic_mat_vec_prod<<<grid, block>>>(
-    (uint64_t*)a64.data(), sparsePos, weight, (uint64_t*)out.data(), mOut, nThread
-  );
+  uint64_t *a64 = (uint64_t *)a.data();
+  uint64_t *out64 = (uint64_t *)out.data();
+  choice_vec_prod<<<grid, block>>>(a64, sparsePos, weight, out64);
   out.modp(mOut / BLOCK_BITS);
   out.resize({mOut / BLOCK_BITS});
 }

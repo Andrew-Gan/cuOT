@@ -5,13 +5,6 @@
 #include "utilsBox.h"
 #include "gpu_tests.h"
 
-#define Nb 4
-#define Nk 4
-#define KEYSIZE_BITS 128
-
-// state - array holding the intermediate results during decryption.
-typedef uint8_t state_t[4][4];
-
 __constant__ uint8_t keyLeft[11*AES_KEYLEN];
 __constant__ uint8_t keyRight[11*AES_KEYLEN];
 
@@ -30,19 +23,33 @@ Aes::Aes(void *leftUnexpSeed, void *rightUnexpSeed) {
 }
 
 void Aes::encrypt(Mat &data) {
-  uint64_t grid = (data.size() + AES_BSIZE - 1) / AES_BSIZE;
-  aesEncrypt128<<<grid, AES_BSIZE>>>((uint32_t*)keyL, (uint32_t*)data.data());
-  cudaDeviceSynchronize();
+#ifdef USE_IMPROVED_AES
+  uint64_t grid = (data.size() + 511) / 512;
+  aesEncrypt<<<grid, 512>>>((uint32_t*)keyL, (uint32_t*)data.data());
+#else
+  uint64_t grid = (4 * data.size() + 255) / 256;
+  aesEncrypt<<<grid, 256>>>((uint32_t*)keyL, (uint32_t*)data.data());
+#endif
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess)
+    printf("%s\n", cudaGetErrorString(err));
 }
 
-void Aes::expand(Mat &interleaved_in, Mat &interleaved_out, Mat &separated, uint64_t inWidth) {
-  if (!hasBothKeys) {
+void Aes::expand(Mat &mixed_in, Mat &mixed_out, Mat &sep, uint64_t inWidth) {
+  if (!hasBothKeys)
     throw std::runtime_error("Aes initialised with only one key");
-  }
-  dim3 grid((inWidth+AES_BSIZE-1) / AES_BSIZE, 2);
-  aesExpand128<<<grid, AES_BSIZE>>>(keyL, keyR, interleaved_in.data(),
-    interleaved_out.data(), separated.data(), inWidth);\
-  cudaDeviceSynchronize();
+
+#ifdef USE_IMPROVED_AES
+  dim3 grid((inWidth + 511) / 512, 2);
+  aesExpand<<<grid, 512>>>(keyL, keyR, mixed_in.data(), mixed_out.data(), sep.data(), inWidth);
+#else
+  uint64_t grid = (4 * inWidth + 255) / 256;
+  aesExpand<<<grid, 256>>>(keyL, mixed_in.data(), mixed_out.data(), sep.data(), inWidth, 0);
+  aesExpand<<<grid, 256>>>(keyR, mixed_in.data(), mixed_out.data(), sep.data(), inWidth, 1);
+#endif
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess)
+    printf("%s\n", cudaGetErrorString(err));
 }
 
 uint32_t myXor(uint32_t num1, uint32_t num2) {

@@ -4,23 +4,22 @@
 #include "gpu_tests.h"
 #include "gpu_ops.h"
 
-int check_cuda() {
+int check_cuda(int minGPU) {
 	int deviceCount = 0;
 	cudaGetDeviceCount(&deviceCount);
+	if (deviceCount < minGPU) {
+		char buffer[50];
+		sprintf(buffer, "Required %d GPUs, found %d GPUs\n", minGPU, deviceCount);
+		throw std::runtime_error(buffer);
+	}
 
-	bool foundDev = false;
-	int dev;
 	std::cout << "Found following devices" << std::endl;
-	for (dev = 0; dev < deviceCount; dev++) {
+	for (int dev = 0; dev < minGPU; dev++) {
 		cudaDeviceProp deviceProp;
 		cudaGetDeviceProperties(&deviceProp, dev);
-		if (deviceProp.major >= 1) {
+		if (deviceProp.major >= 1)
 			std::cout << dev << ": " << deviceProp.name << std::endl;
-			foundDev = true;
-		}
 	}
-	if (!foundDev)
-		std::cerr << "There is no device supporting CUDA" << std::endl;
 	return deviceCount;
 }
 

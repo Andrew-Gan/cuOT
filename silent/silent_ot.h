@@ -9,6 +9,11 @@
 #include "pprf.h"
 #include "quasi_cyclic.h"
 
+// optimization options
+#define USE_CUFFT_FOR_POLYMUL
+#define USE_IMPROVED_COMPLEX_PROD
+#define USE_TYPE_CONVERT_AND_MOD
+
 class SOTSender;
 class SOTRecver;
 
@@ -40,14 +45,20 @@ public:
     numLeaves = pow(2, mDepth);
   }
   virtual ~SOT() {}
+  void generate() {
+    base_ot();
+    seed_exp();
+    dual_lpn();
+  }
   virtual void base_ot() = 0;
-  virtual void seed_expand() = 0;
+  virtual void seed_exp() = 0;
   virtual void dual_lpn() = 0;
 
 protected:
   // pprf expansion
-  Mat separated;
+  Mat *sep;
   Mat *buffer;
+  int mGPU;
 };
 
 class SOTSender : public SOT {
@@ -59,7 +70,7 @@ public:
   SOTSender(SilentConfig config);
   virtual ~SOTSender();
   virtual void base_ot();
-  virtual void seed_expand();
+  virtual void seed_exp();
   virtual void dual_lpn();
 };
 
@@ -77,7 +88,7 @@ public:
   virtual ~SOTRecver();
   virtual void base_ot();
   virtual void get_punc_key();
-  virtual void seed_expand();
+  virtual void seed_exp();
   virtual void dual_lpn();
 
 private:

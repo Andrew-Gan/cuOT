@@ -1,19 +1,19 @@
 #ifndef __UTIL_H__
 #define __UTIL_H__
 
-#include <cstdint>
+// optimization options
+#define USE_IMPROVED_AES
+#define USE_COALESCED_TREE_EXPANSION
+#define USE_COALESCED_NODE_SUMMATION
+#define USE_IMPROVED_BIT_TRANSPOSE
 
-#define AES_BSIZE 512
-#define AES_KEYLEN 16
-#define AES_PADDING (AES_BSIZE / 4 * 16)
+#include <cstdint>
 
 enum Role { Sender, Recver };
 
-struct OTblock {
+struct blk {
   uint32_t data[4];
 };
-
-using blk = OTblock;
 
 #define BLOCK_BITS (8 * sizeof(blk))
 

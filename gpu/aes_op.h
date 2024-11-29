@@ -3,20 +3,17 @@
 
 #include "gpu_define.h"
 
-#define T_TABLE_SIZE 256
-#define AES_BLOCK_SIZE 16
-#define AES_NUM_ROUNDS 10
-#define AES_RK_SIZE (AES_BLOCK_SIZE * (AES_NUM_ROUNDS+1))
-#define GPU_SHARED_MEM_BANK 32
-
 __global__
-void aesEncrypt128(uint32_t* rk, uint32_t* data);
+void aesEncrypt(uint32_t *rk, uint32_t *data);
 
+#ifdef USE_IMPROVED_AES
 __global__
-void aesDecrypt128(uint32_t *key, uint32_t *data);
-
+void aesExpand(uint32_t *rkLeft, uint32_t *rkRight, blk *mixed_in,
+	blk *mixed_out, blk *separated, uint64_t width);
+#else
 __global__
-void aesExpand128(uint32_t *keyLeft, uint32_t *keyRight, blk *interleaved_in,
-	blk *interleaved_out, blk *separated, uint64_t width);
+void aesExpand(uint32_t *rk, blk *mixed_in, blk *mixed_out,
+	blk *separated, uint64_t width, int expandDir);
+#endif // USE_IMPROVED_AES
 
-#endif
+#endif // __AESENCRYPT_H__
