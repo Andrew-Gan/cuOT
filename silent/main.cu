@@ -7,7 +7,7 @@
 #include "silent_ot.h"
 #include "gpu_tests.h"
 
-#define SAMPLE_SIZE 16
+#define SAMPLE_SIZE 8
 
 using namespace std;
 

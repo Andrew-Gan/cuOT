@@ -1,10 +1,11 @@
 #include "silent_ot.h"
 #include <future>
 
-#include "logger.h"
-#include "gpu_define.h"
-#include "gpu_ops.h"
 #include <cryptoTools/Crypto/RandomOracle.h>
+#include "logger.h"
+#include "gpu_tests.h"
+#include "gpu_ops.h"
+#include "gpu_define.h"
 
 blk* SOTSender::m0_h = nullptr;
 blk* SOTSender::m1_h = nullptr;
@@ -12,7 +13,7 @@ std::array<std::atomic<SOTSender*>, 16> SOTSenders;
 
 SOTSender::SOTSender(SilentConfig config) : SOT(config) {
   mRole = Sender;
-  mGPU = mConfig.id+4;
+  mGPU = mConfig.id;
   blk seed_h, delta_h;
   cudaSetDevice(mGPU);
   SOTSenders[mConfig.id] = this;
@@ -61,8 +62,7 @@ SOTSender::SOTSender(SilentConfig config) : SOT(config) {
     SOTSender::m1_h = new blk[(mDepth+1) * mConfig.nTree];
   }
 
-  cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) printf("SOTSender::SOTSender %s\n", cudaGetErrorString(err));
+  CHECK_CUDA("SOTSender::SOTSender")
 }
 
 SOTSender::~SOTSender() {
@@ -150,8 +150,7 @@ void SOTSender::seed_exp() {
 
   fullVector = output;
   buffer = input;
-  cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) printf("SOTSender::seed_exp %s\n", cudaGetErrorString(err));
+  CHECK_CUDA("SOTSender::seed_exp")
 }
 
 void SOTSender::dual_lpn() {
@@ -160,6 +159,5 @@ void SOTSender::dual_lpn() {
   fullVector->bit_transpose(mConfig.id*rowsPerGPU, (mConfig.id+1)*rowsPerGPU);
   lpn->encode_dense(*fullVector);
   fullVector->bit_transpose();
-  cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) printf("SOTSender::dual_lpn %s\n", cudaGetErrorString(err));
+  CHECK_CUDA("SOTSender::dual_lpn")
 }

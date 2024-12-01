@@ -3,6 +3,9 @@
 
 #include "gpu_matrix.h"
 
+#define CHECK_CUDA(fn) {cudaError_t err = cudaDeviceSynchronize(); \
+  if (err != cudaSuccess) { std::cerr << fn << ": " << cudaGetErrorString(err); }}
+
 int check_cuda(int minGPU);
 void check_alloc(void *ptr);
 void check_free_mem();

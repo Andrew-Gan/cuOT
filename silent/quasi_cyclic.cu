@@ -36,8 +36,7 @@ __global__ void float_to_bit_and_modp(cufftReal *fftReal, uint8_t *bitPoly, uint
   uint64_t offset = row * n + 8 * col;
   uint8_t res = 0;
   for (int i = 0; i < n / mOut; i++) {
-    for (int j = 0; j < 8; j++)
-    {
+    for (int j = 0; j < 8; j++) {
       // divide float by FFT size to obtain true result
       if ((uint64_t)fftReal[offset + (i * mOut) + j] & n)
         res ^= 1UL << j;

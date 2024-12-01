@@ -89,36 +89,75 @@ bool GPUdata::operator!=(const GPUdata &rhs) {
   return !(*this == rhs);
 }
 
-void GPUdata::resize(uint64_t size) {
+bool GPUdata::resize(uint64_t size) {
+  bool newMemAlloc = false;
   cudaGetDevice(&mDevice);
+
   if (size == mNBytes)
-    return;
+    return newMemAlloc;
+
   if (size == 0) {
     cudaFree(mPtr);
+    mNBytes = mAllocated = size;
+    return newMemAlloc;
+  }
+
+  if (mAllocated != 0 && size > mAllocated) {
+    cudaFree(mPtr);
+  }
+
+  if (size > mAllocated) {
+    cudaError_t err = cudaMalloc(&mPtr, size);
+    newMemAlloc = true;
+    if (err != cudaSuccess) {
+      throw std::runtime_error(cudaGetErrorString(err));
+    }
     mAllocated = size;
   }
 
-  if (mAllocated == 0) {
-    cudaError_t err = cudaMalloc(&mPtr, size);
-    if (err != cudaSuccess) {
-      throw std::runtime_error(cudaGetErrorString(err));
-    }
-    mAllocated = size;
-  }
-  else if (size > mAllocated) {
-    cudaFree(mPtr);
-    cudaError_t err = cudaMalloc(&mPtr, size);
-    if (err != cudaSuccess) {
-      throw std::runtime_error(cudaGetErrorString(err));
-    }
-    mAllocated = size;
-  }
   mNBytes = size;
+  return newMemAlloc;
 }
 
-void GPUdata::load(const void *data, uint64_t size) {
+void GPUdata::read_from_cpu(const void *data, uint64_t size) {
   uint64_t cpy = size == 0 ? mNBytes : size;
-  cudaMemcpy(mPtr, data, cpy, cudaMemcpyDeviceToDevice);
+  cudaError_t err = cudaMemcpy(mPtr, (uint8_t*)data, cpy, cudaMemcpyHostToDevice);
+  if (err != cudaSuccess) {
+    std::cerr << "read_from_cpu: " << cudaGetErrorString(err) << std::endl;
+  }
+}
+
+void GPUdata::write_to_cpu(void *data, uint64_t size, uint64_t start) {
+  uint64_t cpy = size == 0 ? mNBytes : size;
+  cudaError_t err = cudaMemcpy(data, mPtr+start, cpy, cudaMemcpyDeviceToHost);
+  if (err != cudaSuccess) {
+    std::cerr << "write_to_cpu: " << cudaGetErrorString(err) << std::endl;
+  }
+}
+
+void GPUdata::read_from_gpu(const void *data, uint64_t size, int gpu) {
+  uint64_t cpy = size == 0 ? mNBytes : size;
+  cudaError_t err;
+  if (gpu == -1 || gpu == mDevice)
+    err = cudaMemcpy(mPtr, (uint8_t*)data, cpy, cudaMemcpyDeviceToDevice);
+  else
+    err = cudaMemcpyPeer(mPtr, mDevice, (uint8_t*)data, gpu, cpy);
+
+  if (err != cudaSuccess) {
+    std::cerr << "read_from_gpu: " << cudaGetErrorString(err) << std::endl;
+  }
+}
+
+void GPUdata::write_to_gpu(void *data, uint64_t size, uint64_t start, int gpu) {
+  uint64_t cpy = size == 0 ? mNBytes : size;
+  cudaError_t err;
+  if (gpu == -1 || gpu == mDevice)
+    err = cudaMemcpy((uint8_t*)data, mPtr+start, cpy, cudaMemcpyDeviceToDevice);
+  else
+    err = cudaMemcpyPeer((uint8_t*)data, gpu, mPtr+start, mDevice, cpy);
+  if (err != cudaSuccess) {
+    std::cerr << "write_to_gpu: " << cudaGetErrorString(err) << std::endl;
+  }
 }
 
 void GPUdata::load(const char *filename) {
@@ -147,6 +186,12 @@ void GPUdata::xor_d(GPUdata &rhs) {
   uint64_t min = std::min(mNBytes, rhs.size_bytes());
   uint64_t nBlock = (min + 1023) / 1024;
   gpu_xor<<<nBlock, 1024>>>(mPtr, rhs.data(), min);
+}
+
+void GPUdata::get_mem_handle(uint8_t *handleBytes) {
+	cudaIpcMemHandle_t handle;
+	cudaIpcGetMemHandle(&handle, mPtr);
+  memcpy(handleBytes, &handle, sizeof(handle));
 }
 
 std::ostream& operator<<(std::ostream &os, GPUdata &obj) {

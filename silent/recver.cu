@@ -2,6 +2,7 @@
 #include <future>
 
 #include "logger.h"
+#include "gpu_tests.h"
 #include "gpu_define.h"
 #include "gpu_ops.h"
 #include <cryptoTools/Crypto/RandomOracle.h>
@@ -11,7 +12,7 @@ std::array<std::atomic<SOTRecver*>, 16> SOTRecvers;
 
 SOTRecver::SOTRecver(SilentConfig config) : SOT(config) {
   mRole = Recver;
-  mGPU = mConfig.gpuPerParty + mConfig.id + 4;
+  mGPU = mConfig.gpuPerParty + mConfig.id;
   cudaSetDevice(mGPU);
   SOTRecvers[mConfig.id] = this;
   if(SOTSenders[mConfig.id] == nullptr)
@@ -52,8 +53,7 @@ SOTRecver::SOTRecver(SilentConfig config) : SOT(config) {
   if (mConfig.id == 0)
     SOTRecver::mc_h = new blk[mDepth * mConfig.nTree];
 
-  cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) printf("SOTRecver::SOTRecver %s\n", cudaGetErrorString(err));
+  CHECK_CUDA("SOTRecver::SOTRecver")
 }
 
 SOTRecver::~SOTRecver() {
@@ -111,7 +111,7 @@ void SOTRecver::get_choice_vector() {
   cudaMemcpy(choices_d, mConfig.choices, mDepth * sizeof(*choices_d), cudaMemcpyHostToDevice);
   choice_bits_to_pos<<<1, mConfig.nTree>>>(puncPos, choices_d, mDepth);
   cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) printf("SOTRecver::get_choice_vector %s\n", cudaGetErrorString(err));
+  CHECK_CUDA("SOTRecver::get_choice_vector")
   cudaFree(choices_d);
 }
 
@@ -196,7 +196,7 @@ void SOTRecver::seed_exp() {
   puncVector = output;
   buffer = input;
   cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) printf("SOTRecver::seed_exp %s\n", cudaGetErrorString(err));
+  CHECK_CUDA("SOTRecver::seed_exp")
 }
 
 void SOTRecver::dual_lpn() {
@@ -207,5 +207,5 @@ void SOTRecver::dual_lpn() {
   puncVector->bit_transpose();
   lpn->encode_sparse(choiceVector, puncPos, mConfig.nTree);
   cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) printf("SOTRecver::dual_lpn %s\n", cudaGetErrorString(err));
+  CHECK_CUDA("SOTRecver::dual_lpn")
 }

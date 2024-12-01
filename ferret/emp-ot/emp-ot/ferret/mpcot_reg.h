@@ -15,16 +15,17 @@ using std::future;
 template<typename IO>
 class MpcotReg {
 public:
-	int party, ngpu;
-	int item_n, idx_max, m;
+	int party;
+	int ngpu;
+	int item_n, idx_max, m, tPerGPU;
 	int tree_height, leave_n;
-	int *tree_n;
+	int tree_n;
 	int consist_check_cot_num;
 	bool is_malicious;
-
+	ThreadPool *pool;
 	PRG prg;
 	IO *netio;
-	IO *io;
+	IO **ios;
 	block Delta_f2k;
 	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
 
@@ -35,30 +36,29 @@ public:
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
 
-	MpcotReg(int party, int ngpu, int n, int *t, int log_bin_sz, IO *io) {
+	MpcotReg(int party, int ngpu, int n, int t, int log_bin_sz, ThreadPool *pool, IO **ios) {
 		this->party = party;
 		this->ngpu = ngpu;
-		this->io = netio = io;
+		netio = ios[0];
+		this->ios = ios;
 		consist_check_cot_num = 128;
-
+		this->pool = pool;
 		this->is_malicious = false;
 
-		this->item_n = 0;
-		for (int i = 0; i < ngpu; i++) {
-			this->item_n += t[i];
-		}
+		this->item_n = t;
 		this->idx_max = n;
 		this->tree_height = log_bin_sz+1;
 		this->leave_n = 1<<(this->tree_height-1);
-		this->tree_n = t;
+		this->tree_n = this->item_n;
+		this->tPerGPU = (t + (ngpu - 1)) / ngpu;
 
 		buffer = new Mat[ngpu];
 		separated = new Mat[ngpu];
-		for (int gpu = 0; gpu < ngpu; gpu++) {
-			cuda_setdev(gpu);
-			buffer[gpu].resize({t[gpu] * (1UL << log_bin_sz)});
-			separated[gpu].resize({t[gpu] * (1UL << log_bin_sz)});
-		}
+
+		GPU_PARALLEL_FOR(
+			buffer[i].resize({tPerGPU * (1UL << log_bin_sz)});
+			separated[i].resize({tPerGPU * (1UL << log_bin_sz)});
+		)
 	}
 
 	virtual ~MpcotReg() {
@@ -79,29 +79,27 @@ public:
 	}
 
 	// MPFSS F_2k
-	void mpcot(Mat *outputs, OTPre<IO> * ot, block *pre_cot_data) {
-		if(party == BOB) consist_check_chi_alpha = new block[item_n];
+	void mpcot(Mat *sparse_vector, OTPre<IO> *ot, Mat *pre_cot_data) {
+		// if(party == BOB) consist_check_chi_alpha = new block[item_n];
 		// consist_check_VW = new block[item_n];
-
-		// vector<SPCOT_Sender<IO>*> senders;
-		// vector<SPCOT_Recver<IO>*> recvers;
 
 		if(party == ALICE) {
 			mpcot_init_sender(ot);
-			exec_parallel_sender(ot, outputs);
+			exec_parallel_sender(ot, sparse_vector);
 		} else {
-			bool *choice = new bool[item_n * (tree_height-1)];
+			bool *choice = new bool[tPerGPU * ngpu * (tree_height-1)];
 			mpcot_init_recver(choice, ot);
-			exec_parallel_recver(ot, outputs, choice);
+			exec_parallel_recver(ot, sparse_vector, choice);
+			delete[] choice;
 		}
 
-		if(is_malicious)
-			consistency_check_f2k(pre_cot_data, item_n);
+		// if(is_malicious)
+		// 	consistency_check_f2k(pre_cot_data, item_n);
 
 		// for (auto p : senders) delete p;
 		// for (auto p : recvers) delete p;
 
-		if(party == BOB) delete[] consist_check_chi_alpha;
+		// if(party == BOB) delete[] consist_check_chi_alpha;
 		// delete[] consist_check_VW;
 	}
 
@@ -127,50 +125,44 @@ public:
 		ot->reset();
 	}
 
-	void exec_parallel_sender(OTPre<IO> *ot, Mat *outputs) {
-		block *m0 = new block[item_n*(tree_height-1)];
-		block *m1 = new block[item_n*(tree_height-1)];
-		block *secret_sum = new block[item_n];
-
-		cuda_mpcot_sender(outputs, buffer, separated, (blk*)m0, (blk*)m1,
-			(blk*)secret_sum, tree_n, tree_height-1, (blk*)&Delta_f2k, ngpu);
-
-		for (int t = 0; t < item_n; t++) {
-			ot->send(m0+t*(tree_height-1), m1+t*(tree_height-1), tree_height-1, io, t);
-		}
-		io->send_data(secret_sum, item_n * sizeof(block));
-		delete[] m0;
-		delete[] m1;
+	void exec_parallel_sender(OTPre<IO> *ot, Mat *sparse_vector) {
+		blk *delta = (blk*)&Delta_f2k;
+		vector<future<void>> fut;
+		GPU_PARALLEL_FOR(
+			blk *m0 = new blk[tPerGPU*(tree_height-1)];
+			blk *m1 = new blk[tPerGPU*(tree_height-1)];
+			blk *secret = new blk[tPerGPU];
+			cuda_mpcot_sender(sparse_vector[i], buffer[i], separated[i],
+				m0, m1, secret, tPerGPU, tree_height-1, delta);
+			for (int t = 0; t < tPerGPU; t++) {
+				block *lSum = (block*)m0 + t * (tree_height-1);
+				block *rSum = (block*)m1 + t * (tree_height-1);
+				ot->send(lSum, rSum, tree_height-1, ios[i], i * tPerGPU + t);
+			}
+			ios[i]->send_data(secret, tPerGPU * sizeof(blk));
+			ios[i]->flush();
+			delete[] m0;
+			delete[] m1;
+			delete[] secret;
+		)
 	}
 
-	void exec_parallel_recver(OTPre<IO> *ot, Mat *outputs, bool *choice) {
-		block *mc = new block[item_n*(tree_height-1)];
-		block *secret_sum = new block[item_n];
-
-		for (int t = 0; t < item_n; t++) {
-			ot->recv(mc+t*(tree_height-1), choice+t*(tree_height-1), tree_height-1, io, t);
-		}
-		io->recv_data(secret_sum, item_n * sizeof(block));
-		cuda_mpcot_recver(outputs, buffer, separated, (blk*)mc, (blk*)secret_sum,
-			tree_n, tree_height-1, choice, ngpu);
-		delete[] mc;
-	}
-
-	void exec_f2k_sender(SPCOT_Sender<IO> *sender, OTPre<IO> *ot, 
-			block *ggm_tree_mem, IO *io, int i) {
-		sender->compute(ggm_tree_mem, Delta_f2k);
-		sender->template send_f2k<OTPre<IO>>(ot, io, i);
-		io->flush();
-		if(is_malicious)
-			sender->consistency_check_msg_gen(consist_check_VW+i);
-	}
-
-	void exec_f2k_recver(SPCOT_Recver<IO> *recver, OTPre<IO> *ot,
-			block *ggm_tree_mem, IO *io, int i) {
-		recver->template recv_f2k<OTPre<IO>>(ot, io, i);
-		recver->compute(ggm_tree_mem);
-		if(is_malicious) 
-			recver->consistency_check_msg_gen(consist_check_chi_alpha+i, consist_check_VW+i);
+	void exec_parallel_recver(OTPre<IO> *ot, Mat *sparse_vector, bool *choice) {
+		vector<future<void>> fut;
+		GPU_PARALLEL_FOR(
+			blk *mc = new blk[tPerGPU*(tree_height-1)];
+			blk *secret = new blk[tPerGPU];
+			for (int t = 0; t < tPerGPU; t++) {
+				block *cSum = (block*)mc + t * (tree_height-1);
+				bool *c = &choice[(i * tPerGPU + t) * (tree_height-1)];
+				ot->recv(cSum, c, tree_height-1, ios[i], i * tPerGPU + t);
+			}
+			ios[i]->recv_data(secret, tPerGPU * sizeof(blk));
+			cuda_mpcot_recver(sparse_vector[i], buffer[i], separated[i],
+				mc, secret, tPerGPU, tree_height-1, choice);
+			delete[] mc;
+			delete[] secret;
+		)
 	}
 
 	// f2k consistency check

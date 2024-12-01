@@ -84,8 +84,7 @@ void _unpack_choice_bits(blk *out, uint64_t *choice, blk *delta) {
 }
 
 bool check_cot(Mat &full, Mat &punc, Mat &choice, blk *delta) {
-	Mat left({1, full.dim(0)});
-	left.load(full.data());
+	Mat left(full);
 	left ^= punc;
 	Mat right({8*choice.size_bytes()});
 	right.clear();

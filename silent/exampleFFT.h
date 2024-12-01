@@ -95,7 +95,7 @@ void preprocess(uint64_t* b, float2 *f) {
     uint64_t bit = 8 * byte;
     uint64_t src = b[byte];
     for (int b = bit; b < bit + 8; b++) {
-        f[b].x = (__half)(src & 0b1);
+        f[b].x = (float)(src & 0b1);
         f[b].y = 0;
         src >>= 1;
     }

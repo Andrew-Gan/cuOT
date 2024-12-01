@@ -78,7 +78,7 @@ class SOTRecver : public SOT {
 public:
   Mat *puncVector;
   Mat choiceVector;
-  uint64_t *puncPos;
+  uint64_t *puncPos = nullptr;
   SOTSender *other = nullptr;
   static blk *mc_h;
   Mat mc;

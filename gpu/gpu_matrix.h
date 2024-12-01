@@ -18,7 +18,7 @@ public:
   blk* data(std::vector<uint64_t> pos) const;
   void set(blk &val, std::vector<uint64_t> pos);
   void resize(std::vector<uint64_t> newDim);
-  void xor_scalar(blk *rhs);
+  void xor_scalar(blk *rhs, uint64_t numBlock);
   uint64_t size() const { return listToSize(mDim); }
   void sum(uint64_t nPartition, uint64_t blkPerPart);
   void xor_d(Mat &rhs, uint64_t offs = 0);

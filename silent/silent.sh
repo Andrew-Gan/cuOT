@@ -1,7 +1,7 @@
 #!/bin/bash
 
 EXE=./ot
-LOGOT=24
+LOGOT=25
 TREE=8
 NGPU=1
 

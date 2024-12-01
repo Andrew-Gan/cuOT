@@ -16,12 +16,16 @@ public:
   bool operator!=(const GPUdata &rhs);
   uint8_t* data() const { return mPtr; }
   uint64_t size_bytes() const { return mNBytes; }
-  void resize(uint64_t size);
-  void load(const void *data, uint64_t size = 0);
+  bool resize(uint64_t size);
+  void read_from_cpu(const void *data, uint64_t size = 0);
+  void write_to_cpu(void *data, uint64_t size = 0, uint64_t start = 0);
+  void read_from_gpu(const void *data, uint64_t size = 0, int gpu = -1);
+  void write_to_gpu(void *data, uint64_t size = 0, uint64_t start = 0, int gpu = -1);
   void load(const char *filename);
   void save(const char *filename);
   void clear();
   void xor_d(GPUdata &rhs);
+  void get_mem_handle(uint8_t *handleBytes);
 
 protected:
   int mDevice = 0;

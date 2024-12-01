@@ -213,10 +213,12 @@ void Mat::modp(uint64_t reducedCol) {
   resize(newDim);
 }
 
-void Mat::xor_scalar(blk *rhs) {
-  uint64_t nBlock = (mNBytes + 1023) / 1024;
-  xor_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), mNBytes);
+void Mat::xor_scalar(blk *rhs, uint64_t numBlock) {
+  uint64_t bytesToXor = numBlock == 0 ? mNBytes : 16 * numBlock;
+  uint64_t nBlock = (bytesToXor + 1023) / 1024;
+  xor_single<<<nBlock, 1024>>>(mPtr, (uint8_t*) rhs, sizeof(blk), bytesToXor);
 }
+
 #ifdef USE_COALESCED_NODE_SUMMATION
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
 __device__

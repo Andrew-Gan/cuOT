@@ -4,8 +4,10 @@
 #include "emp-ot/ferret/base_cot.h"
 #include "emp-ot/ferret/lpn_f2.h"
 #include "emp-ot/ferret/constants.h"
-
 #include "logger.h"
+
+#include <chrono>
+using namespace std::chrono;
 
 namespace emp {
 
@@ -23,16 +25,14 @@ public:
 
 	PrimalLPNParameter param;
 	int64_t ot_used, ot_limit;
-	int *treePerGPU;
-	int64_t *rowPerGPU;
+	uint64_t compTime = 0, onlineTime = 0, h2dTime = 0;
+	uint64_t numOT = 0;
 
-	FerretCOT(int party, int ngpu, T **ios, bool malicious = false, bool run_setup = true, 
-PrimalLPNParameter param = ferret_b13, std::string pre_file="");
-	
+	FerretCOT(int mlParty, int otParty, int ngpu, T **ios, bool malicious = false,
+		bool run_setup = true, PrimalLPNParameter param = ferret_b13,
+		std::string pre_file="", std::string log_file="");
 
 	~FerretCOT();
-
-	void gpu_task_division(int *treePerGPU, int64_t *rowPerGPU, int t, int n);
 
 	void setup(block Deltain, std::string pre_file = "");
 
@@ -43,8 +43,9 @@ PrimalLPNParameter param = ferret_b13, std::string pre_file="");
 	void recv_cot(block* data, const bool * b, int64_t length) override;
 
 	void rcot(block *data, int64_t num);
+	void rcot(Mat *data, int64_t num);
 
-	int64_t rcot_inplace(block *ot_buffer, int64_t length);
+	// int64_t rcot_inplace(block *ot_buffer, int64_t length);
 
 	int64_t byte_memory_need_inplace(int64_t ot_need);
 
@@ -57,25 +58,37 @@ private:
 	block ch[2];
 
 	T **ios;
-	int party, ngpu;
+	int party;
+	Log *logger = nullptr;
 	int64_t M;
 	bool is_malicious;
 	bool extend_initialized;
 
-	Mat *expSeed;
+	int tPerGPU;
+	int nPerGPU;
+
+	time_point<high_resolution_clock> startTime;
 
 	block one;
 
-	block * ot_pre_data = nullptr;
-	block * ot_data = nullptr;
+	int ngpu;
+	// multi gpu
+	Mat *ch_d;
+	Mat *ot_output;
+	Mat *ot_data;
+	Mat *ot_pre_data;
+	GPUdata *bo, *b_d;
+	Mat *length_data;
 
 	std::string pre_ot_filename;
 
 	BaseCot<T> *base_cot = nullptr;
 	OTPre<T> *pre_ot = nullptr;
+	ThreadPool *pool = nullptr;
 	MpcotReg<T> *mpcot = nullptr;
 	LpnF2<T, 10> *lpn_f2 = nullptr;
 
+	void **bo_other = nullptr;
 	
 	void online_sender(block *data, int64_t length);
 
@@ -87,8 +100,8 @@ private:
 
 	void extend_initialization();
 
-	void extend(block* ot_output, MpcotReg<T> *mpfss, OTPre<T> *preot, 
-			LpnF2<T, 10> *lpn, block *ot_input);
+	void extend(MpcotReg<T> *mpfss, OTPre<T> *preot, 
+			LpnF2<T, 10> *lpn, Mat *ot_input);
 
 	void extend_f2k(block *ot_buffer);
 
