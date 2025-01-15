@@ -49,12 +49,6 @@ void check_alloc(void *ptr) {
 	cudaSetDevice(dev);
 }
 
-void check_free_mem() {
-  size_t free, total;
-	cudaMemGetInfo(&free, &total);
-  std::cout << "remaining memory: " << free << "/" << total << std::endl;
-}
-
 bool check_rot(Mat &m0, Mat &m1, Mat &mc, uint64_t c) {
 	int numTree = mc.size();
 	blk *b0 = new blk[numTree], *b1 = new blk[numTree], *bc = new blk[numTree];

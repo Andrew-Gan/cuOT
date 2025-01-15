@@ -13,3 +13,4 @@ ferret/emp-ot/cmake_install.cmake
 ferret/emp-ot/CMakeCache.txt
 ferret/emp-ot/CTestTestfile.cmake
 ferret/emp-ot/install_manifest.txt
+plots/*.pdf
