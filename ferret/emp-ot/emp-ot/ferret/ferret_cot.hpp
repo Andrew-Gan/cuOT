@@ -98,7 +98,7 @@ void FerretCOT<T>::extend_initialization() {
 	mpcot = new MpcotReg<T>(party, ngpu, param.n, param.t, param.log_bin_sz, pool, ios);
 	if(is_malicious) mpcot->set_malicious();
 
-	pre_ot = new OTPre<T>(io, mpcot->tree_height-1, tPerGPU * ngpu);
+	pre_ot = new OTPre<T>(io, mpcot->tree_height-1, param.t);
 	M = param.k + pre_ot->n + mpcot->consist_check_cot_num;
 	ot_limit = param.n - M;
 	ot_used = ot_limit;
@@ -193,7 +193,7 @@ void FerretCOT<T>::setup(std::string pre_file) {
 
 		MpcotReg<T> mpcot_ini(party, ngpu, param.n_pre, param.t_pre, param.log_bin_sz_pre, pool, ios);
 		if(is_malicious) mpcot_ini.set_malicious();
-		OTPre<T> pre_ot_ini(io, mpcot_ini.tree_height-1, tPerGPU * ngpu);
+		OTPre<T> pre_ot_ini(io, mpcot_ini.tree_height-1, param.t_pre);
 		LpnF2<T, 10> lpn(party, param.n_pre, param.k_pre, ios[0], pool, ngpu);
 
 		block *pre_data_ini = new block[param.k_pre+mpcot_ini.consist_check_cot_num];

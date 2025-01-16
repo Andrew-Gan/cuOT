@@ -128,7 +128,7 @@ void fill_tree(blk *leftSum, blk *rightSum, uint64_t outWidth, uint64_t *activeP
   blk val = layer[fillIndex];
   uint64_t puncOffset = (finalLayer ? 1-c : c) * numTree + t;
   for (int i = 0; i < 4; i++)
-    val.data[i] ^= fullSum[t].data[i] ^ puncSum[puncOffset].data[i];
+    val.data_32[i] ^= fullSum[t].data_32[i] ^ puncSum[puncOffset].data_32[i];
   layer[fillIndex] = val;
   if (!finalLayer)
     activeParent[t] = 2 * activeParent[t] + (1-c);

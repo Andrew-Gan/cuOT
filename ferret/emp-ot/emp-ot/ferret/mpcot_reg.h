@@ -2,9 +2,6 @@
 #define MPCOT_REG_H__
 
 #include <emp-tool/emp-tool.h>
-#include <set>
-#include "emp-ot/ferret/spcot_sender.h"
-#include "emp-ot/ferret/spcot_recver.h"
 #include "emp-ot/ferret/preot.h"
 
 #include "dev_layer.h"
@@ -87,7 +84,7 @@ public:
 			mpcot_init_sender(ot);
 			exec_parallel_sender(ot, sparse_vector);
 		} else {
-			bool *choice = new bool[tPerGPU * ngpu * (tree_height-1)];
+			bool *choice = new bool[item_n * (tree_height-1)];
 			mpcot_init_recver(choice, ot);
 			exec_parallel_recver(ot, sparse_vector, choice);
 			delete[] choice;
@@ -113,7 +110,7 @@ public:
 
 	void mpcot_init_recver(bool *choice, OTPre<IO> *ot) {
 		for(int t = 0; t < item_n; ++t) {
-			ot->choices_recver(choice);
+			ot->choices_recver(choice+t*(tree_height-1));
 			item_pos_recver[t] = 0;
 			for(int i = 0; i < tree_height-1; ++i) {
 				item_pos_recver[i] <<= 1;
@@ -139,6 +136,7 @@ public:
 				block *rSum = (block*)m1 + t * (tree_height-1);
 				ot->send(lSum, rSum, tree_height-1, ios[i], i * tPerGPU + t);
 			}
+
 			ios[i]->send_data(secret, tPerGPU * sizeof(blk));
 			ios[i]->flush();
 			delete[] m0;

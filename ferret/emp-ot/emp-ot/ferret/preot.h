@@ -41,6 +41,11 @@ class OTPre { public:
 		ccrh.Hn(pre_data, data, n, pre_data+n);
 		xorBlocks_arr(pre_data+n, data, Delta, n);
 		ccrh.Hn(pre_data+n, pre_data+n, n);
+
+		std::cout << "Sender" << std::endl;
+		for (int i = 0; i < length; i++) {
+			std::cout << pre_data[i] << " : " << pre_data[n+i] << std::endl;
+		}
 	}
 
 	void recv_pre(block * data, bool * b) {
@@ -52,6 +57,11 @@ class OTPre { public:
 		for(int i = 0; i < n; ++i)
 			bits[i] = getLSB(data[i]);
 		ccrh.Hn(pre_data, data, n);
+
+		std::cout << "Recver" << std::endl;
+		for (int i = 0; i < length; i++) {
+			std::cout << bits[i] << " " << pre_data[i] << std::endl;
+		}
 	}
 
 	void choices_sender() {
@@ -71,8 +81,8 @@ class OTPre { public:
 		block pad[2];
 		int k = s*length;
 		for (int i = 0; i < length; ++i) {
-				pad[0] = m0[i] ^ pre_data[k];
-				pad[1] = m1[i] ^ pre_data[k+n];
+			pad[0] = m0[i] ^ pre_data[k];
+			pad[1] = m1[i] ^ pre_data[k+n];
 			++k;
 			io2->send_block(pad, 2);
 		}

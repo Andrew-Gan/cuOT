@@ -199,6 +199,8 @@ void aesExpand(uint32_t *rkLeft, uint32_t *rkRight, blk *mixed_in,
     }
     __syncthreads();
 
+    if (threadID >= inWidth) return;
+
     // Encrypt
     // Initial Step 
     #pragma unroll
@@ -770,7 +772,7 @@ void aesExpand(uint32_t *rk, blk *mixed_in, blk *mixed_out,
 	size_t pairId =  (bx * 256 + tx) / elemPerNode;
 	size_t leavesId = 2 * pairId + expandDir;
 	if (leavesId < width) {
-		mixed_out[leavesId].data[tx % elemPerNode] = stageBlock2[tx].uival;
+		mixed_out[leavesId].data_32[tx % elemPerNode] = stageBlock2[tx].uival;
 	}
     size_t offset = (pairId*sizeof(blk)+4*(tx%elemPerNode)) / sizeof(uint32_t);
     ((uint32_t*)separated)[offset] = stageBlock2[tx].uival;

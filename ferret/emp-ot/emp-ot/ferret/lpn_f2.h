@@ -43,6 +43,7 @@ class LpnF2 { public:
 	}
 
 	void compute(Mat *nn, blk **kk) {
+		std::cout << std::endl;
 		vector<std::future<void>> fut;
 		seed = seed_gen();
 		PRP prp(seed);

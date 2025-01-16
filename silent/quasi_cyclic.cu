@@ -64,7 +64,7 @@ QuasiCyclic::QuasiCyclic(Role role, uint64_t in, uint64_t out, int rows) : mRole
   make_block<<<a.size() / 1024, 1024>>>(a.data());
   blk key;
   for (int i = 0; i < 4; i++)
-    key.data[i] = rand();
+    key.data_32[i] = rand();
   Aes aes(&key);
   aes.encrypt(a);
 
