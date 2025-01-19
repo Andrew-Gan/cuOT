@@ -77,9 +77,6 @@ public:
 
 	// MPFSS F_2k
 	void mpcot(Mat *sparse_vector, OTPre<IO> *ot, Mat *pre_cot_data) {
-		// if(party == BOB) consist_check_chi_alpha = new block[item_n];
-		// consist_check_VW = new block[item_n];
-
 		if(party == ALICE) {
 			mpcot_init_sender(ot);
 			exec_parallel_sender(ot, sparse_vector);
@@ -90,14 +87,18 @@ public:
 			delete[] choice;
 		}
 
-		// if(is_malicious)
-		// 	consistency_check_f2k(pre_cot_data, item_n);
+		if(is_malicious) {
+			if(party == BOB) consist_check_chi_alpha = new block[item_n];
+			consist_check_VW = new block[item_n];
 
-		// for (auto p : senders) delete p;
-		// for (auto p : recvers) delete p;
+			block *tmp = new block[item_n];
+			pre_cot_data[0].write_to_cpu(tmp, item_n * sizeof(*tmp));
+			consistency_check_f2k(tmp, item_n);
+			delete[] tmp;
 
-		// if(party == BOB) delete[] consist_check_chi_alpha;
-		// delete[] consist_check_VW;
+			if(party == BOB) delete[] consist_check_chi_alpha;
+			delete[] consist_check_VW;
+		}
 	}
 
 	void mpcot_init_sender(OTPre<IO> *ot) {

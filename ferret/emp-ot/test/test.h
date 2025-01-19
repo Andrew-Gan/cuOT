@@ -129,7 +129,7 @@ double test_rot(T* ot, NetIO *io, int party, int64_t length) {
 
 template <typename T>
 double test_rcot(T* ot, NetIO *io, int party, int64_t length) {
-	Mat b({(uint64_t)length});
+	// Mat b({(uint64_t)length});
 	PRG prg;
 	io->sync();
 	auto start = clock_start();
@@ -137,12 +137,21 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length) {
 	mem_size = length;
 	// The RCOTs will be generated in the internal buffer
 	// then be copied to the user buffer
-	ot->rcot(&b, length);
+	// ot->rcot(&b, length); //debug
 	long long t = time_from(start);
 	io->sync();
 
 	block *b_h = new block[length];
-	b.write_to_cpu(b_h, b.size_bytes());
+	ot->ot_output->write_to_cpu(b_h, length * sizeof(*b_h));
+	// b.write_to_cpu(b_h, b.size_bytes());
+
+	if (party == 2) io->sync();
+	std::cout << party << std::endl;
+	for (int i = 0; i < 128; i++) {
+		std::cout << getLSB(b_h[i]) << ":" << b_h[i] << " ";
+	}
+	std::cout << std::endl;
+	if (party == 1) io->sync();
 
 	if (party == ALICE) {
 		io->send_block(&ot->Delta, 1);
@@ -161,9 +170,9 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length) {
 			std::cerr << "RCOT failed" << std::endl;
 			return 0;
 		}
+		std::cout << "Tests passed.\t";
 		delete[] b0;
 	}
-	std::cout << "Tests passed.\t";
 	
 	delete[] b_h;
 	return t;

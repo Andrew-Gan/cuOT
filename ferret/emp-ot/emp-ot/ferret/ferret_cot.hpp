@@ -10,7 +10,7 @@
 template<typename T>
 FerretCOT<T>::FerretCOT(int mlParty, int otParty, int ngpu, T **ios,
 	bool malicious, bool run_setup, PrimalLPNParameter param, std::string pre_file, std::string log_file) {
-	
+
 	assert(ngpu > 0);
 	this->ngpu = ngpu;
 	this->party = otParty;
@@ -107,26 +107,21 @@ void FerretCOT<T>::extend_initialization() {
 
 // extend f2k in detail
 template<typename T>
-void FerretCOT<T>::extend(MpcotReg<T> *mpcot, OTPre<T> *preot, 
+void FerretCOT<T>::extend(Mat *output, MpcotReg<T> *mpcot, OTPre<T> *preot, 
 		LpnF2<T, 10> *lpn, Mat *ot_input) {
 
 	if(party == ALICE) mpcot->sender_init(Delta);
 	else mpcot->recver_init();
-	Log::start(Role(party-1), SeedExp);
-	mpcot->mpcot(ot_output, preot, ot_input);
-	Log::end(Role(party-1), SeedExp);
-	Log::start(Role(party-1), LPN);
+	mpcot->mpcot(output, preot, ot_input);
     blk **kk = new blk*[ngpu];
-    for (int i = 0; i < ngpu; i++) {
+    for (int i = 0; i < ngpu; i++)
         kk[i] = ot_input[i].data({(uint64_t)mpcot->consist_check_cot_num});
-	}
-	lpn->compute(ot_output, kk);
+	lpn->compute(output, kk);
     delete[] kk;
-	Log::end(Role(party-1), LPN);
 }
 
 template<typename T>
-void FerretCOT<T>::extend_f2k() {
+void FerretCOT<T>::extend_f2k(Mat *ot_buffer) {
 	block *tmp = new block[ot_pre_data[0].size()];
 	ot_pre_data[0].write_to_cpu(tmp);
 	Log::start(Role(party-1), BaseOT);
@@ -136,13 +131,16 @@ void FerretCOT<T>::extend_f2k() {
 		pre_ot->recv_pre(tmp);
 	Log::end(Role(party-1), BaseOT);
 	delete[] tmp;
-	extend(mpcot, pre_ot, lpn_f2, ot_pre_data);
+	extend(ot_buffer, mpcot, pre_ot, lpn_f2, ot_pre_data);
     GPU_PARALLEL_FOR(
-        ot_pre_data[i].read_from_gpu(
-            ot_output[i].data({ot_output[i].size() - M}), M*sizeof(block)
-        );
+        ot_pre_data[i].read_from_gpu(ot_buffer[i].data({ot_limit}), M*sizeof(blk));
     )
 	ot_used = 0;
+}
+
+template<typename T>
+void FerretCOT<T>::extend_f2k() {
+	extend_f2k(ot_data);
 }
 
 template<typename T>
@@ -189,34 +187,25 @@ void FerretCOT<T>::setup(std::string pre_file) {
 	else {
 		if(party == BOB) base_cot->cot_gen_pre();
 		else base_cot->cot_gen_pre(Delta);
-		io->flush();
 
-		MpcotReg<T> mpcot_ini(party, ngpu, param.n_pre, param.t_pre, param.log_bin_sz_pre, pool, ios);
-		if(is_malicious) mpcot_ini.set_malicious();
-		OTPre<T> pre_ot_ini(io, mpcot_ini.tree_height-1, param.t_pre);
+		MpcotReg<T> mpcot_init(party, ngpu, param.n_pre, param.t_pre, param.log_bin_sz_pre, pool, ios);
+		if(is_malicious) mpcot_init.set_malicious();
+		OTPre<T> pre_ot_init(io, mpcot_init.tree_height-1, param.t_pre);
 		LpnF2<T, 10> lpn(party, param.n_pre, param.k_pre, ios[0], pool, ngpu);
 
-		block *pre_data_ini = new block[param.k_pre+mpcot_ini.consist_check_cot_num];
+		block *pre_data_init_h = new block[param.k_pre+mpcot_init.consist_check_cot_num];
 
-		base_cot->cot_gen(&pre_ot_ini, pre_ot_ini.n);
-		base_cot->cot_gen(pre_data_ini, param.k_pre+mpcot_ini.consist_check_cot_num);
-		io->flush();
+		base_cot->cot_gen(&pre_ot_init, pre_ot_init.n);
+		base_cot->cot_gen(pre_data_init_h, param.k_pre+mpcot_init.consist_check_cot_num);
 
-		Mat *tmp = new Mat[ngpu];
+		Mat *pre_data_init = new Mat[ngpu];
 		GPU_PARALLEL_FOR(
-			tmp[i].resize({(param.k_pre+mpcot_ini.consist_check_cot_num)});
-			tmp[i].read_from_cpu(pre_data_ini, tmp[i].size_bytes());
+			pre_data_init[i].resize({(param.k_pre+mpcot_init.consist_check_cot_num)});
+			pre_data_init[i].read_from_cpu(pre_data_init_h, pre_data_init[i].size_bytes());
 		)
-		delete[] pre_data_ini;
-		extend(&mpcot_ini, &pre_ot_ini, &lpn, tmp);
-		delete[] tmp;
-		GPU_PARALLEL_FOR(
-			int nPrePerGPU = param.n_pre/ngpu;
-			uint64_t cpySize = nPrePerGPU * sizeof(blk);
-			for (int j = 0; j < ngpu; j++) {
-				ot_output[i].write_to_gpu(ot_pre_data[j].data({i*nPrePerGPU}), cpySize, 0, j);
-			}
-		)
+		delete[] pre_data_init_h;
+		extend(ot_pre_data, &mpcot_init, &pre_ot_init, &lpn, pre_data_init);
+		delete[] pre_data_init;
 	}
 
 	fut.get();
@@ -224,7 +213,6 @@ void FerretCOT<T>::setup(std::string pre_file) {
 
 template<typename T>
 void FerretCOT<T>::rcot(Mat *data, int64_t num) {
-	TIMER_START
 	numOT += num;
     GPU_PARALLEL_FOR(
         if(ot_data[i].size() == 0) {
@@ -259,7 +247,7 @@ void FerretCOT<T>::rcot(Mat *data, int64_t num) {
 	bool round_memcpy = last_round_ot>ot_limit?true:false;
 	if(round_memcpy) last_round_ot -= ot_limit;
 	for(int64_t i = 0; i < round_inplace; ++i) {
-		extend_f2k();
+		extend_f2k(ot_output);
         GPU_PARALLEL_FOR(
             uint64_t memsize = (ot_limit / ngpu) * sizeof(block);
             ot_output[i].write_to_gpu(pt[i], memsize);
@@ -270,7 +258,6 @@ void FerretCOT<T>::rcot(Mat *data, int64_t num) {
 	if(round_memcpy) {
 		extend_f2k();
         GPU_PARALLEL_FOR(
-		    ot_data[i] = ot_output[i];
             uint64_t memsize = (ot_limit / ngpu) * sizeof(block);
             ot_data[i].write_to_gpu(pt[i], memsize);
 			pt[i] += ot_limit / ngpu;
@@ -279,14 +266,12 @@ void FerretCOT<T>::rcot(Mat *data, int64_t num) {
 	if(last_round_ot > 0) {
 		extend_f2k();
         GPU_PARALLEL_FOR(
-            ot_data[i] = ot_output[i];
             uint64_t memsize = (last_round_ot / ngpu) * sizeof(block);
             ot_data[i].write_to_gpu(pt[i], memsize);
         )
         ot_used = last_round_ot;
 	}
 	delete[] pt;
-	TIMER_END_COMPUTE
 }
 
 template<typename T>
@@ -335,7 +320,6 @@ int64_t FerretCOT<T>::byte_memory_need_inplace(int64_t ot_need) {
 
 template<typename T>
 void FerretCOT<T>::online_sender(block *data, int64_t length) {
-	TIMER_START
     int64_t lengthPerGPU = length / ngpu;
     GPU_PARALLEL_FOR(
         bool newMemHandle = bo[i].resize(lengthPerGPU);
@@ -351,19 +335,15 @@ void FerretCOT<T>::online_sender(block *data, int64_t length) {
         ios[i]->recv_data(&dataWritten, sizeof(dataWritten));
         cuda_online_sender(bo[i], ch_d[i], length_data[i], lengthPerGPU);
     )
-    TIMER_END_ONLINE
     if (data == nullptr) return;
-	TIMER_START
     GPU_PARALLEL_FOR(
         block *mydata = data + i * lengthPerGPU;
         length_data[i].write_to_cpu(mydata);
     )
-	TIMER_END_TOHOST
 }
 
 template<typename T>
 void FerretCOT<T>::online_recver(block *data, const bool *b, int64_t length) {
-	TIMER_START
     int64_t lengthPerGPU = length / ngpu;
     GPU_PARALLEL_FOR(
         bool newMemHandle = false;
@@ -383,38 +363,27 @@ void FerretCOT<T>::online_recver(block *data, const bool *b, int64_t length) {
         ios[i]->send_data(&dataWritten, sizeof(dataWritten));
 		ios[i]->flush();
     )
-	TIMER_END_ONLINE
     if (data == nullptr) return;
-	TIMER_START
 	GPU_PARALLEL_FOR(
         block *mydata = data + i * lengthPerGPU;
         length_data[i].write_to_cpu(mydata);
     )
-	TIMER_END_TOHOST
 }
 
 template<typename T>
 void FerretCOT<T>::send_cot(block * data, int64_t length) {
-	// Log::end(Role(party-1), Neural);
-	TIMER_START
     GPU_PARALLEL_FOR(
 	    length_data[i].resize({(uint64_t)length / ngpu});
     )
-	TIMER_END_COMPUTE
 	rcot(length_data, length);
 	online_sender(data, length);
-	// Log::start(Role(party-1), Neural);
 }
 
 template<typename T>
 void FerretCOT<T>::recv_cot(block* data, const bool * b, int64_t length) {
-	// Log::end(Role(party-1), Neural);
-	TIMER_START
 	GPU_PARALLEL_FOR(
 	    length_data[i].resize({(uint64_t)length / ngpu});
     )
-	TIMER_END_COMPUTE
 	rcot(length_data, length);
 	online_recver(data, b, length);
-	// Log::start(Role(party-1), Neural);
 }

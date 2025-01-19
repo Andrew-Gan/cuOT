@@ -58,13 +58,6 @@ void cuda_mpcot_sender(Mat &expanded, Mat &buffer, Mat &sep, blk *lSum_h,
       sizeof(blk), t, cudaMemcpyDeviceToHost);
     cudaMemcpy2D(rSum_h+d, depth*sizeof(blk), sep.data({(uint64_t)t}),
       sizeof(blk), sizeof(blk), t, cudaMemcpyDeviceToHost);
-    
-    // for (uint64_t i = 0; i < 2*inWidth; i++) {//debug
-    //   blk buff;
-    //   cudaMemcpy(&buff, output->data({i}), sizeof(buff), cudaMemcpyDeviceToHost);
-    //   printf("%x ", buff.data_8[0]);
-    // }
-    // std::cout << std::endl;
   }
 
   if (&expanded != output)
@@ -130,15 +123,8 @@ void cuda_mpcot_recver(Mat &expanded, Mat &buffer, Mat &sep, blk *cSum_h,
     sep.sum(2 * t, inWidth);
     fill_punc_tree<<<grid, block>>>(cSum_d.data(), 2*inWidth,
       activeParent, choices_d, sep.data(), output->data(), t, d, depth);
-
-    // for (uint64_t i = 0; i < 2*inWidth; i++) {//debug
-    //   blk buff;
-    //   cudaMemcpy(&buff, output->data({i}), sizeof(buff), cudaMemcpyDeviceToHost);
-    //   printf("%x ", buff.data_8[0]);
-    // }
-    // std::cout << std::endl;
   }
-  
+
   if (&expanded != output)
     expanded = *output;
   else

@@ -54,6 +54,7 @@ public:
 	int disassemble_state(const void * data, int64_t size);
 
 	int64_t state_size();
+	Mat *ot_output;//debug
 private:
 	block ch[2];
 
@@ -74,7 +75,7 @@ private:
 	int ngpu;
 	// multi gpu
 	Mat *ch_d;
-	Mat *ot_output;
+	// Mat *ot_output;//debug
 	Mat *ot_data;
 	Mat *ot_pre_data;
 	GPUdata *bo, *b_d;
@@ -100,10 +101,10 @@ private:
 
 	void extend_initialization();
 
-	void extend(MpcotReg<T> *mpfss, OTPre<T> *preot, 
+	void extend(Mat *output, MpcotReg<T> *mpcot, OTPre<T> *preot, 
 			LpnF2<T, 10> *lpn, Mat *ot_input);
 
-	void extend_f2k(block *ot_buffer);
+	void extend_f2k(Mat *ot_buffer);
 
 	void extend_f2k();
 

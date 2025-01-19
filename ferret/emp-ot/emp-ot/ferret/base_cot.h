@@ -65,8 +65,7 @@ class BaseCot { public:
 			ch[0] = zero_block;
 			ch[1] = makeBlock(0, 1);
 			for(int64_t i = 0; i < size; ++i)
-				ot_data[i] = 
-						(ot_data[i] & minusone) ^ ch[pre_bool_ini[i]];
+				ot_data[i] = (ot_data[i] & minusone) ^ ch[pre_bool_ini[i]];
 			delete[] pre_bool_ini;
 		}
 	}
@@ -88,15 +87,13 @@ class BaseCot { public:
 			ch[0] = zero_block;
 			ch[1] = makeBlock(0, 1);
 			for(int64_t i = 0; i < size; ++i)
-				ot_data[i] = 
-						(ot_data[i] & minusone) ^ ch[pre_bool_ini[i]];
+				ot_data[i] = (ot_data[i] & minusone) ^ ch[pre_bool_ini[i]];
 			pre_ot->recv_pre(ot_data, pre_bool_ini);
 			delete[] pre_bool_ini;
 		}
 		delete[] ot_data;
 	}
 
-	// debug
 	bool check_cot(block *data, int64_t len) {
 		if(party == ALICE) {
 			io->send_block(&ot_delta, 1);
