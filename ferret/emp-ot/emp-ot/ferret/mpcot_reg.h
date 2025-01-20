@@ -13,8 +13,7 @@ template<typename IO>
 class MpcotReg {
 public:
 	int party;
-	int ngpu;
-	int item_n, idx_max, m, tPerGPU;
+	int item_n, idx_max, m, t;
 	int tree_height, leave_n;
 	int tree_n;
 	int consist_check_cot_num;
@@ -27,15 +26,14 @@ public:
 	block *consist_check_chi_alpha = nullptr, *consist_check_VW = nullptr;
 
 	// prevent runtime malloc
-	Mat *buffer;
-	Mat *separated;
+	Mat buffer;
+	Mat separated;
 	
 	std::vector<uint32_t> item_pos_recver;
 	GaloisFieldPacking pack;
 
-	MpcotReg(int party, int ngpu, int n, int t, int log_bin_sz, ThreadPool *pool, IO **ios) {
+	MpcotReg(int party, int n, int t, int log_bin_sz, ThreadPool *pool, IO **ios) {
 		this->party = party;
-		this->ngpu = ngpu;
 		netio = ios[0];
 		this->ios = ios;
 		consist_check_cot_num = 128;
@@ -47,20 +45,10 @@ public:
 		this->tree_height = log_bin_sz+1;
 		this->leave_n = 1<<(this->tree_height-1);
 		this->tree_n = this->item_n;
-		this->tPerGPU = (t + (ngpu - 1)) / ngpu;
+		this->t = t;
 
-		buffer = new Mat[ngpu];
-		separated = new Mat[ngpu];
-
-		GPU_PARALLEL_FOR(
-			buffer[i].resize({tPerGPU * (1UL << log_bin_sz)});
-			separated[i].resize({tPerGPU * (1UL << log_bin_sz)});
-		)
-	}
-
-	virtual ~MpcotReg() {
-		delete[] buffer;
-		delete[] separated;
+		buffer.resize({t * (1UL << log_bin_sz)});
+		separated.resize({t * (1UL << log_bin_sz)});
 	}
 
 	void set_malicious() {
@@ -76,7 +64,7 @@ public:
 	}
 
 	// MPFSS F_2k
-	void mpcot(Mat *sparse_vector, OTPre<IO> *ot, Mat *pre_cot_data) {
+	void mpcot(Mat &sparse_vector, OTPre<IO> &ot, Mat &pre_cot_data) {
 		if(party == ALICE) {
 			mpcot_init_sender(ot);
 			exec_parallel_sender(ot, sparse_vector);
@@ -92,7 +80,7 @@ public:
 			consist_check_VW = new block[item_n];
 
 			block *tmp = new block[item_n];
-			pre_cot_data[0].write_to_cpu(tmp, item_n * sizeof(*tmp));
+			pre_cot_data.write_to_cpu(tmp, item_n * sizeof(*tmp));
 			consistency_check_f2k(tmp, item_n);
 			delete[] tmp;
 
@@ -101,67 +89,91 @@ public:
 		}
 	}
 
-	void mpcot_init_sender(OTPre<IO> *ot) {
+	void mpcot_init_sender(OTPre<IO> &ot) {
 		for(int i = 0; i < item_n; ++i) {
-			ot->choices_sender();
+			ot.choices_sender();
 		}
 		netio->flush();
-		ot->reset();
+		ot.reset();
 	}
 
-	void mpcot_init_recver(bool *choice, OTPre<IO> *ot) {
+	void mpcot_init_recver(bool *choice, OTPre<IO> &ot) {
 		for(int t = 0; t < item_n; ++t) {
-			ot->choices_recver(choice+t*(tree_height-1));
+			ot.choices_recver(choice+t*(tree_height-1));
 			item_pos_recver[t] = 0;
 			for(int i = 0; i < tree_height-1; ++i) {
 				item_pos_recver[i] <<= 1;
-				if(!choice[t*ot->length+i])
+				if(!choice[t*ot.length+i])
 					item_pos_recver[i] += 1;
 			}
 		}
 		netio->flush();
-		ot->reset();
+		ot.reset();
 	}
 
-	void exec_parallel_sender(OTPre<IO> *ot, Mat *sparse_vector) {
+	void exec_parallel_sender(OTPre<IO> &ot, Mat &sparse_vector) {
 		blk *delta = (blk*)&Delta_f2k;
 		vector<future<void>> fut;
-		GPU_PARALLEL_FOR(
-			blk *m0 = new blk[tPerGPU*(tree_height-1)];
-			blk *m1 = new blk[tPerGPU*(tree_height-1)];
-			blk *secret = new blk[tPerGPU];
-			cuda_mpcot_sender(sparse_vector[i], buffer[i], separated[i],
-				m0, m1, secret, tPerGPU, tree_height-1, delta);
-			for (int t = 0; t < tPerGPU; t++) {
-				block *lSum = (block*)m0 + t * (tree_height-1);
-				block *rSum = (block*)m1 + t * (tree_height-1);
-				ot->send(lSum, rSum, tree_height-1, ios[i], i * tPerGPU + t);
-			}
+		blk *m0 = new blk[t*(tree_height-1)];
+		blk *m1 = new blk[t*(tree_height-1)];
+		blk *secret = new blk[t];
+		cuda_mpcot_sender(sparse_vector, buffer, separated,
+			m0, m1, secret, t, tree_height-1, delta);
+		for (int i = 0; i < t; i++) {
+			block *lSum = (block*)m0 + i * (tree_height-1);
+			block *rSum = (block*)m1 + i * (tree_height-1);
+			ot.send(lSum, rSum, tree_height-1, ios[0], i);
+		}
+		ios[0]->send_data(secret, t * sizeof(blk));
+		delete[] m0;
+		delete[] m1;
+		delete[] secret;
 
-			ios[i]->send_data(secret, tPerGPU * sizeof(blk));
-			ios[i]->flush();
-			delete[] m0;
-			delete[] m1;
-			delete[] secret;
-		)
+		if (is_malicious)
+			consistency_check_msg_gen(consist_check_VW);
 	}
 
-	void exec_parallel_recver(OTPre<IO> *ot, Mat *sparse_vector, bool *choice) {
+	void exec_parallel_recver(OTPre<IO> &ot, Mat &sparse_vector, bool *choice) {
 		vector<future<void>> fut;
-		GPU_PARALLEL_FOR(
-			blk *mc = new blk[tPerGPU*(tree_height-1)];
-			blk *secret = new blk[tPerGPU];
-			for (int t = 0; t < tPerGPU; t++) {
-				block *cSum = (block*)mc + t * (tree_height-1);
-				bool *c = &choice[(i * tPerGPU + t) * (tree_height-1)];
-				ot->recv(cSum, c, tree_height-1, ios[i], i * tPerGPU + t);
-			}
-			ios[i]->recv_data(secret, tPerGPU * sizeof(blk));
-			cuda_mpcot_recver(sparse_vector[i], buffer[i], separated[i],
-				mc, secret, tPerGPU, tree_height-1, choice);
-			delete[] mc;
-			delete[] secret;
-		)
+		blk *mc = new blk[t*(tree_height-1)];
+		blk *secret = new blk[t];
+		for (int i = 0; i < t; i++) {
+			block *cSum = (block*)mc + i * (tree_height-1);
+			bool *c = &choice[i * (tree_height-1)];
+			ot.recv(cSum, c, tree_height-1, ios[0], i);
+		}
+		ios[0]->recv_data(secret, t * sizeof(blk));
+		cuda_mpcot_recver(sparse_vector, buffer, separated,
+			mc, secret, t, tree_height-1, choice);
+		delete[] mc;
+		delete[] secret;
+
+		if (is_malicious)
+			consistency_check_msg_gen(consist_check_chi_alpha, consist_check_VW);
+	}
+
+	void consistency_check_msg_gen(block *V) {
+		// X
+		// block *chi = new block[leave_n];
+		// Hash hash;
+		// block digest[2];
+		// hash.hash_once(digest, &secret_sum_f2, sizeof(block));
+		// uni_hash_coeff_gen(chi, digest[0], leave_n);
+
+		// vector_inn_prdt_sum_red(V, chi, ggm_tree, leave_n);
+		// delete[] chi;
+	}
+
+	void consistency_check_msg_gen(block *chi_alpha, block *W) {
+		// X
+		// block *chi = new block[leave_n];
+		// Hash hash;
+		// block digest[2];
+		// hash.hash_once(digest, &secret_sum_f2, sizeof(block));
+		// uni_hash_coeff_gen(chi, digest[0], leave_n);
+		// *chi_alpha = chi[choice_pos];
+		// vector_inn_prdt_sum_red(W, chi, ggm_tree, leave_n);
+		// delete[] chi;
 	}
 
 	// f2k consistency check

@@ -11,20 +11,19 @@ using namespace std;
 
 int port, party;
 
-float test_ferret(int party, NetIO *io, int64_t num_ot, int ngpu) {
+float test_ferret(int party, NetIO *io, int64_t num_ot) {
 	auto start = clock_start();
-	FerretCOT<NetIO> * ferretcot = new FerretCOT<NetIO>(party, party, ngpu, &io, true, true, ferret_b13);
+	FerretCOT<NetIO> ferretcot(party, party, &io, false, true, ferret_b13);
 	double timeused = time_from(start);
 
 	// RCOT
 	// The RCOTs will be generated at internal memory, and copied to user buffer
 	start = clock_start();
 	int64_t num = 1 << num_ot;
-	// test_rcot<FerretCOT<NetIO>>(ferretcot, io, party, num);
+	test_rcot<FerretCOT<NetIO>>(&ferretcot, io, party, num);
 	timeused += time_from(start);
 	// cout <<"Active FERRET RCOT\t"<<double(num)/test_rcot<FerretCOT<NetIO>>(ferretcot, io, party, num, false)*1e6<<" OTps"<<endl;
 
-	delete ferretcot;
 	return timeused/1000;
 }
 
@@ -52,14 +51,14 @@ int main(int argc, char** argv) {
 	else
 		filename << "recv-";
 	filename << length << "-" << ngpu;
-	if (party==ALICE) cout << "size: " << length << ", ngpu: " << ngpu << endl;
+	if (party==ALICE) cout << "size: " << length << endl;
 	if (party==ALICE) cout << "Warming up..." << endl;
-	test_ferret(party, io, 10, ngpu);
+	test_ferret(party, io, 10);
 	// if (party==ALICE) cout << "Benchmarking..." << endl;
 	// float duration = 0;
 	// Log::open((Role)(party-1), filename.str(), SAMPLE_SIZE);
 	// for (int i = 0; i < SAMPLE_SIZE; i++) {
-	// 	duration += test_ferret(party, io, length, ngpu);
+	// 	duration += test_ferret(party, io, length);
 	// }
 	// Log::close((Role)(party-1));
 	// printf("%d\truntime\t %.2f ms\n", party, duration / SAMPLE_SIZE);

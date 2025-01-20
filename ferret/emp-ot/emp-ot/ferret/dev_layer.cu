@@ -33,6 +33,14 @@ void blk_xor(blk *a, blk *b) {
   }
 }
 
+__global__
+void clear_one(blk *data, uint64_t n) {
+  uint64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= n) return;
+
+  data[idx].data_8[0] &= 0xFE;
+}
+
 void cuda_mpcot_sender(Mat &expanded, Mat &buffer, Mat &sep, blk *lSum_h,
   blk *rSum_h, blk *secret_sum, int t, int depth, blk *delta) {
 
@@ -59,6 +67,9 @@ void cuda_mpcot_sender(Mat &expanded, Mat &buffer, Mat &sep, blk *lSum_h,
     cudaMemcpy2D(rSum_h+d, depth*sizeof(blk), sep.data({(uint64_t)t}),
       sizeof(blk), sizeof(blk), t, cudaMemcpyDeviceToHost);
   }
+
+  uint64_t nBlk = (output->size() + 1023) / 1024;
+  clear_one<<<nBlk, 1024>>>(output->data(), output->size());
 
   if (&expanded != output)
     expanded = *output;
@@ -125,6 +136,9 @@ void cuda_mpcot_recver(Mat &expanded, Mat &buffer, Mat &sep, blk *cSum_h,
       activeParent, choices_d, sep.data(), output->data(), t, d, depth);
   }
 
+  uint64_t nBlk = (output->size() + 1023) / 1024;
+  clear_one<<<nBlk, 1024>>>(output->data(), output->size());
+
   if (&expanded != output)
     expanded = *output;
   else
@@ -139,6 +153,7 @@ void cuda_mpcot_recver(Mat &expanded, Mat &buffer, Mat &sep, blk *cSum_h,
   cudaFree(choices_d);
   cudaFree(activeParent);
   cudaFree(secret_sum_d);
+
   CHECK_CUDA("cuda_mpcot_recver");
 }
 

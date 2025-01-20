@@ -12,45 +12,33 @@ class LpnF2 { public:
 	int party;
 	int64_t n;
 	IO *io;
-	int ngpu;
-	int nPerGPU;
 	int k, mask;
 	block seed;
 	ThreadPool *pool;
-	Mat *pubMats;
+	Mat pubMats;
 
-	LpnF2 (int party, int64_t n, int k, IO *io, ThreadPool *pool, int ngpu) {
+	LpnF2 (int party, int64_t n, int k, IO *io, ThreadPool *pool) {
 		this->party = party;
 		this->k = k;
 		this->n = n;
 		this->io = io;
-		this->ngpu = ngpu;
 		this->pool = pool;
-		this->nPerGPU = n / ngpu;
+		this->n = n;
 		mask = 1;
 		while(mask < k) {
 			mask <<=1;
 			mask = mask | 0x1;
 		}
-		pubMats = new Mat[ngpu];
-		GPU_PARALLEL_FOR(
-			pubMats[i].resize({((uint64_t)nPerGPU * d + 3) / 4});
-		)
+		pubMats.resize({((uint64_t)n * d + 3) / 4});
 	}
 
-	virtual ~LpnF2() {
-		delete[] pubMats;
-	}
-
-	void compute(Mat *nn, blk **kk) {
+	void compute(Mat &nn, blk *kk) {
 		std::cout << std::endl;
 		vector<std::future<void>> fut;
 		seed = seed_gen();
 		PRP prp(seed);
 		uint32_t *key = (uint32_t*)prp.aes.rd_key;
-		GPU_PARALLEL_FOR(
-			cuda_primal_lpn(pubMats[i], d, nPerGPU, k, key, nn[i], kk[i]);
-		)
+		cuda_primal_lpn(pubMats, d, n, k, key, nn, kk);
 	}
 
 	block seed_gen() {
