@@ -54,11 +54,15 @@ double test_cot(T * ot, NetIO *io, int party, int64_t length) {
 
 	io->sync();
 	auto start = clock_start();
+	Mat b_d({length});
+	Mat r_d({length});
 	if (party == ALICE) {
-		ot->send_cot(b0, length);
+		ot->send_cot(b_d, length);
+		b_d.write_to_cpu(b0);
 		delta = ot->Delta;
 	} else {
-		ot->recv_cot(r, b, length);
+		ot->recv_cot(r_d, b, length);
+		r_d.write_to_cpu(r);
 	}
 	io->flush();
 	long long t = time_from(start);

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 EXE=./emp-ot/bin/test_ferret
-LOGOT=10
+LOGOT=20
 NGPU=1
 
 mkdir -p data/ ../results/

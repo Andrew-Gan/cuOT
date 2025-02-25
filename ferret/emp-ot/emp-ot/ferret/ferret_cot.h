@@ -38,9 +38,11 @@ public:
 
 	void setup(std::string pre_file = "");
 
-	void send_cot(block * data, int64_t length) override;
+	void send_cot(block *data, int64_t length) {}
+	void send_cot(Mat &data, int64_t length);
 
-	void recv_cot(block* data, const bool * b, int64_t length) override;
+	void recv_cot(block *data, const bool * b, int64_t length) {}
+	void recv_cot(Mat &data, const bool * b, int64_t length);
 
 	void rcot(Mat &data, int64_t num);
 
@@ -54,7 +56,7 @@ public:
 
 	int64_t state_size();
 
-private:
+public:
 	block ch[2];
 
 	T **ios;
@@ -88,9 +90,9 @@ private:
 
 	void *bo_other = nullptr;
 	
-	void online_sender(block *data, int64_t length);
+	void online_sender(Mat &data, int64_t length);
 
-	void online_recver(block *data, const bool *b, int64_t length);
+	void online_recver(Mat &data, const bool *b, int64_t length);
 
 	void set_param();
 

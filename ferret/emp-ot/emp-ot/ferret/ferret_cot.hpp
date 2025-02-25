@@ -23,7 +23,7 @@ FerretCOT<T>::FerretCOT(int mlParty, int otParty, T **ios, bool malicious,
 
 	this->t = param.t;
 	this->n = t * (1 << param.log_bin_sz);
-	ot_output.resize({n});
+	ot_output.resize({(uint64_t)n});
 	ch_d.resize({2});
 	ch_d.read_from_cpu(ch, sizeof(ch));
 
@@ -256,7 +256,7 @@ int64_t FerretCOT<T>::byte_memory_need_inplace(int64_t ot_need) {
 }
 
 template<typename T>
-void FerretCOT<T>::online_sender(block *data, int64_t length) {
+void FerretCOT<T>::online_sender(Mat &data, int64_t length) {
 	bool newMemHandle = bo.resize(length);
 	ios[0]->send_data(&newMemHandle, sizeof(newMemHandle));
 	if (newMemHandle) {
@@ -268,12 +268,11 @@ void FerretCOT<T>::online_sender(block *data, int64_t length) {
 	bool dataWritten = false;
 	ios[0]->recv_data(&dataWritten, sizeof(dataWritten));
 	cuda_online_sender(bo, ch_d, length_data, length);
-    if (data == nullptr) return;
-	length_data.write_to_cpu(data);
+	length_data.write_to_gpu(data.data(), length * sizeof(blk));
 }
 
 template<typename T>
-void FerretCOT<T>::online_recver(block *data, const bool *b, int64_t length) {
+void FerretCOT<T>::online_recver(Mat &data, const bool *b, int64_t length) {
 	bool newMemHandle = false;
 	ios[0]->recv_data(&newMemHandle, sizeof(newMemHandle));
 	if (newMemHandle) {
@@ -290,19 +289,18 @@ void FerretCOT<T>::online_recver(block *data, const bool *b, int64_t length) {
 	bool dataWritten = true;
 	ios[0]->send_data(&dataWritten, sizeof(dataWritten));
 	ios[0]->flush();
-    if (data == nullptr) return;
-	length_data.write_to_cpu(data);
+	length_data.write_to_gpu(data.data(), length * sizeof(blk));
 }
 
 template<typename T>
-void FerretCOT<T>::send_cot(block * data, int64_t length) {
+void FerretCOT<T>::send_cot(Mat &data, int64_t length) {
 	length_data.resize({(uint64_t)length});
 	rcot(length_data, length);
 	online_sender(data, length);
 }
 
 template<typename T>
-void FerretCOT<T>::recv_cot(block* data, const bool * b, int64_t length) {
+void FerretCOT<T>::recv_cot(Mat &data, const bool * b, int64_t length) {
 	length_data.resize({(uint64_t)length});
 	rcot(length_data, length);
 	online_recver(data, b, length);
