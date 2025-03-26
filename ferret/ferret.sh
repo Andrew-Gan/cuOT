@@ -1,7 +1,7 @@
 #!/bin/bash
 
 EXE=./emp-ot/bin/test_ferret
-LOGOT=23
+LOGOT=20
 NGPU=1
 
 mkdir -p data/ ../results/
@@ -18,7 +18,7 @@ mkdir -p data/ ../results/
 # done
 
 # ulimit -n 1024
-# valgrind --leak-check=full $EXE $LOGOT $NGPU
+# valgrind --leak-check=full $EXE 2 12345 $LOGOT $NGPU
 
 # compute-sanitizer --tool memcheck --leak-check full --target-processes all $EXE $LOGOT $NGPU
 # nsys profile --stats=true $EXE $LOGOT

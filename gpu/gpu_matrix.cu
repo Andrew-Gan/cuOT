@@ -253,7 +253,7 @@ void xor_reduce(uint64_t *out, uint64_t *in) {
 __global__ void summator(blk *out, blk *in) {
   uint64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   for (int j = 0; j < 4; j++)
-    out[i].data[j] = in[2*i].data[j] ^ in[2*i+1].data[j];
+    out[i].data_32[j] = in[2*i].data_32[j] ^ in[2*i+1].data_32[j];
 }
 
 __global__ void gatherer(blk *out, blk *in, uint64_t blkPerPart) {
@@ -264,14 +264,14 @@ __global__ void gatherer(blk *out, blk *in, uint64_t blkPerPart) {
 
 void Mat::sum(uint64_t nPartition, uint64_t blkPerPart) {
 #ifdef USE_COALESCED_NODE_SUMMATION
-  uint64_t *in = (uint64_t*)this->mPtr;
-  uint64_t *out = (uint64_t*)buffer;
+  uint64_t *in = (uint64_t*)buffer;
+  uint64_t *out = (uint64_t*)this->mPtr;
   for (uint64_t nThread = blkPerPart; nThread > 1; nThread /= 1024) {
+    std::swap(in, out);
     uint64_t block = std::min(1024UL, nThread);
     uint64_t grid = nPartition * (nThread / block);
     uint64_t mem = block * sizeof(uint64_t);
     xor_reduce<<<grid, block, mem>>>(out, in);
-    std::swap(in, out);
   }
 #else
   blk *in = (blk*)this->mPtr;
@@ -320,7 +320,7 @@ std::ostream& operator<<(std::ostream &os, Mat &obj) {
     for (uint64_t j = 0; j < cols; j++) {
       blk *val = tmp+i*cols+j;
       for (int i = 0; i < 1; i++) {
-        os << std::setw(8) << std::setfill('0') << std::hex << val->data[i];
+        os << std::setw(8) << std::setfill('0') << std::hex << val->data_32[i];
       }
       os << " ";
     }

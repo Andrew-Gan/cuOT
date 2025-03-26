@@ -28,7 +28,7 @@ public:
 	uint64_t compTime = 0, onlineTime = 0, h2dTime = 0;
 	uint64_t numOT = 0;
 
-	FerretCOT(int mlParty, int otParty, int ngpu, T **ios, bool malicious = false,
+	FerretCOT(int mlParty, int otParty, T **ios, bool malicious = false,
 		bool run_setup = true, PrimalLPNParameter param = ferret_b13,
 		std::string pre_file="", std::string log_file="");
 
@@ -38,12 +38,13 @@ public:
 
 	void setup(std::string pre_file = "");
 
-	void send_cot(block * data, int64_t length) override;
+	void send_cot(block *data, int64_t length) {}
+	void send_cot(Mat &data, int64_t length);
 
-	void recv_cot(block* data, const bool * b, int64_t length) override;
+	void recv_cot(block *data, const bool * b, int64_t length) {}
+	void recv_cot(Mat &data, const bool * b, int64_t length);
 
-	void rcot(block *data, int64_t num);
-	void rcot(Mat *data, int64_t num);
+	void rcot(Mat &data, int64_t num);
 
 	// int64_t rcot_inplace(block *ot_buffer, int64_t length);
 
@@ -54,7 +55,8 @@ public:
 	int disassemble_state(const void * data, int64_t size);
 
 	int64_t state_size();
-private:
+
+public:
 	block ch[2];
 
 	T **ios;
@@ -64,21 +66,19 @@ private:
 	bool is_malicious;
 	bool extend_initialized;
 
-	int tPerGPU;
-	int nPerGPU;
+	int t;
+	int n;
 
 	time_point<high_resolution_clock> startTime;
 
 	block one;
 
-	int ngpu;
-	// multi gpu
-	Mat *ch_d;
-	Mat *ot_output;
-	Mat *ot_data;
-	Mat *ot_pre_data;
-	GPUdata *bo, *b_d;
-	Mat *length_data;
+	Mat ch_d;
+	Mat ot_output;
+	Mat ot_data;
+	Mat ot_pre_data;
+	GPUdata bo, b_d;
+	Mat length_data;
 
 	std::string pre_ot_filename;
 
@@ -88,11 +88,11 @@ private:
 	MpcotReg<T> *mpcot = nullptr;
 	LpnF2<T, 10> *lpn_f2 = nullptr;
 
-	void **bo_other = nullptr;
+	void *bo_other = nullptr;
 	
-	void online_sender(block *data, int64_t length);
+	void online_sender(Mat &data, int64_t length);
 
-	void online_recver(block *data, const bool *b, int64_t length);
+	void online_recver(Mat &data, const bool *b, int64_t length);
 
 	void set_param();
 
@@ -100,10 +100,10 @@ private:
 
 	void extend_initialization();
 
-	void extend(MpcotReg<T> *mpfss, OTPre<T> *preot, 
-			LpnF2<T, 10> *lpn, Mat *ot_input);
+	void extend(Mat &output, MpcotReg<T> &mpcot, OTPre<T> &preot, 
+			LpnF2<T, 10> &lpn, Mat &ot_input);
 
-	void extend_f2k(block *ot_buffer);
+	void extend_f2k(Mat &ot_buffer);
 
 	void extend_f2k();
 

@@ -18,7 +18,7 @@ SOTSender::SOTSender(SilentConfig config) : SOT(config) {
   cudaSetDevice(mGPU);
   SOTSenders[mConfig.id] = this;
   for (int i = 0; i < 4; i++)
-    delta_h.data[i] = rand();
+    delta_h.data_32[i] = rand();
   
   m0.resize({mDepth+1, mConfig.nTree});
   m1.resize({mDepth+1, mConfig.nTree});
@@ -29,7 +29,7 @@ SOTSender::SOTSender(SilentConfig config) : SOT(config) {
   fullVector = new Mat({numOT, 1});
   buffer = new Mat(fullVector->dims());
   for (uint64_t t = 0; t < mConfig.nTree; t++) {
-    for (int i = 0; i < 4; i++) seed_h.data[i] = rand();
+    for (int i = 0; i < 4; i++) seed_h.data_32[i] = rand();
     fullVector->set(seed_h, {t, 0});
   }
   sep = new Mat({numOT});
@@ -43,7 +43,7 @@ SOTSender::SOTSender(SilentConfig config) : SOT(config) {
     sep[t].resize({numOT / mConfig.nTree});
   }
   for (uint64_t t = 0; t < mConfig.nTree; t++) {
-    for (int i = 0; i < 4; i++) seed_h.data[i] = rand();
+    for (int i = 0; i < 4; i++) seed_h.data_32[i] = rand();
     fullVector[t].set(seed_h, {0, 0});
   }
 #endif // USE_COALESCED_TREE_EXPANSION

@@ -55,12 +55,12 @@ class OTPre { public:
 	}
 
 	void choices_sender() {
-		count +=length;
+		count += length;
 	}
 
 	void choices_recver(bool * b) {
 		memcpy(b, bits+count, length);
-		count +=length;
+		count += length;
 	}
 	
 	void reset() {
@@ -71,8 +71,8 @@ class OTPre { public:
 		block pad[2];
 		int k = s*length;
 		for (int i = 0; i < length; ++i) {
-				pad[0] = m0[i] ^ pre_data[k];
-				pad[1] = m1[i] ^ pre_data[k+n];
+			pad[0] = m0[i] ^ pre_data[k];
+			pad[1] = m1[i] ^ pre_data[k+n];
 			++k;
 			io2->send_block(pad, 2);
 		}

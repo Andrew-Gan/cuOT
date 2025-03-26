@@ -54,11 +54,15 @@ double test_cot(T * ot, NetIO *io, int party, int64_t length) {
 
 	io->sync();
 	auto start = clock_start();
+	Mat b_d({length});
+	Mat r_d({length});
 	if (party == ALICE) {
-		ot->send_cot(b0, length);
+		ot->send_cot(b_d, length);
+		b_d.write_to_cpu(b0);
 		delta = ot->Delta;
 	} else {
-		ot->recv_cot(r, b, length);
+		ot->recv_cot(r_d, b, length);
+		r_d.write_to_cpu(r);
 	}
 	io->flush();
 	long long t = time_from(start);
@@ -129,7 +133,7 @@ double test_rot(T* ot, NetIO *io, int party, int64_t length) {
 
 template <typename T>
 double test_rcot(T* ot, NetIO *io, int party, int64_t length) {
-	Mat b({(uint64_t)length});
+	// Mat b({(uint64_t)length});
 	PRG prg;
 	io->sync();
 	auto start = clock_start();
@@ -137,26 +141,35 @@ double test_rcot(T* ot, NetIO *io, int party, int64_t length) {
 	mem_size = length;
 	// The RCOTs will be generated in the internal buffer
 	// then be copied to the user buffer
-	ot->rcot(&b, length);
+	Mat b({length});
+	ot->rcot(b, length);
 	long long t = time_from(start);
-	// io->sync();
-	// if (party == ALICE) {
-	// 	io->send_block(&ot->Delta, 1);
-	// 	io->send_block(b, mem_size);
-	// }
-	// else if (party == BOB) {
-	// 	block ch[2];
-	// 	ch[0] = zero_block;
-	// 	block *b0 = new block[mem_size];
-	// 	io->recv_block(ch+1, 1);
-	// 	io->recv_block(b0, mem_size);
-	// 	for (int64_t i = 0; i < mem_size; ++i) {
-	// 		b[i] = b[i] ^ ch[getLSB(b[i])];
-	// 	}
-	// 	if (!cmpBlock(b, b0, mem_size))
-	// 		std::cerr << "RCOT failed" << std::endl;
-	// 	delete[] b0;
-	// }
-	// std::cout << "Tests passed.\t";
+	io->sync();
+
+	block *b_h = new block[length];
+	b.write_to_cpu(b_h, b.size_bytes());
+
+	if (party == ALICE) {
+		io->send_block(&ot->Delta, 1);
+		io->send_block(b_h, mem_size);
+	}
+	else if (party == BOB) {
+		block ch[2];
+		ch[0] = zero_block;
+		block *b0 = new block[mem_size];
+		io->recv_block(ch+1, 1);
+		io->recv_block(b0, mem_size);
+		for (int64_t i = 0; i < mem_size; ++i) {
+			b_h[i] = b_h[i] ^ ch[getLSB(b_h[i])];
+		}
+		if (!cmpBlock(b_h, b0, mem_size)) {
+			std::cerr << "RCOT failed" << std::endl;
+			return 0;
+		}
+		std::cout << "Tests passed.\t";
+		delete[] b0;
+	}
+	
+	delete[] b_h;
 	return t;
 }

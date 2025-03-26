@@ -11,8 +11,11 @@
 
 enum Role { Sender, Recver };
 
-struct blk {
-  uint32_t data[4];
+union blk {
+  uint8_t data_8[16];
+  uint16_t data_16[8];
+  uint32_t data_32[4];
+  uint64_t data_64[2];
 };
 
 #define BLOCK_BITS (8 * sizeof(blk))
