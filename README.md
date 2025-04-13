@@ -1,4 +1,4 @@
-# cuOT: Accelerating Oblivious Transfer on GPUs
+# cuOT: Accelerating Oblivious Transfer on GPUs for Privacy-preserving Computation
 
 This repository contains the code for cuOT, which implements OT variants based on recent SOT extension constructions on GPUs.
 
